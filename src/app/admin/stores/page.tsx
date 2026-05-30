@@ -16,6 +16,11 @@ import {
   UserMinus,
   Search,
   LayoutDashboard,
+  Link2,
+  Copy,
+  Check,
+  QrCode,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,6 +74,10 @@ interface StoreItem {
   twitter: string | null;
   isActive: boolean;
   ownerId: string | null;
+  claimStatus: string | null;
+  claimEmail: string | null;
+  invitedAt: string | null;
+  claimedAt: string | null;
   owner: {
     id: string;
     name: string | null;
@@ -126,6 +135,13 @@ export default function AdminStoresPage() {
   // Delete dialog
   const [deleteStoreId, setDeleteStoreId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Invite (claim link) dialog
+  const [inviteStore, setInviteStore] = useState<StoreItem | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteQr, setInviteQr] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -259,6 +275,59 @@ export default function AdminStoresPage() {
       setError("店舗の削除に失敗しました");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Generate / open invite link
+  const openInvite = async (store: StoreItem) => {
+    setInviteStore(store);
+    setInviteUrl("");
+    setInviteQr("");
+    setCopied(false);
+    setInviteLoading(true);
+    try {
+      const res = await fetch(`/api/admin/stores/${store.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "発行に失敗しました");
+      }
+      const data = await res.json();
+      setInviteUrl(data.claimUrl);
+      setInviteQr(data.qrDataUrl);
+      fetchStores();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "招待リンクの発行に失敗しました");
+      setInviteStore(null);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Revoke invite
+  const handleRevokeInvite = async (storeId: string) => {
+    try {
+      const res = await fetch(`/api/admin/stores/${storeId}/invite`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      fetchStores();
+    } catch {
+      setError("招待の取り消しに失敗しました");
     }
   };
 
@@ -396,6 +465,10 @@ export default function AdminStoresPage() {
                         <span className="text-sm">
                           {store.owner.name || store.owner.email}
                         </span>
+                      ) : store.claimStatus === "invited" ? (
+                        <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                          招待中
+                        </Badge>
                       ) : (
                         <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
                           未割当
@@ -431,17 +504,37 @@ export default function AdminStoresPage() {
                             <UserMinus className="h-4 w-4 text-gray-500" />
                           </Button>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="オーナー割当"
-                            onClick={() => {
-                              setAssignStoreId(store.id);
-                              setAssignOpen(true);
-                            }}
-                          >
-                            <UserPlus className="h-4 w-4 text-blue-500" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title={store.claimStatus === "invited" ? "招待リンクを再表示" : "招待リンク発行"}
+                              onClick={() => openInvite(store)}
+                            >
+                              <Link2 className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                            {store.claimStatus === "invited" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="招待を取り消し"
+                                onClick={() => handleRevokeInvite(store.id)}
+                              >
+                                <XCircle className="h-4 w-4 text-amber-500" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="既存ユーザーを割当"
+                              onClick={() => {
+                                setAssignStoreId(store.id);
+                                setAssignOpen(true);
+                              }}
+                            >
+                              <UserPlus className="h-4 w-4 text-blue-500" />
+                            </Button>
+                          </>
                         )}
                         <Button
                           variant="ghost"
@@ -619,6 +712,65 @@ export default function AdminStoresPage() {
               </p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Link Dialog */}
+      <Dialog
+        open={!!inviteStore}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInviteStore(null);
+            setInviteUrl("");
+            setInviteQr("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              招待リンク
+            </DialogTitle>
+            <DialogDescription>
+              {inviteStore?.name} のページを営業者に承認してもらうためのリンクです。
+              LINEや口頭などでお渡しください。承認すると店舗が公開され、営業者のアカウントに紐付きます。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {inviteLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <>
+                {inviteQr && (
+                  <div className="flex justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={inviteQr} alt="招待QRコード" className="h-48 w-48 rounded-lg border" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input value={inviteUrl} readOnly className="text-xs" />
+                  <Button variant="outline" size="icon" onClick={handleCopyInvite} title="コピー">
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  リンクの有効期限は60日です。再発行すると以前のリンクは無効になります。
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteStore(null)}>
+              閉じる
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

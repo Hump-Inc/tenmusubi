@@ -106,6 +106,10 @@ async function main() {
       "qrToken" TEXT,
       "isActive" BOOLEAN NOT NULL DEFAULT false,
       "draftData" TEXT,
+      "claimEmail" TEXT,
+      "claimStatus" TEXT NOT NULL DEFAULT 'none',
+      "invitedAt" DATETIME,
+      "claimedAt" DATETIME,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "Store_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
@@ -301,6 +305,10 @@ async function main() {
     if (!colNames.has("vehicleLength")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "vehicleLength" INTEGER');
     if (!colNames.has("vehicleWidth")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "vehicleWidth" INTEGER');
     if (!colNames.has("vehicleHeight")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "vehicleHeight" INTEGER');
+    if (!colNames.has("claimEmail")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "claimEmail" TEXT');
+    if (!colNames.has("claimStatus")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "claimStatus" TEXT NOT NULL DEFAULT \'none\'');
+    if (!colNames.has("invitedAt")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "invitedAt" DATETIME');
+    if (!colNames.has("claimedAt")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "claimedAt" DATETIME');
   }
 
   // Check StoreImage table for missing columns

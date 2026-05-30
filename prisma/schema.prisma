@@ -159,6 +159,13 @@ model Store {
 
   isActive    Boolean  @default(false)
   draftData   String?  // 下書きデータ（JSON）
+
+  // 管理者作成 → 店舗営業者へのクレーム招待フロー
+  claimEmail   String?   // 招待先の連絡先メモ（任意）
+  claimStatus  String    @default("none") // "none" | "invited" | "claimed"
+  invitedAt    DateTime? // 招待リンク発行日時
+  claimedAt    DateTime? // 営業者が承認した日時
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
