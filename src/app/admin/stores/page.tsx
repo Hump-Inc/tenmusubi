@@ -26,8 +26,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -61,7 +59,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { VENDOR_CATEGORIES, AREAS } from "@/lib/constants";
 
 interface StoreItem {
   id: string;
@@ -110,19 +107,6 @@ export default function AdminStoresPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [error, setError] = useState("");
-
-  // Create dialog
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newStore, setNewStore] = useState({
-    name: "",
-    description: "",
-    category: "",
-    area: "",
-    website: "",
-    instagram: "",
-    twitter: "",
-  });
 
   // Assign dialog
   const [assignOpen, setAssignOpen] = useState(false);
@@ -179,30 +163,6 @@ export default function AdminStoresPage() {
 
   const activeCount = stores.filter((s) => s.isActive).length;
   const inactiveCount = stores.length - activeCount;
-
-  // Create store
-  const handleCreate = async () => {
-    if (!newStore.name.trim()) return;
-    setCreating(true);
-    try {
-      const res = await fetch("/api/admin/stores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newStore),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "作成に失敗しました");
-      }
-      setCreateOpen(false);
-      setNewStore({ name: "", description: "", category: "", area: "", website: "", instagram: "", twitter: "" });
-      fetchStores();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "店舗の作成に失敗しました");
-    } finally {
-      setCreating(false);
-    }
-  };
 
   // Search users for assign
   const searchUsers = async (q: string) => {
@@ -422,9 +382,11 @@ export default function AdminStoresPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="rounded-full">
-            <Plus className="h-4 w-4 mr-2" />
-            新規店舗作成
+          <Button asChild className="rounded-full">
+            <Link href="/admin/stores/new">
+              <Plus className="h-4 w-4 mr-2" />
+              新規店舗作成
+            </Link>
           </Button>
         </div>
 
@@ -553,109 +515,6 @@ export default function AdminStoresPage() {
           </Table>
         </Card>
       </main>
-
-      {/* Create Store Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>新規店舗作成</DialogTitle>
-            <DialogDescription>
-              オーナー未割当の店舗を作成します。後からオーナーを紐付けできます。
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="name">店舗名 *</Label>
-              <Input
-                id="name"
-                value={newStore.name}
-                onChange={(e) => setNewStore({ ...newStore, name: e.target.value })}
-                placeholder="店舗名を入力"
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">説明</Label>
-              <Textarea
-                id="description"
-                value={newStore.description}
-                onChange={(e) => setNewStore({ ...newStore, description: e.target.value })}
-                placeholder="店舗の説明"
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>カテゴリ</Label>
-                <Select
-                  value={newStore.category}
-                  onValueChange={(v) => setNewStore({ ...newStore, category: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VENDOR_CATEGORIES.map((c) => (
-                      <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>エリア</Label>
-                <Select
-                  value={newStore.area}
-                  onValueChange={(v) => setNewStore({ ...newStore, area: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AREAS.filter((a) => a !== "すべて").map((a) => (
-                      <SelectItem key={a} value={a}>{a}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="website">ウェブサイト</Label>
-              <Input
-                id="website"
-                value={newStore.website}
-                onChange={(e) => setNewStore({ ...newStore, website: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="instagram">Instagram</Label>
-                <Input
-                  id="instagram"
-                  value={newStore.instagram}
-                  onChange={(e) => setNewStore({ ...newStore, instagram: e.target.value })}
-                  placeholder="@username"
-                />
-              </div>
-              <div>
-                <Label htmlFor="twitter">Twitter</Label>
-                <Input
-                  id="twitter"
-                  value={newStore.twitter}
-                  onChange={(e) => setNewStore({ ...newStore, twitter: e.target.value })}
-                  placeholder="@username"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>キャンセル</Button>
-            <Button onClick={handleCreate} disabled={creating || !newStore.name.trim()}>
-              {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              作成
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Assign Owner Dialog */}
       <Dialog open={assignOpen} onOpenChange={(open) => {

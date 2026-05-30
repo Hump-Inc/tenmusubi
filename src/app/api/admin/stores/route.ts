@@ -51,21 +51,47 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, category, area, website, instagram, twitter } = body;
+    const {
+      name, description, category, area, tags, website, instagram, twitter,
+      ownerIntro, recommendedItems, commitment, calendarImageUrl, availableAreas,
+      newsText, newsImageUrl, messageToOwners, motto,
+      vehicleLength, vehicleWidth, vehicleHeight,
+    } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "店舗名は必須です" }, { status: 400 });
     }
 
+    const toInt = (v: unknown): number | null => {
+      if (v === null || v === undefined || v === "") return null;
+      const n = typeof v === "number" ? v : parseInt(String(v), 10);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
+
     const store = await prisma.store.create({
       data: {
+        // ownerId は未割当（null）。招待リンク経由のクレームで紐付ける
         name: name.trim(),
         description: description || null,
         category: category || null,
         area: area || null,
+        tags: tags ? JSON.stringify(tags) : null,
         website: website || null,
         instagram: instagram || null,
         twitter: twitter || null,
+        ownerIntro: ownerIntro || null,
+        recommendedItems: recommendedItems || null,
+        commitment: commitment || null,
+        calendarImageUrl: calendarImageUrl || null,
+        availableAreas: availableAreas ? JSON.stringify(availableAreas) : null,
+        newsText: newsText || null,
+        newsImageUrl: newsImageUrl || null,
+        messageToOwners: messageToOwners || null,
+        motto: motto || null,
+        vehicleLength: toInt(vehicleLength),
+        vehicleWidth: toInt(vehicleWidth),
+        vehicleHeight: toInt(vehicleHeight),
+        isActive: false, // 承認まで非公開
       },
     });
 
