@@ -343,6 +343,50 @@ async function main() {
     }
   }
 
+  // ============================================
+  // Fix legacy Store.ownerId: NOT NULL → nullable + FK SET NULL
+  // 旧定義の本番では Store.ownerId が NOT NULL かつ ON DELETE CASCADE になっており、
+  // 管理者が「オーナー未割当」で店舗を作成できない / カスケード削除の挙動も schema と不一致。
+  // SQLite は ALTER COLUMN 不可・Turso は writable_schema 不可のためテーブル再構築で修正する。
+  // ownerId が既に nullable の場合は何もしない（冪等）。
+  if (existingTables.has("Store")) {
+    const storeInfo = await client.execute("PRAGMA table_info('Store')");
+    const ownerCol = storeInfo.rows.find((r) => r.name === "ownerId");
+    if (ownerCol && Number(ownerCol.notnull) === 1) {
+      const ddlRes = await client.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='Store'"
+      );
+      const ddl = ddlRes.rows[0].sql as string;
+      const newCreate = ddl
+        .replace('CREATE TABLE "Store"', 'CREATE TABLE "Store_new"')
+        .replace('"ownerId" TEXT NOT NULL', '"ownerId" TEXT')
+        .replace(
+          'ON DELETE CASCADE ON UPDATE CASCADE',
+          'ON DELETE SET NULL ON UPDATE CASCADE'
+        );
+
+      const rebuild = [
+        "PRAGMA foreign_keys=OFF",
+        newCreate,
+        'INSERT INTO "Store_new" SELECT * FROM "Store"',
+        'DROP TABLE "Store"',
+        'ALTER TABLE "Store_new" RENAME TO "Store"',
+        'CREATE UNIQUE INDEX IF NOT EXISTS "Store_qrToken_key" ON "Store"("qrToken")',
+        "PRAGMA foreign_keys=ON",
+      ].join(";\n") + ";";
+
+      try {
+        await client.executeMultiple(rebuild);
+        const fk = await client.execute("PRAGMA foreign_key_check");
+        console.log(
+          `  Rebuilt Store: ownerId is now nullable (FK violations: ${fk.rows.length})`
+        );
+      } catch (e: unknown) {
+        console.error("Store rebuild error:", e instanceof Error ? e.message : String(e));
+      }
+    }
+  }
+
   // Create unique indexes
   const indexes = [
     'CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email")',
