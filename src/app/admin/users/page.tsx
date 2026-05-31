@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -29,6 +30,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserItem {
   id: string;
@@ -64,6 +75,37 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+
+  // 管理者権限の付与/剥奪
+  const [pendingToggle, setPendingToggle] = useState<{ user: UserItem; next: boolean } | null>(null);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+
+  const handleConfirmToggleAdmin = async () => {
+    if (!pendingToggle) return;
+    setSavingAdmin(true);
+    try {
+      const res = await fetch(`/api/admin/users/${pendingToggle.user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isAdmin: pendingToggle.next }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "権限の更新に失敗しました");
+      }
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === pendingToggle.user.id ? { ...u, isAdmin: pendingToggle.next } : u
+        )
+      );
+      setPendingToggle(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "権限の更新に失敗しました");
+      setPendingToggle(null);
+    } finally {
+      setSavingAdmin(false);
+    }
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -194,12 +236,13 @@ export default function AdminUsersPage() {
                 <TableHead className="hidden md:table-cell">メール認証</TableHead>
                 <TableHead>店舗</TableHead>
                 <TableHead className="hidden md:table-cell">登録日</TableHead>
+                <TableHead className="text-right">管理者権限</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-gray-500">
+                  <TableCell colSpan={6} className="text-center py-12 text-gray-500">
                     <Users className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                     <p>ユーザーが見つかりません</p>
                   </TableCell>
@@ -282,6 +325,19 @@ export default function AdminUsersPage() {
                           {new Date(user.createdAt).toLocaleDateString("ja-JP")}
                         </div>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Switch
+                            checked={user.isAdmin}
+                            disabled={user.id === session?.user?.id}
+                            onCheckedChange={(next) => setPendingToggle({ user, next })}
+                            aria-label="管理者権限を切り替え"
+                          />
+                          {user.id === session?.user?.id && (
+                            <span className="text-xs text-gray-400">(自分)</span>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -290,6 +346,44 @@ export default function AdminUsersPage() {
           </Table>
         </Card>
       </main>
+
+      {/* 権限変更の確認 */}
+      <AlertDialog open={!!pendingToggle} onOpenChange={(open) => !open && !savingAdmin && setPendingToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingToggle?.next ? "管理者権限を付与しますか？" : "管理者権限を解除しますか？"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingToggle?.next ? (
+                <>
+                  <span className="font-medium">{pendingToggle?.user.name || pendingToggle?.user.email}</span>
+                  {" "}に管理者権限を付与します。管理画面の全機能（ユーザー・店舗・本人確認など）にアクセスできるようになります。
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">{pendingToggle?.user.name || pendingToggle?.user.email}</span>
+                  {" "}の管理者権限を解除します。管理画面にアクセスできなくなります。
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingAdmin}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmToggleAdmin();
+              }}
+              disabled={savingAdmin}
+              className={pendingToggle?.next ? "" : "bg-red-600 hover:bg-red-700"}
+            >
+              {savingAdmin && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {pendingToggle?.next ? "付与する" : "解除する"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
