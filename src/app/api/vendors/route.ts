@@ -15,10 +15,9 @@ export async function GET(request: Request) {
     const featured = searchParams.get("featured") === "true";
     const sort = searchParams.get("sort") || "newest";
 
-    // Search stores (only show stores with an assigned owner)
+    // Search stores（公開中の店舗を表示。オーナー未割当でも管理者が公開していれば掲載する）
     const storeWhere: Record<string, unknown> = {
       isActive: true,
-      ownerId: { not: null },
     };
 
     if (category) {
