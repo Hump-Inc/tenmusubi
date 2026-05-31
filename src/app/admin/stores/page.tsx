@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -204,6 +205,25 @@ export default function AdminStoresPage() {
       setError("オーナーの紐付けに失敗しました");
     } finally {
       setAssigning(false);
+    }
+  };
+
+  // Toggle public / non-public
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const handleToggleActive = async (store: StoreItem) => {
+    setTogglingId(store.id);
+    try {
+      const res = await fetch(`/api/admin/stores/${store.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !store.isActive }),
+      });
+      if (!res.ok) throw new Error();
+      fetchStores();
+    } catch {
+      setError("公開状態の変更に失敗しました");
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -438,15 +458,24 @@ export default function AdminStoresPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {store.isActive ? (
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                          公開中
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-gray-600">
-                          非公開
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {togglingId === store.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                        ) : (
+                          <Switch
+                            checked={store.isActive}
+                            onCheckedChange={() => handleToggleActive(store)}
+                            aria-label="公開状態を切り替え"
+                          />
+                        )}
+                        <span
+                          className={`text-xs font-medium ${
+                            store.isActive ? "text-blue-700" : "text-gray-500"
+                          }`}
+                        >
+                          {store.isActive ? "公開中" : "非公開"}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-sm text-gray-600">
                       <div className="flex items-center gap-1">
