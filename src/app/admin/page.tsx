@@ -14,6 +14,7 @@ import {
   ChevronRight,
   LayoutDashboard,
   Store,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,7 @@ interface DashboardStats {
   pendingVerifications: number;
   activeSubscriptions: number;
   stores: { total: number; assigned: number; unassigned: number };
+  users: number;
 }
 
 export default function AdminDashboardPage() {
@@ -35,6 +37,7 @@ export default function AdminDashboardPage() {
     pendingVerifications: 0,
     activeSubscriptions: 0,
     stores: { total: 0, assigned: 0, unassigned: 0 },
+    users: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,12 +52,13 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/subscriptions").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/stores").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/users").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -65,6 +69,7 @@ export default function AdminDashboardPage() {
             : 0,
           activeSubscriptions: subscriptionsRes?.stats?.active ?? 0,
           stores: storesRes?.stats ?? { total: 0, assigned: 0, unassigned: 0 },
+          users: Array.isArray(usersRes) ? usersRes.length : 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -139,6 +144,16 @@ export default function AdminDashboardPage() {
       color: "text-orange-500",
       bgColor: "bg-orange-50",
       highlight: stats.stores.unassigned > 0,
+    },
+    {
+      icon: UserCog,
+      label: "ユーザー管理",
+      description: "登録ユーザーの一覧・検索・権限確認",
+      href: "/admin/users",
+      stat: stats.users,
+      statLabel: "人のユーザー",
+      color: "text-sky-500",
+      bgColor: "bg-sky-50",
     },
   ];
 

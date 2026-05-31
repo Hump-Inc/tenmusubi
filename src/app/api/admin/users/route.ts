@@ -35,10 +35,13 @@ export async function GET(request: Request) {
         email: true,
         image: true,
         userType: true,
+        isAdmin: true,
+        emailVerified: true,
         createdAt: true,
+        _count: { select: { stores: true } },
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: q ? 50 : 200,
     });
 
     return NextResponse.json(users);
