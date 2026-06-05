@@ -187,8 +187,11 @@ export default function AdminStoreImportPage() {
                     ))}
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button asChild className="rounded-full">
+                  <Link href="/admin/stores/images">画像をアップロード</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-full">
                   <Link href="/admin/stores">店舗一覧へ</Link>
                 </Button>
                 <Button variant="outline" onClick={reset} className="rounded-full">

@@ -23,6 +23,7 @@ import {
   XCircle,
   Pencil,
   Upload,
+  ImagePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -405,6 +406,12 @@ export default function AdminStoresPage() {
             </Select>
           </div>
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="rounded-full">
+              <Link href="/admin/stores/images">
+                <ImagePlus className="h-4 w-4 mr-2" />
+                画像一括アップロード
+              </Link>
+            </Button>
             <Button asChild variant="outline" className="rounded-full">
               <Link href="/admin/stores/import">
                 <Upload className="h-4 w-4 mr-2" />
