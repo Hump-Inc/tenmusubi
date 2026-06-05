@@ -22,6 +22,7 @@ import {
   QrCode,
   XCircle,
   Pencil,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -403,12 +404,20 @@ export default function AdminStoresPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button asChild className="rounded-full">
-            <Link href="/admin/stores/new">
-              <Plus className="h-4 w-4 mr-2" />
-              新規店舗作成
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" className="rounded-full">
+              <Link href="/admin/stores/import">
+                <Upload className="h-4 w-4 mr-2" />
+                CSV一括登録
+              </Link>
+            </Button>
+            <Button asChild className="rounded-full">
+              <Link href="/admin/stores/new">
+                <Plus className="h-4 w-4 mr-2" />
+                新規店舗作成
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {/* Table */}
