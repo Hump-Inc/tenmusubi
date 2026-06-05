@@ -21,6 +21,7 @@ import {
   Check,
   QrCode,
   XCircle,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -485,6 +486,16 @@ export default function AdminStoresPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="店舗内容を編集"
+                          asChild
+                        >
+                          <Link href={`/stores/${store.id}/edit`}>
+                            <Pencil className="h-4 w-4 text-gray-600" />
+                          </Link>
+                        </Button>
                         {store.owner ? (
                           <Button
                             variant="ghost"
