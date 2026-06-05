@@ -32,7 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { AREAS, MOTTO_OPTIONS } from "@/lib/constants";
+import { VENDOR_CATEGORY_LABELS, AREAS, MOTTO_OPTIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/imageCompress";
 import {
   AlertDialog,
@@ -46,16 +46,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const categoryOptions = [
-  "キッチンカー",
-  "移動販売",
-  "ハンドメイド",
-  "飲食",
-  "スイーツ・カフェ",
-  "物販",
-  "サービス",
-  "その他",
-];
+const categoryOptions = VENDOR_CATEGORY_LABELS;
 
 const tagOptions = [
   "週末出店可",
@@ -636,7 +627,10 @@ export default function EditStorePage({ params }: { params: Promise<{ id: string
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {categoryOptions.map((category) => (
+                      {((categoryOptions as readonly string[]).includes(formData.category) || !formData.category
+                        ? categoryOptions
+                        : [...categoryOptions, formData.category]
+                      ).map((category) => (
                         <Badge
                           key={category}
                           variant={

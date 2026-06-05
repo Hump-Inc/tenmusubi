@@ -44,6 +44,7 @@ npm run migrate:prod
 - 決済: Stripe (`src/lib/stripe.ts`)
 - 共通定数 (カテゴリ等): `src/lib/constants.ts`
 
-## 既知の不整合
+## 業種カテゴリ
 
-- 業種カテゴリが2箇所に分散 (`src/lib/constants.ts` の `VENDOR_CATEGORY_LABELS` 3項目 vs `src/app/stores/[id]/edit/page.tsx` ハードコード8項目)。新規登録と編集で表示項目が異なる。統一が必要。
+- 業種カテゴリは `src/lib/constants.ts` の `VENDOR_CATEGORIES` / `VENDOR_CATEGORY_LABELS` に一元化。新規登録・編集・検索・トップは全てこの定数を参照する（ハードコードしない）。
+- 編集画面 (`src/app/stores/[id]/edit/page.tsx`) は、既存店舗が定数に無い旧カテゴリ値を持つ場合のみ、その値を末尾に追加表示して選択状態を保持する。
