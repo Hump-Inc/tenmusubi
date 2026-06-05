@@ -37,6 +37,7 @@ export const BLOG_CATEGORIES = [
   "お知らせ",
   "イベント",
   "コラム",
+  "お役立ち情報",
   "出店者紹介",
   "スペース紹介",
 ] as const;
