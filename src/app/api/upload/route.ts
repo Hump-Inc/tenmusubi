@@ -20,6 +20,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "ファイルが選択されていません" }, { status: 400 });
     }
 
+    // ブログ画像は管理者のみアップロード可
+    if (type === "blog" && !(await isAdmin(session.user.id))) {
+      return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+    }
+
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
@@ -41,7 +46,14 @@ export async function POST(request: Request) {
     // Generate unique filename
     const timestamp = Date.now();
     const extension = file.name.split(".").pop();
-    const prefix = type === "profile" ? "profiles" : type === "space" ? "spaces" : "stores";
+    const prefix =
+      type === "profile"
+        ? "profiles"
+        : type === "space"
+          ? "spaces"
+          : type === "blog"
+            ? "blog"
+            : "stores";
     const id = type === "profile" ? session.user.id : targetId || session.user.id;
     const filename = `${prefix}/${id}_${timestamp}.${extension}`;
 

@@ -50,6 +50,7 @@ model User {
   checkIns          CheckIn[]
   storeReviews      StoreReview[]
   pointTransactions PointTransaction[]
+  blogPosts         BlogPost[]
 }
 
 model Account {
@@ -389,4 +390,26 @@ model PointTransaction {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
+}
+
+// ============================================
+// Operator Blog (運営ブログ)
+// ============================================
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique // URL用の識別子
+  title       String
+  excerpt     String?   // 概要文（一覧・OGP用）
+  content     String    @default("") // 本文 HTML（Tiptap出力）
+  coverImage  String?   // カバー画像URL
+  category    String?   // カテゴリ
+  tags        String?   // カンマ区切りタグ
+  isPublished Boolean   @default(false)
+  publishedAt DateTime? // 公開日時
+  authorId    String?
+  author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([isPublished, publishedAt])
 }

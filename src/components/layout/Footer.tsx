@@ -14,6 +14,7 @@ const footerLinks = {
     { name: "スペースを提供する", href: "/register?type=owner" },
   ],
   support: [
+    { name: "ブログ", href: "/blog" },
     { name: "よくある質問", href: "/faq" },
     { name: "お問い合わせ", href: "/contact" },
     { name: "ご利用ガイド", href: "/guide" },

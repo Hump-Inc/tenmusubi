@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Store,
   UserCog,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ interface DashboardStats {
   activeSubscriptions: number;
   stores: { total: number; assigned: number; unassigned: number };
   users: number;
+  blogPosts: number;
 }
 
 export default function AdminDashboardPage() {
@@ -38,6 +40,7 @@ export default function AdminDashboardPage() {
     activeSubscriptions: 0,
     stores: { total: 0, assigned: 0, unassigned: 0 },
     users: 0,
+    blogPosts: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,13 +55,14 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/subscriptions").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/stores").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/users").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/blog").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -70,6 +74,7 @@ export default function AdminDashboardPage() {
           activeSubscriptions: subscriptionsRes?.stats?.active ?? 0,
           stores: storesRes?.stats ?? { total: 0, assigned: 0, unassigned: 0 },
           users: Array.isArray(usersRes) ? usersRes.length : 0,
+          blogPosts: Array.isArray(blogRes) ? blogRes.length : 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -154,6 +159,16 @@ export default function AdminDashboardPage() {
       statLabel: "人のユーザー",
       color: "text-sky-500",
       bgColor: "bg-sky-50",
+    },
+    {
+      icon: FileText,
+      label: "ブログ管理",
+      description: "運営ブログ記事の作成・編集・公開設定",
+      href: "/admin/blog",
+      stat: stats.blogPosts,
+      statLabel: "件の記事",
+      color: "text-rose-500",
+      bgColor: "bg-rose-50",
     },
   ];
 

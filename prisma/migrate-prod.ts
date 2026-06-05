@@ -273,6 +273,22 @@ async function main() {
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "PointTransaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS "BlogPost" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "slug" TEXT NOT NULL,
+      "title" TEXT NOT NULL,
+      "excerpt" TEXT,
+      "content" TEXT NOT NULL DEFAULT '',
+      "coverImage" TEXT,
+      "category" TEXT,
+      "tags" TEXT,
+      "isPublished" BOOLEAN NOT NULL DEFAULT false,
+      "publishedAt" DATETIME,
+      "authorId" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "BlogPost_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    )`,
   ];
 
   // Add missing columns to existing tables
@@ -408,6 +424,8 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "StoreReview_storeId_idx" ON "StoreReview"("storeId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "StoreFavorite_userId_storeId_key" ON "StoreFavorite"("userId", "storeId")',
     'CREATE INDEX IF NOT EXISTS "PointTransaction_userId_idx" ON "PointTransaction"("userId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "BlogPost_slug_key" ON "BlogPost"("slug")',
+    'CREATE INDEX IF NOT EXISTS "BlogPost_isPublished_publishedAt_idx" ON "BlogPost"("isPublished", "publishedAt")',
   ];
 
   for (const sql of indexes) {

@@ -32,6 +32,15 @@ export const AREAS = [
   "その他",
 ];
 
+// 運営ブログのカテゴリ
+export const BLOG_CATEGORIES = [
+  "お知らせ",
+  "イベント",
+  "コラム",
+  "出店者紹介",
+  "スペース紹介",
+] as const;
+
 export const POINTS = {
   CHECKIN: 10,
   REVIEW: 50,
