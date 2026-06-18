@@ -24,6 +24,7 @@ import {
   Pencil,
   Upload,
   ImagePlus,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -79,6 +80,7 @@ interface StoreItem {
   claimEmail: string | null;
   invitedAt: string | null;
   claimedAt: string | null;
+  draftData: string | null;
   owner: {
     id: string;
     name: string | null;
@@ -502,6 +504,28 @@ export default function AdminStoresPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={store.draftData ? "下書きをプレビュー" : "店舗ページをプレビュー"}
+                          asChild
+                        >
+                          <Link
+                            href={
+                              store.draftData
+                                ? `/store/${store.id}?draft=true`
+                                : `/store/${store.id}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Eye
+                              className={`h-4 w-4 ${
+                                store.draftData ? "text-purple-600" : "text-gray-600"
+                              }`}
+                            />
+                          </Link>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
