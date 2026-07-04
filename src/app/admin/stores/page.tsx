@@ -112,6 +112,8 @@ export default function AdminStoresPage() {
   const [stats, setStats] = useState<Stats>({ total: 0, assigned: 0, unassigned: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [areaFilter, setAreaFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState("");
 
   // Assign dialog
@@ -159,11 +161,39 @@ export default function AdminStoresPage() {
     }
   }, [status, fetchStores]);
 
+  // 店舗データに実際に存在するエリア値の一覧（絞り込み用）
+  const areaOptions = Array.from(
+    new Set(stores.map((s) => s.area).filter((a): a is string => !!a))
+  ).sort((a, b) => a.localeCompare(b, "ja"));
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
   const filteredStores = stores.filter((s) => {
-    if (filter === "assigned") return s.ownerId !== null;
-    if (filter === "unassigned") return s.ownerId === null;
-    if (filter === "active") return s.isActive;
-    if (filter === "inactive") return !s.isActive;
+    // 状態フィルタ
+    if (filter === "assigned" && s.ownerId === null) return false;
+    if (filter === "unassigned" && s.ownerId !== null) return false;
+    if (filter === "active" && !s.isActive) return false;
+    if (filter === "inactive" && s.isActive) return false;
+
+    // エリアフィルタ
+    if (areaFilter !== "all" && s.area !== areaFilter) return false;
+
+    // 検索ワードフィルタ（店舗名・カテゴリ・エリア・説明・オーナー名/メール）
+    if (normalizedQuery) {
+      const haystack = [
+        s.name,
+        s.category,
+        s.area,
+        s.description,
+        s.owner?.name,
+        s.owner?.email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(normalizedQuery)) return false;
+    }
+
     return true;
   });
 
@@ -391,21 +421,45 @@ export default function AdminStoresPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="店舗名・エリア・オーナーで検索"
+                className="pl-10"
+              />
+            </div>
+            <Select value={areaFilter} onValueChange={setAreaFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="エリア" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">すべて</SelectItem>
-                <SelectItem value="assigned">紐付済</SelectItem>
-                <SelectItem value="unassigned">未紐付</SelectItem>
-                <SelectItem value="active">公開中</SelectItem>
-                <SelectItem value="inactive">非公開</SelectItem>
+                <SelectItem value="all">エリア: すべて</SelectItem>
+                {areaOptions.map((area) => (
+                  <SelectItem key={area} value={area}>
+                    {area}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-1">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="assigned">紐付済</SelectItem>
+                  <SelectItem value="unassigned">未紐付</SelectItem>
+                  <SelectItem value="active">公開中</SelectItem>
+                  <SelectItem value="inactive">非公開</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" className="rounded-full">
@@ -428,6 +482,12 @@ export default function AdminStoresPage() {
             </Button>
           </div>
         </div>
+
+        {/* Result count */}
+        <p className="text-sm text-gray-600 mb-3">
+          {filteredStores.length} 件表示
+          {filteredStores.length !== stores.length && ` / 全 ${stores.length} 件`}
+        </p>
 
         {/* Table */}
         <Card className="border-0 shadow-sm rounded-2xl overflow-hidden">
