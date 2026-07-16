@@ -4,6 +4,18 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "てんむすび <noreply@tenmusubi.net>";
 const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
 
+/**
+ * 運営宛ての通知先メールアドレスを取得する。
+ * `CONTACT_EMAIL` はカンマ区切りで複数指定可能（例: "a@x.co.jp,b@y.co.jp"）。
+ * 未設定の場合は空配列を返す（呼び出し側で通知スキップの判定に使う）。
+ */
+export function getAdminEmails(): string[] {
+  return (process.env.CONTACT_EMAIL || "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
 export async function sendVerificationEmail(email: string, token: string) {
   const verifyUrl = `${BASE_URL}/verify-email?token=${token}`;
 

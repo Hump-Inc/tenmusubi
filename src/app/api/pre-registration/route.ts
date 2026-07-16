@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { getAdminEmails } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,12 +123,12 @@ async function sendEmails(email: string, userType: string) {
   }
 
   // 2. Send notification to admin
-  const adminEmail = process.env.CONTACT_EMAIL;
-  if (adminEmail) {
+  const adminEmails = getAdminEmails();
+  if (adminEmails.length > 0) {
     try {
       const { data, error } = await resend.emails.send({
         from: "てんむすび <noreply@tenmusubi.net>",
-        to: adminEmail,
+        to: adminEmails,
         subject: `【てんむすび】新規先行登録がありました（${userTypeLabel}）`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">

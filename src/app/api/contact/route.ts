@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { getAdminEmails } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     // Send email to admin
     const { error } = await resend.emails.send({
       from: "てんむすび <noreply@tenmusubi.net>",
-      to: process.env.CONTACT_EMAIL || "info@example.com",
+      to: getAdminEmails().length > 0 ? getAdminEmails() : ["info@example.com"],
       replyTo: email,
       subject: `【お問い合わせ】${subject}`,
       html: `
