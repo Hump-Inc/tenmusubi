@@ -136,7 +136,7 @@ export function Footer() {
         <div className="mt-12 rounded-2xl bg-gray-800 p-6 text-center">
           <p className="text-sm text-gray-400">
             てんむすびは、安心・安全なマッチングを心がけています。
-            本人確認済みユーザーのみが利用でき、トラブル時のサポート体制も整っています。
+            本人確認の仕組みを導入し、確認済みのユーザーには認証マークを表示。安心してご利用いただけます。
           </p>
         </div>
 

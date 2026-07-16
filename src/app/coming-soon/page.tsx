@@ -27,7 +27,7 @@ const features = [
   {
     icon: Shield,
     title: "安心・安全",
-    description: "本人確認済みユーザーのみが利用可能。トラブルを未然に防ぎます。",
+    description: "本人確認済みユーザーには認証マークを表示。安心して取引できる仕組みを整えています。",
   },
   {
     icon: MapPin,
