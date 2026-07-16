@@ -32,8 +32,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { VENDOR_CATEGORY_LABELS, AREAS, MOTTO_OPTIONS } from "@/lib/constants";
+
+interface DuplicateMatch {
+  id: string;
+  name: string;
+  area: string | null;
+  category: string | null;
+  imageUrl: string | null;
+  claimable: boolean;
+}
 
 const categoryOptions = VENDOR_CATEGORY_LABELS;
 
@@ -87,6 +104,13 @@ export default function NewStorePage() {
   const [isCheckingRole, setIsCheckingRole] = useState(true);
   const [isVendor, setIsVendor] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+
+  // 重複検知 & 引き継ぎ申請
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [claimMessage, setClaimMessage] = useState("");
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimSubmitted, setClaimSubmitted] = useState(false);
 
   const draftValue = { formData, selectedTags, selectedAreas, customMotto };
   const { loadDraft, clearDraft, savedAt } = useDraft(
@@ -196,6 +220,35 @@ export default function NewStorePage() {
       return;
     }
 
+    // 送信前に同名店舗の重複チェック（引き継ぎ可能な既存店舗があればモーダル表示）
+    setIsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/stores/check-duplicate?name=${encodeURIComponent(formData.name)}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const claimable: DuplicateMatch[] = (data.matches || []).filter(
+          (m: DuplicateMatch) => m.claimable
+        );
+        if (claimable.length > 0) {
+          setDuplicateMatches(claimable);
+          setClaimMessage("");
+          setClaimSubmitted(false);
+          setShowDuplicateModal(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // 重複チェックに失敗しても登録は続行する
+    }
+
+    await createStore();
+  };
+
+  // 実際の店舗作成処理（重複チェック通過後 or「別の店舗です」選択後に実行）
+  const createStore = async () => {
     setIsLoading(true);
 
     try {
@@ -284,6 +337,38 @@ export default function NewStorePage() {
       setError(`登録中にエラーが発生しました: ${msg}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // モーダルで「別の店舗です」→ そのまま新規登録
+  const handleContinueNewStore = async () => {
+    setShowDuplicateModal(false);
+    await createStore();
+  };
+
+  // モーダルで「私のお店です」→ 引き継ぎ申請
+  const handleClaimRequest = async (storeId: string) => {
+    setClaimingId(storeId);
+    setError("");
+    try {
+      const res = await fetch("/api/stores/claim-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeId, message: claimMessage || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "引き継ぎ申請に失敗しました");
+        return;
+      }
+      // 申請成功。下書きは残さず、申請完了表示に切り替える
+      clearDraft();
+      setDraftRestored(false);
+      setClaimSubmitted(true);
+    } catch {
+      setError("引き継ぎ申請に失敗しました");
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -1011,6 +1096,124 @@ export default function NewStorePage() {
           )}
         </div>
       </main>
+
+      {/* 重複検知 & 引き継ぎ申請モーダル */}
+      <Dialog
+        open={showDuplicateModal}
+        onOpenChange={(open) => {
+          // 申請完了後に閉じたらマイページへ
+          if (!open && claimSubmitted) {
+            setShowDuplicateModal(false);
+            router.push("/mypage");
+            return;
+          }
+          setShowDuplicateModal(open);
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          {claimSubmitted ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  引き継ぎ申請を受け付けました
+                </DialogTitle>
+                <DialogDescription>
+                  運営が内容を確認し、あなたのお店であることが確認でき次第、店舗があなたのアカウントに紐付けられます。
+                  結果はメールでお知らせします。
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  className="rounded-full"
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    router.push("/mypage");
+                  }}
+                >
+                  マイページへ
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>この店舗はすでに掲載されています</DialogTitle>
+                <DialogDescription>
+                  同じ名前の店舗が見つかりました。あなたのお店の場合は「引き継ぎを申請」してください。
+                  運営の確認後にあなたのアカウントへ紐付けられます。別のお店の場合はそのまま新規登録できます。
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 py-2">
+                {duplicateMatches.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-200"
+                  >
+                    <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center">
+                      {m.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={m.imageUrl} alt={m.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Store className="h-5 w-5 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{m.name}</p>
+                      {(m.category || m.area) && (
+                        <p className="text-xs text-gray-500 truncate">
+                          {[m.category, m.area].filter(Boolean).join(" / ")}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="rounded-full shrink-0"
+                      disabled={claimingId !== null}
+                      onClick={() => handleClaimRequest(m.id)}
+                    >
+                      {claimingId === m.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "私のお店です"
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="claimMessage" className="text-sm">
+                  運営への補足（任意）
+                </Label>
+                <Textarea
+                  id="claimMessage"
+                  placeholder="例: 公式Instagramは @xxx です。本人であることの確認にご利用ください。"
+                  value={claimMessage}
+                  onChange={(e) => setClaimMessage(e.target.value)}
+                  className="rounded-xl min-h-[70px]"
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-red-600">{error}</p>
+              )}
+
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  disabled={claimingId !== null || isLoading}
+                  onClick={handleContinueNewStore}
+                >
+                  別のお店です（新規登録する）
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

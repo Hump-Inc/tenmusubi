@@ -51,6 +51,7 @@ model User {
   storeReviews      StoreReview[]
   pointTransactions PointTransaction[]
   blogPosts         BlogPost[]
+  claimRequests     StoreClaimRequest[]
 }
 
 model Account {
@@ -174,6 +175,30 @@ model Store {
   checkIns       CheckIn[]
   storeReviews   StoreReview[]
   storeFavorites StoreFavorite[]
+
+  // 引き継ぎ申請
+  claimRequests  StoreClaimRequest[]
+}
+
+// 店舗の引き継ぎ（クレーム）申請
+// 自己登録時にダブり検知した際、既存店舗を「自分の店」として引き継ぐ申請。
+// 運営が承認して初めて ownerId が紐付く（本人確認＝人の承認）。
+model StoreClaimRequest {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  message    String?  // 申請者の補足（証拠URL・関係性の説明など）
+  status     String   @default("pending") // "pending" | "approved" | "rejected"
+  createdAt  DateTime @default(now())
+  reviewedAt DateTime?
+  reviewedBy String?  // 対応した管理者のUserId
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([status])
 }
 
 model StoreImage {

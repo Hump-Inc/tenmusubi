@@ -16,6 +16,7 @@ import {
   Store,
   UserCog,
   FileText,
+  Handshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ interface DashboardStats {
   stores: { total: number; assigned: number; unassigned: number };
   users: number;
   blogPosts: number;
+  pendingClaimRequests: number;
 }
 
 export default function AdminDashboardPage() {
@@ -41,6 +43,7 @@ export default function AdminDashboardPage() {
     stores: { total: 0, assigned: 0, unassigned: 0 },
     users: 0,
     blogPosts: 0,
+    pendingClaimRequests: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,7 +58,7 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
@@ -63,6 +66,7 @@ export default function AdminDashboardPage() {
           fetch("/api/admin/stores").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/users").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/blog").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/claim-requests?status=pending").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -75,6 +79,7 @@ export default function AdminDashboardPage() {
           stores: storesRes?.stats ?? { total: 0, assigned: 0, unassigned: 0 },
           users: Array.isArray(usersRes) ? usersRes.length : 0,
           blogPosts: Array.isArray(blogRes) ? blogRes.length : 0,
+          pendingClaimRequests: claimReqRes?.stats?.pending ?? 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -149,6 +154,17 @@ export default function AdminDashboardPage() {
       color: "text-orange-500",
       bgColor: "bg-orange-50",
       highlight: stats.stores.unassigned > 0,
+    },
+    {
+      icon: Handshake,
+      label: "店舗引き継ぎ申請",
+      description: "既存店舗の引き継ぎ申請の承認・却下",
+      href: "/admin/claim-requests",
+      stat: stats.pendingClaimRequests,
+      statLabel: "件の審査待ち",
+      color: "text-teal-500",
+      bgColor: "bg-teal-50",
+      highlight: stats.pendingClaimRequests > 0,
     },
     {
       icon: UserCog,

@@ -289,6 +289,18 @@ async function main() {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "BlogPost_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS "StoreClaimRequest" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "storeId" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "message" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'pending',
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "reviewedAt" DATETIME,
+      "reviewedBy" TEXT,
+      CONSTRAINT "StoreClaimRequest_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "StoreClaimRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
   ];
 
   // Add missing columns to existing tables
@@ -426,6 +438,9 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "PointTransaction_userId_idx" ON "PointTransaction"("userId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "BlogPost_slug_key" ON "BlogPost"("slug")',
     'CREATE INDEX IF NOT EXISTS "BlogPost_isPublished_publishedAt_idx" ON "BlogPost"("isPublished", "publishedAt")',
+    'CREATE INDEX IF NOT EXISTS "StoreClaimRequest_storeId_idx" ON "StoreClaimRequest"("storeId")',
+    'CREATE INDEX IF NOT EXISTS "StoreClaimRequest_userId_idx" ON "StoreClaimRequest"("userId")',
+    'CREATE INDEX IF NOT EXISTS "StoreClaimRequest_status_idx" ON "StoreClaimRequest"("status")',
   ];
 
   for (const sql of indexes) {
