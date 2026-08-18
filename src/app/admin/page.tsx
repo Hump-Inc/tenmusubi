@@ -17,6 +17,8 @@ import {
   UserCog,
   FileText,
   Handshake,
+  Inbox,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +32,8 @@ interface DashboardStats {
   users: number;
   blogPosts: number;
   pendingClaimRequests: number;
+  newSpaceLeads: number;
+  shareLinks: number;
 }
 
 export default function AdminDashboardPage() {
@@ -44,6 +48,8 @@ export default function AdminDashboardPage() {
     users: 0,
     blogPosts: 0,
     pendingClaimRequests: 0,
+    newSpaceLeads: 0,
+    shareLinks: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -58,7 +64,7 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
@@ -67,6 +73,8 @@ export default function AdminDashboardPage() {
           fetch("/api/admin/users").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/blog").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/claim-requests?status=pending").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/space-leads?status=new").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/application-metrics").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -80,6 +88,8 @@ export default function AdminDashboardPage() {
           users: Array.isArray(usersRes) ? usersRes.length : 0,
           blogPosts: Array.isArray(blogRes) ? blogRes.length : 0,
           pendingClaimRequests: claimReqRes?.stats?.pending ?? 0,
+          newSpaceLeads: spaceLeadsRes?.stats?.new ?? 0,
+          shareLinks: metricsRes?.totals?.issued ?? 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -175,6 +185,27 @@ export default function AdminDashboardPage() {
       statLabel: "人のユーザー",
       color: "text-sky-500",
       bgColor: "bg-sky-50",
+    },
+    {
+      icon: Inbox,
+      label: "スペースリード",
+      description: "共有ページ経由で届いたスペースオーナーからの相談",
+      href: "/admin/space-leads",
+      stat: stats.newSpaceLeads,
+      statLabel: "件の未対応",
+      color: "text-orange-500",
+      bgColor: "bg-orange-50",
+      highlight: stats.newSpaceLeads > 0,
+    },
+    {
+      icon: BarChart3,
+      label: "出店申込パックの計測",
+      description: "共有リンクの発行・閲覧・リード転換の月次推移",
+      href: "/admin/application-metrics",
+      stat: stats.shareLinks,
+      statLabel: "件のリンク発行",
+      color: "text-indigo-500",
+      bgColor: "bg-indigo-50",
     },
     {
       icon: FileText,
