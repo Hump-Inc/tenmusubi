@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 
 const globalForS3 = globalThis as unknown as {
   s3Client: S3Client | undefined;
@@ -47,5 +52,63 @@ export async function deleteFile(url: string): Promise<void> {
       Bucket: process.env.R2_BUCKET_NAME!,
       Key: key,
     })
+  );
+}
+
+// ============================================
+// 非公開ファイル（出店申込パックの書類）
+//
+// 既定のバケットは R2_PUBLIC_URL で公開されているため、書類をそこに置くと
+// URL を知っている人なら誰でも取得できてしまう。書類は別バケット
+// (R2_PRIVATE_BUCKET_NAME) に置き、公開URLを一切発行せず、
+// 認証済みAPIからのストリーミングでのみ配信する。
+//
+// 別バケットが未設定の環境では既定バケットの private/ 配下に、
+// 推測不能なキーで保存する（公開URLは同様に発行しない）。
+// ============================================
+
+function privateBucket(): string {
+  return process.env.R2_PRIVATE_BUCKET_NAME || process.env.R2_BUCKET_NAME!;
+}
+
+export function isPrivateBucketConfigured(): boolean {
+  return !!process.env.R2_PRIVATE_BUCKET_NAME;
+}
+
+export async function uploadPrivateFile(
+  buffer: Buffer,
+  key: string,
+  contentType: string
+): Promise<void> {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: privateBucket(),
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  );
+}
+
+export async function getPrivateFile(
+  key: string
+): Promise<{ body: Uint8Array; contentType?: string } | null> {
+  try {
+    const res = await s3Client.send(
+      new GetObjectCommand({ Bucket: privateBucket(), Key: key })
+    );
+    if (!res.Body) return null;
+    return {
+      body: await res.Body.transformToByteArray(),
+      contentType: res.ContentType,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function deletePrivateFile(key: string): Promise<void> {
+  await s3Client.send(
+    new DeleteObjectCommand({ Bucket: privateBucket(), Key: key })
   );
 }

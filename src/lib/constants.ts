@@ -61,3 +61,84 @@ export const ALL_PREFECTURES = [
   "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県",
   "沖縄県",
 ] as const;
+
+// ============================================
+// 出店申込パック（共有URL機能）
+// ============================================
+
+export const VEHICLE_TYPES = [
+  { value: "kei_truck", label: "軽トラック" },
+  { value: "kei_van", label: "軽バン" },
+  { value: "1t", label: "1tトラック" },
+  { value: "1.5t", label: "1.5tトラック" },
+  { value: "other", label: "その他" },
+] as const;
+
+export const FIRE_TYPES = [
+  { value: "lpg", label: "LPガス" },
+  { value: "cassette", label: "カセットコンロ" },
+  { value: "electric_only", label: "電気のみ" },
+] as const;
+
+// 給排水タンク容量は選択式＋自由入力
+export const WATER_TANK_PRESETS = [40, 80, 200] as const;
+
+export const WEEKDAYS = [
+  { value: "mon", label: "月" },
+  { value: "tue", label: "火" },
+  { value: "wed", label: "水" },
+  { value: "thu", label: "木" },
+  { value: "fri", label: "金" },
+  { value: "sat", label: "土" },
+  { value: "sun", label: "日" },
+] as const;
+
+export const DOCUMENT_TYPES = [
+  { value: "business_license", label: "営業許可証" },
+  { value: "food_hygiene", label: "食品衛生責任者証" },
+  { value: "pl_insurance", label: "PL保険証券" },
+  { value: "vehicle_inspection", label: "車検証" },
+  { value: "other", label: "その他" },
+] as const;
+
+// 書類の公開範囲。既定は meta_only（個人情報はデフォルト非公開）
+export const DOCUMENT_VISIBILITIES = [
+  {
+    value: "public",
+    label: "画像を公開",
+    description: "主催者が書類そのものを閲覧できます",
+  },
+  {
+    value: "meta_only",
+    label: "有無と有効期限のみ公開",
+    description: "「提出可能」であることだけ伝わり、書類の中身は見えません",
+  },
+  {
+    value: "private",
+    label: "公開しない",
+    description: "共有ページには一切表示されません",
+  },
+] as const;
+
+export const SPACE_LEAD_STATUSES = [
+  { value: "new", label: "新規" },
+  { value: "contacted", label: "連絡済み" },
+  { value: "qualified", label: "見込みあり" },
+  { value: "registered", label: "登録済み" },
+  { value: "rejected", label: "見送り" },
+] as const;
+
+function labelFrom(
+  list: readonly { value: string; label: string }[],
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  return list.find((item) => item.value === value)?.label ?? value;
+}
+
+export const vehicleTypeLabel = (v: string | null | undefined) => labelFrom(VEHICLE_TYPES, v);
+export const fireTypeLabel = (v: string | null | undefined) => labelFrom(FIRE_TYPES, v);
+export const documentTypeLabel = (v: string | null | undefined) => labelFrom(DOCUMENT_TYPES, v);
+export const spaceLeadStatusLabel = (v: string | null | undefined) =>
+  labelFrom(SPACE_LEAD_STATUSES, v);
+export const weekdayLabel = (v: string | null | undefined) => labelFrom(WEEKDAYS, v);
