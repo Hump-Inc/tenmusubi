@@ -178,6 +178,13 @@ model Store {
 
   // 引き継ぎ申請
   claimRequests  StoreClaimRequest[]
+
+  // 出店申込パック
+  applicationProfile   StoreApplicationProfile?
+  applicationDocuments ApplicationDocument[]
+  applicationMenuItems ApplicationMenuItem[]
+  shareLinks           ShareLink[]
+  spaceLeads           SpaceLead[]
 }
 
 // 店舗の引き継ぎ（クレーム）申請
@@ -437,4 +444,170 @@ model BlogPost {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   @@index([isPublished, publishedAt])
+}
+
+// ============================================
+// 出店申込パック（共有URL機能）
+// 出店者が一度登録すれば、主催者向けの公開URLと申込書PDFをワンクリックで出せる。
+// 出店者の実体は Store（1ユーザーが複数店舗を持てる）なので、すべて storeId 単位で持つ。
+// 屋号 / 業種 / 車両サイズ(cm) / 出店可能エリア / SNS などは Store 側の既存カラムを使い、
+// ここには「申込書のために追加で必要な項目」だけを置く。
+// ============================================
+
+model StoreApplicationProfile {
+  id      String @id @default(cuid())
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // 基本情報（既存 Store/User に無いものだけ）
+  phone        String? // 申込用の連絡先電話番号
+  contactEmail String? // 申込用の連絡先メール（未設定なら User.email を使う）
+  openedOn     String? // 開業年月 "2020-04"
+  appeal       String? // 自己PR（2000字）
+
+  // 車両（全長・全幅・全高は Store.vehicleLength/Width/Height (cm) を使う）
+  vehicleType       String? // "kei_truck" | "kei_van" | "1t" | "1.5t" | "other"
+  vehicleWeightKg   Int?
+  plateNumber       String?
+  plateNumberPublic Boolean @default(false) // 既定は非公開
+
+  // 設備・インフラ要件（主催者が可否判断する箇所）
+  powerWatt        Int?
+  hasGenerator     Boolean @default(false)
+  generatorModel   String?
+  generatorNoiseDb Int?
+  usesFire         Boolean @default(false)
+  fireType         String? // "lpg" | "cassette" | "electric_only"
+  waterTankLiter   Int?
+  minSpaceWidthM   Float? // 間口(m)
+  minSpaceDepthM   Float? // 奥行(m)
+
+  // 営業条件（出店可能エリアは Store.availableAreas を使う）
+  maxServingsPerHour Int?
+  secondsPerServing  Int?
+  availableDays      String? // JSON配列 ["mon","tue",...]
+  hasPrepKitchen     Boolean @default(false) // 仕込み場所の有無
+  prepKitchenNote    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 申込書類（営業許可証・食品衛生責任者証・PL保険証券・車検証など）
+// ファイル実体は R2 の非公開キーで保持し、URL はDBにも API レスポンスにも出さない。
+// 配信は必ず認証付き / トークン付きのストリーミングAPI経由。
+model ApplicationDocument {
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  type      String // "business_license" | "food_hygiene" | "pl_insurance" | "vehicle_inspection" | "other"
+  label     String?
+  fileKey   String // R2 オブジェクトキー（公開URLではない）
+  mimeType  String
+  fileSize  Int
+  expiresOn DateTime? // 書類の有効期限
+
+  // "public"（実体を公開） | "meta_only"（メタ情報のみ・実体URLは一切返さない） | "private"（非表示）
+  visibility String @default("meta_only")
+  order      Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId])
+}
+
+// 申込用メニュー（公開前提。写真は公開R2でよい）
+model ApplicationMenuItem {
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  name        String
+  price       Int?
+  description String?
+  imageUrl    String?
+  order       Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId])
+}
+
+// 共有リンク（出店者が主催者ごとに発行する）
+// ラベルを付けられることで送付先の管理台帳になり、同時にリード獲得のアトリビューションが取れる。
+model ShareLink {
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  token        String    @unique // 推測不能なランダム文字列
+  label        String? // 例: "〇〇マルシェ様"
+  expiresAt    DateTime? // 任意。既定は無期限
+  passwordHash String? // 任意。既定はなし
+  revokedAt    DateTime?
+
+  viewCount    Int       @default(0) // 重複排除後の閲覧数
+  printCount   Int       @default(0) // 印刷用ページの表示回数
+  lastViewedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  views ShareLinkView[]
+  leads SpaceLead[]
+
+  @@index([storeId])
+}
+
+// 閲覧ログ。同一IP・同一UAからの5分以内の再訪は記録しない（水増し防止）
+model ShareLinkView {
+  id          String    @id @default(cuid())
+  shareLinkId String
+  shareLink   ShareLink @relation(fields: [shareLinkId], references: [id], onDelete: Cascade)
+
+  kind    String  @default("page") // "page" | "print"
+  ipHash  String // ソルト付きハッシュ。生IPは保存しない
+  uaHash  String
+  referer String?
+
+  createdAt DateTime @default(now())
+
+  @@index([shareLinkId, createdAt])
+}
+
+// スペースリード（オーナー獲得の入口）。公開ページ最下部のCTAから送信される。
+model SpaceLead {
+  id          String     @id @default(cuid())
+  shareLinkId String? // どのリンク経由か
+  shareLink   ShareLink? @relation(fields: [shareLinkId], references: [id], onDelete: SetNull)
+  storeId     String? // 誰の紹介か
+  store       Store?     @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  spaceName    String // スペース名または所在地
+  area         String?
+  contactName  String
+  contactEmail String?
+  contactPhone String?
+  note         String?
+
+  status String @default("new") // "new" | "contacted" | "qualified" | "registered" | "rejected"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([shareLinkId])
+  @@index([storeId])
+}
+
+// レート制限カウンタ（固定ウィンドウ）
+// Vercel はインスタンスが分散するためメモリ内カウンタでは効かない。Turso 上で数える。
+model RateLimitCounter {
+  id        String   @id // "<bucket>:<key>:<windowStart>"
+  count     Int      @default(1)
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }

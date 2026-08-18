@@ -301,6 +301,108 @@ async function main() {
       CONSTRAINT "StoreClaimRequest_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
       CONSTRAINT "StoreClaimRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    // ---- 出店申込パック（共有URL機能） ----
+    `CREATE TABLE IF NOT EXISTS "StoreApplicationProfile" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "storeId" TEXT NOT NULL,
+      "phone" TEXT,
+      "contactEmail" TEXT,
+      "openedOn" TEXT,
+      "appeal" TEXT,
+      "vehicleType" TEXT,
+      "vehicleWeightKg" INTEGER,
+      "plateNumber" TEXT,
+      "plateNumberPublic" BOOLEAN NOT NULL DEFAULT false,
+      "powerWatt" INTEGER,
+      "hasGenerator" BOOLEAN NOT NULL DEFAULT false,
+      "generatorModel" TEXT,
+      "generatorNoiseDb" INTEGER,
+      "usesFire" BOOLEAN NOT NULL DEFAULT false,
+      "fireType" TEXT,
+      "waterTankLiter" INTEGER,
+      "minSpaceWidthM" REAL,
+      "minSpaceDepthM" REAL,
+      "maxServingsPerHour" INTEGER,
+      "secondsPerServing" INTEGER,
+      "availableDays" TEXT,
+      "hasPrepKitchen" BOOLEAN NOT NULL DEFAULT false,
+      "prepKitchenNote" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StoreApplicationProfile_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "ApplicationDocument" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "storeId" TEXT NOT NULL,
+      "type" TEXT NOT NULL,
+      "label" TEXT,
+      "fileKey" TEXT NOT NULL,
+      "mimeType" TEXT NOT NULL,
+      "fileSize" INTEGER NOT NULL,
+      "expiresOn" DATETIME,
+      "visibility" TEXT NOT NULL DEFAULT 'meta_only',
+      "order" INTEGER NOT NULL DEFAULT 0,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "ApplicationDocument_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "ApplicationMenuItem" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "storeId" TEXT NOT NULL,
+      "name" TEXT NOT NULL,
+      "price" INTEGER,
+      "description" TEXT,
+      "imageUrl" TEXT,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "ApplicationMenuItem_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "ShareLink" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "storeId" TEXT NOT NULL,
+      "token" TEXT NOT NULL,
+      "label" TEXT,
+      "expiresAt" DATETIME,
+      "passwordHash" TEXT,
+      "revokedAt" DATETIME,
+      "viewCount" INTEGER NOT NULL DEFAULT 0,
+      "printCount" INTEGER NOT NULL DEFAULT 0,
+      "lastViewedAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "ShareLink_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "ShareLinkView" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "shareLinkId" TEXT NOT NULL,
+      "kind" TEXT NOT NULL DEFAULT 'page',
+      "ipHash" TEXT NOT NULL,
+      "uaHash" TEXT NOT NULL,
+      "referer" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "ShareLinkView_shareLinkId_fkey" FOREIGN KEY ("shareLinkId") REFERENCES "ShareLink" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "SpaceLead" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "shareLinkId" TEXT,
+      "storeId" TEXT,
+      "spaceName" TEXT NOT NULL,
+      "area" TEXT,
+      "contactName" TEXT NOT NULL,
+      "contactEmail" TEXT,
+      "contactPhone" TEXT,
+      "note" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'new',
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "SpaceLead_shareLinkId_fkey" FOREIGN KEY ("shareLinkId") REFERENCES "ShareLink" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+      CONSTRAINT "SpaceLead_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "RateLimitCounter" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "count" INTEGER NOT NULL DEFAULT 1,
+      "expiresAt" DATETIME NOT NULL
+    )`,
   ];
 
   // Add missing columns to existing tables
@@ -441,6 +543,17 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "StoreClaimRequest_storeId_idx" ON "StoreClaimRequest"("storeId")',
     'CREATE INDEX IF NOT EXISTS "StoreClaimRequest_userId_idx" ON "StoreClaimRequest"("userId")',
     'CREATE INDEX IF NOT EXISTS "StoreClaimRequest_status_idx" ON "StoreClaimRequest"("status")',
+    // ---- 出店申込パック（共有URL機能） ----
+    'CREATE UNIQUE INDEX IF NOT EXISTS "StoreApplicationProfile_storeId_key" ON "StoreApplicationProfile"("storeId")',
+    'CREATE INDEX IF NOT EXISTS "ApplicationDocument_storeId_idx" ON "ApplicationDocument"("storeId")',
+    'CREATE INDEX IF NOT EXISTS "ApplicationMenuItem_storeId_idx" ON "ApplicationMenuItem"("storeId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "ShareLink_token_key" ON "ShareLink"("token")',
+    'CREATE INDEX IF NOT EXISTS "ShareLink_storeId_idx" ON "ShareLink"("storeId")',
+    'CREATE INDEX IF NOT EXISTS "ShareLinkView_shareLinkId_createdAt_idx" ON "ShareLinkView"("shareLinkId", "createdAt")',
+    'CREATE INDEX IF NOT EXISTS "SpaceLead_status_idx" ON "SpaceLead"("status")',
+    'CREATE INDEX IF NOT EXISTS "SpaceLead_shareLinkId_idx" ON "SpaceLead"("shareLinkId")',
+    'CREATE INDEX IF NOT EXISTS "SpaceLead_storeId_idx" ON "SpaceLead"("storeId")',
+    'CREATE INDEX IF NOT EXISTS "RateLimitCounter_expiresAt_idx" ON "RateLimitCounter"("expiresAt")',
   ];
 
   for (const sql of indexes) {
