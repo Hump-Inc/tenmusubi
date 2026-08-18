@@ -206,3 +206,42 @@
   stroke-dashoffset: 0;
   animation: logo-draw-line 3s ease-in-out infinite alternate;
 }
+
+/* ============================================
+   出店申込書の印刷（/s/[token]/print）
+   PDF生成にヘッドレスブラウザは使わず、ブラウザの印刷機能に任せる。
+   ============================================ */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-sheet {
+    max-width: none;
+    width: 100%;
+    box-shadow: none;
+  }
+
+  /* 表や見出しがページ境界で割れないようにする */
+  .print-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  tr,
+  th,
+  td {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

@@ -437,7 +437,7 @@ export default function StoreApplicationPage({
                     <div>
                       <p className="text-sm font-medium text-gray-900">共有ページに公開する</p>
                       <p className="text-xs text-gray-500">
-                        既定は非公開です。印刷した申込書には常に記載されます。
+                        既定は非公開です。オンにすると共有ページと申込書の両方に載ります。
                       </p>
                     </div>
                     <Switch
