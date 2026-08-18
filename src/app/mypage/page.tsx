@@ -29,6 +29,8 @@ import {
   QrCode,
   Sparkles,
   ExternalLink,
+  ClipboardList,
+  Share2,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -718,7 +720,7 @@ export default function MyPage() {
                                     <span>{store.area}</span>
                                   </div>
                                 )}
-                                <div className="flex items-center justify-end gap-2 mt-3">
+                                <div className="flex flex-wrap items-center justify-end gap-2 mt-3">
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -739,6 +741,31 @@ export default function MyPage() {
                                     <Link href={`/stores/${store.id}/edit`}>
                                       <Edit className="h-3 w-3 mr-1" />
                                       編集
+                                    </Link>
+                                  </Button>
+                                </div>
+                                {/* 出店申込パック：主催者への送付導線 */}
+                                <div className="flex flex-wrap items-center justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="rounded-full text-xs h-7"
+                                    asChild
+                                  >
+                                    <Link href={`/stores/${store.id}/application`}>
+                                      <ClipboardList className="h-3 w-3 mr-1" />
+                                      出店申込情報
+                                    </Link>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="rounded-full text-xs h-7 text-orange-600 hover:text-orange-700"
+                                    asChild
+                                  >
+                                    <Link href={`/stores/${store.id}/share-links`}>
+                                      <Share2 className="h-3 w-3 mr-1" />
+                                      共有リンク
                                     </Link>
                                   </Button>
                                 </div>

@@ -7,7 +7,6 @@ import {
   FileCheck2,
   MapPin,
   Phone,
-  Mail,
   Globe,
   Instagram,
   Twitter,
