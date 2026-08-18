@@ -482,11 +482,21 @@ export default function MyPage() {
                     ))}
                     <Separator className="my-2" />
                     <Link
-                      href="/organizer"
+                      href="/events/my"
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <CalendarDays className="h-5 w-5 text-gray-900" />
+                        <span className="text-sm font-medium text-gray-900">マイイベント</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </Link>
+                    <Link
+                      href="/organizer"
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Building2 className="h-5 w-5 text-gray-900" />
                         <span className="text-sm font-medium text-gray-900">主催者情報</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-gray-400" />
