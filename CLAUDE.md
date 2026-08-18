@@ -44,6 +44,35 @@ npm run migrate:prod
 - 決済: Stripe (`src/lib/stripe.ts`)
 - 共通定数 (カテゴリ等): `src/lib/constants.ts`
 
+## 出店申込パック（共有URL機能）
+
+出店者が一度登録すれば、主催者向けの共有URL (`/s/[token]`) と申込書 (`/s/[token]/print`) を
+出せる機能。データはすべて `Store` 単位で持つ。
+
+### 書類の保管 ⚠️
+
+申込書類 (`ApplicationDocument`) は **公開URLを一切持たない**。
+既定バケットは `R2_PUBLIC_URL` で公開されているため、そこに置くとURLを知る誰でも取得できる。
+
+- 保存先: `R2_PRIVATE_BUCKET_NAME`（**本番で必ず設定すること**）
+  - 未設定の場合は既定バケットの `application-documents/` 配下に推測不能なキーで保存するが、
+    バケットが公開されている以上、URLが漏れれば取得できてしまう。フォールバックであって正ではない。
+- 配信: `src/lib/storage.ts` の `getPrivateFile()` 経由のストリーミングのみ
+  - 本人・管理者: `/api/stores/[id]/application/documents/[docId]/file`
+  - 主催者（共有トークン）: `/s/[token]/doc/[docId]` — `visibility=public` の書類だけ
+- `fileKey` は API レスポンスに出さない（`src/lib/applicationView.ts` が唯一の公開判断場所）
+
+### 任意の環境変数
+
+- `R2_PRIVATE_BUCKET_NAME`: 書類用の非公開バケット名
+- `IP_HASH_SALT`: 閲覧ログのIPハッシュ用ソルト（未設定なら `AUTH_SECRET` を流用）
+
+### アップロード検証
+
+`src/lib/imageSanitize.ts` の `sanitizeUpload()` を通すこと。
+拡張子やクライアント申告のMIMEではなくマジックナンバーで判定し、画像は sharp で
+再エンコードして EXIF（GPS情報）を落とす。
+
 ## 業種カテゴリ
 
 - 業種カテゴリは `src/lib/constants.ts` の `VENDOR_CATEGORIES` / `VENDOR_CATEGORY_LABELS` に一元化。新規登録・編集・検索・トップは全てこの定数を参照する（ハードコードしない）。
