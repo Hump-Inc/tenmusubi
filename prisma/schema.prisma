@@ -52,6 +52,10 @@ model User {
   pointTransactions PointTransaction[]
   blogPosts         BlogPost[]
   claimRequests     StoreClaimRequest[]
+
+  // イベント出店募集
+  organizerProfile     OrganizerProfile?
+  eventAppMessages     EventApplicationMessage[]
 }
 
 model Account {
@@ -185,6 +189,9 @@ model Store {
   applicationMenuItems ApplicationMenuItem[]
   shareLinks           ShareLink[]
   spaceLeads           SpaceLead[]
+
+  // イベント出店募集
+  eventApplications    EventApplication[]
 }
 
 // 店舗の引き継ぎ（クレーム）申請
@@ -515,6 +522,9 @@ model ApplicationDocument {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // やり取りの中でこの書類を開示した相手
+  disclosures EventApplicationDocument[]
+
   @@index([storeId])
 }
 
@@ -610,4 +620,171 @@ model RateLimitCounter {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+// ============================================
+// イベント出店募集
+// 主催者が募集を出し、出店者が応募する。応募（およびスカウト）は1件ごとに
+// やり取りの場を持ち、その中で出店者が書類を開示し、主催者が確認して成立を決める。
+// 書類そのものは出店申込パックの ApplicationDocument を使い回すので、
+// 出店者が再アップロードすることはない。
+// ============================================
+
+// 主催者プロフィール。運営が承認するまで募集を公開できない。
+// 架空のイベントで出店者を集める事故を防ぐため、初期は人が見る。
+model OrganizerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orgName     String // 団体名・主催者名
+  contactName String?
+  phone       String?
+  website     String?
+  intro       String? // 主催実績など
+
+  status     String    @default("pending") // "pending" | "approved" | "rejected"
+  note       String? // 運営メモ・却下理由
+  reviewedAt DateTime?
+  reviewedBy String? // 対応した管理者のUserId
+
+  events Event[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Event {
+  id          String           @id @default(cuid())
+  organizerId String
+  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  // 会場
+  venueName String
+  address   String?
+  area      String // 都道府県
+
+  // 開催日時
+  startAt DateTime
+  endAt   DateTime
+
+  // 募集期間（開催の2ヶ月前から募集を始めるのが一般的）
+  applicationOpenAt  DateTime?
+  applicationCloseAt DateTime?
+  slots              Int? // 募集枠数
+
+  // 出展料は必須。「応相談」は許さず、出店者が金額で絞り込めることを優先する（無料は0円）
+  exhibitFee Int
+  feeNote    String? // 「+売上の10%」などの補足
+
+  // 出店条件（出店者が応募前に知りたい項目）
+  spaceWidthM       Float?
+  spaceDepthM       Float?
+  powerAvailable    Boolean @default(false)
+  powerWatt         Int? // 1区画あたり提供できる電源
+  waterAvailable    Boolean @default(false)
+  fireAllowed       Boolean @default(false)
+  categories        String? // JSON配列: 募集する業種
+  requiredDocuments String? // JSON配列: 成立時に提出を求める書類の種類
+  expectedVisitors  Int?
+  note              String?
+
+  status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
+  publishedAt DateTime?
+
+  images       EventImage[]
+  applications EventApplication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, startAt])
+  @@index([area])
+  @@index([organizerId])
+}
+
+model EventImage {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  url     String
+  order   Int    @default(0)
+
+  @@index([eventId])
+}
+
+// 応募とスカウトの両方がここに入る。1店舗1イベントにつき1スレッド。
+model EventApplication {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  kind   String @default("application") // "application"（出店者から） | "scout"（主催者から）
+  status String @default("open") // "open" | "confirmed" | "rejected" | "withdrawn"
+
+  // 応募時点の車両・設備・営業条件。あとで出店者が申込情報を書き換えても、
+  // 主催者が見て判断した内容が残るようにする。
+  snapshot String?
+  message  String? // 最初のひとこと
+
+  // 主催者から「書類を見せてほしい」と依頼した時刻
+  documentRequestedAt DateTime?
+
+  confirmedAt DateTime?
+  closedAt    DateTime?
+
+  lastMessageAt      DateTime?
+  vendorLastReadAt   DateTime?
+  organizerLastReadAt DateTime?
+
+  messages    EventApplicationMessage[]
+  disclosures EventApplicationDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, storeId])
+  @@index([eventId, status])
+  @@index([storeId])
+}
+
+model EventApplicationMessage {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  senderId String? // system の場合は null
+  sender   User?   @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  // "text" は人が書いたもの。"system" は開示・成立などの経過記録。
+  kind String @default("text")
+  body String
+
+  createdAt DateTime @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+// やり取りの中で開示された書類。開示は相手ごと・書類ごとで、いつでも取り消せる。
+// 見送りになった応募では自動的に失効させる。
+model EventApplicationDocument {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  documentId String
+  document   ApplicationDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  disclosedAt DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@unique([applicationId, documentId])
+  @@index([applicationId])
 }
