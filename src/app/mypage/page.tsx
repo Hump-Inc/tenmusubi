@@ -31,6 +31,7 @@ import {
   ExternalLink,
   ClipboardList,
   Share2,
+  CalendarDays,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -479,6 +480,17 @@ export default function MyPage() {
                         </div>
                       </Link>
                     ))}
+                    <Separator className="my-2" />
+                    <Link
+                      href="/organizer"
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <CalendarDays className="h-5 w-5 text-gray-900" />
+                        <span className="text-sm font-medium text-gray-900">主催者情報</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </Link>
                     {session?.user?.isAdmin && (
                       <>
                         <Separator className="my-2" />

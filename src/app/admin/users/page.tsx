@@ -55,7 +55,7 @@ interface UserItem {
 
 const USER_TYPE_LABELS: Record<string, string> = {
   vendor: "出店者",
-  owner: "スペースオーナー",
+  owner: "スペース・イベント主催者",
 };
 
 function parseUserTypes(userType: string | null): string[] {

@@ -25,7 +25,7 @@ function RegisterContent() {
   useEffect(() => {
     if (initialized) return;
     const type = searchParams.get("type");
-    if (type === "vendor") {
+    if (type === "vendor" || type === "owner") {
       setUserType(type);
       setStep(2);
     }
@@ -153,22 +153,22 @@ function RegisterContent() {
                 </Card>
 
                 <Card
-                  className="rounded-2xl border-2 border-gray-200 opacity-50 cursor-not-allowed"
+                  className={`cursor-pointer transition-all rounded-2xl border-2 hover:border-gray-900 hover:shadow-md ${
+                    userType === "owner" ? "border-gray-900 bg-gray-50" : "border-gray-200"
+                  }`}
+                  onClick={() => handleUserTypeSelect("owner")}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-400 shrink-0">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shrink-0">
                         <MapPin className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-gray-400">スペースオーナーとして登録</h3>
-                        <p className="mt-1 text-sm text-gray-400">
-                          空きスペースを提供したい方、
-                          イベント・マルシェを主催したい方
+                        <h3 className="font-bold text-gray-900">スペース・イベント主催者として登録</h3>
+                        <p className="mt-1 text-sm text-gray-600">
+                          イベントやマルシェで出店者を募集したい方、
+                          空きスペースを活用したい方
                         </p>
-                        <span className="inline-block mt-2 text-xs font-semibold text-white bg-gray-400 rounded-full px-3 py-1">
-                          Coming Soon
-                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -187,7 +187,7 @@ function RegisterContent() {
               <CardHeader className="text-center pb-2">
                 <CardTitle className="text-2xl">アカウント作成</CardTitle>
                 <CardDescription>
-                  {userType === "vendor" ? "出店者" : "スペースオーナー"}として登録
+                  {userType === "vendor" ? "出店者" : "スペース・イベント主催者"}として登録
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">

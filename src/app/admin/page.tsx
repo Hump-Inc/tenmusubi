@@ -19,6 +19,7 @@ import {
   Handshake,
   Inbox,
   BarChart3,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,7 @@ interface DashboardStats {
   pendingClaimRequests: number;
   newSpaceLeads: number;
   shareLinks: number;
+  pendingOrganizers: number;
 }
 
 export default function AdminDashboardPage() {
@@ -50,6 +52,7 @@ export default function AdminDashboardPage() {
     pendingClaimRequests: 0,
     newSpaceLeads: 0,
     shareLinks: 0,
+    pendingOrganizers: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,7 +67,7 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
@@ -75,6 +78,7 @@ export default function AdminDashboardPage() {
           fetch("/api/admin/claim-requests?status=pending").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/space-leads?status=new").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/application-metrics").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/organizers?status=pending").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -90,6 +94,7 @@ export default function AdminDashboardPage() {
           pendingClaimRequests: claimReqRes?.stats?.pending ?? 0,
           newSpaceLeads: spaceLeadsRes?.stats?.new ?? 0,
           shareLinks: metricsRes?.totals?.issued ?? 0,
+          pendingOrganizers: organizersRes?.stats?.pending ?? 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -185,6 +190,17 @@ export default function AdminDashboardPage() {
       statLabel: "人のユーザー",
       color: "text-sky-500",
       bgColor: "bg-sky-50",
+    },
+    {
+      icon: CalendarDays,
+      label: "主催者の審査",
+      description: "イベント主催者の登録申請の承認・却下",
+      href: "/admin/organizers",
+      stat: stats.pendingOrganizers,
+      statLabel: "件の審査待ち",
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-50",
+      highlight: stats.pendingOrganizers > 0,
     },
     {
       icon: Inbox,
