@@ -35,6 +35,7 @@ import {
   DocumentsSection,
   type ApplicationDocumentDto,
 } from "@/components/application/DocumentsSection";
+import { MenuSection, type MenuItemDto } from "@/components/application/MenuSection";
 import {
   VEHICLE_TYPES,
   FIRE_TYPES,
@@ -114,6 +115,7 @@ export default function StoreApplicationPage({
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [documents, setDocuments] = useState<ApplicationDocumentDto[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItemDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -175,6 +177,7 @@ export default function StoreApplicationPage({
       setSelectedDays(parseJsonArray(p?.availableDays));
       setSelectedAreas(parseJsonArray(data.store.availableAreas));
       setDocuments(data.documents ?? []);
+      setMenuItems(data.menuItems ?? []);
     } catch {
       setError("取得に失敗しました");
     } finally {
@@ -728,6 +731,8 @@ export default function StoreApplicationPage({
             </Card>
 
             <DocumentsSection storeId={id} documents={documents} onChange={setDocuments} />
+
+            <MenuSection storeId={id} items={menuItems} onChange={setMenuItems} />
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isSaving}>
