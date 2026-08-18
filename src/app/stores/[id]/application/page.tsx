@@ -32,6 +32,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DocumentsSection,
+  type ApplicationDocumentDto,
+} from "@/components/application/DocumentsSection";
+import {
   VEHICLE_TYPES,
   FIRE_TYPES,
   WATER_TANK_PRESETS,
@@ -109,6 +113,7 @@ export default function StoreApplicationPage({
   const [storeCategory, setStoreCategory] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<ApplicationDocumentDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -169,6 +174,7 @@ export default function StoreApplicationPage({
       };
       setSelectedDays(parseJsonArray(p?.availableDays));
       setSelectedAreas(parseJsonArray(data.store.availableAreas));
+      setDocuments(data.documents ?? []);
     } catch {
       setError("取得に失敗しました");
     } finally {
@@ -720,6 +726,8 @@ export default function StoreApplicationPage({
                 </div>
               </CardContent>
             </Card>
+
+            <DocumentsSection storeId={id} documents={documents} onChange={setDocuments} />
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isSaving}>
