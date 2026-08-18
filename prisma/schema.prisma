@@ -633,7 +633,11 @@ model RateLimitCounter {
 // 主催者プロフィール。運営が承認するまで募集を公開できない。
 // 架空のイベントで出店者を集める事故を防ぐため、初期は人が見る。
 model OrganizerProfile {
-  id     String @id @default(cuid())
+  id String @id @default(cuid())
+
+  // 1アカウント = 1主催者名義。同じ人が複数の団体で主催する場合は
+  // アカウントを分けてもらう。名義を複数持てるようにすると、募集の作成時に
+  // 名義を選ばせることになり、画面が一段複雑になるため（2026-08-18 決定）。
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
