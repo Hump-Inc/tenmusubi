@@ -16,10 +16,10 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
       <tbody>
         {rows.map((row) => (
           <tr key={row.label} className="align-top">
-            <th className="w-[32%] border border-gray-300 bg-gray-50 px-2 py-1.5 text-left font-normal text-gray-600">
+            <th className="w-[32%] border border-gray-300 bg-gray-50 px-2 py-1 text-left font-normal text-gray-600">
               {row.label}
             </th>
-            <td className="border border-gray-300 px-2 py-1.5 text-gray-900">{row.value}</td>
+            <td className="border border-gray-300 px-2 py-1 text-gray-900">{row.value}</td>
           </tr>
         ))}
       </tbody>
@@ -29,8 +29,8 @@ function Rows({ rows }: { rows: { label: string; value: string }[] }) {
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="print-block mb-4">
-      <h2 className="mb-1.5 border-l-[3px] border-gray-900 pl-2 text-[11pt] font-bold text-gray-900">
+    <section className="print-block mb-3">
+      <h2 className="mb-1 border-l-[3px] border-gray-900 pl-2 text-[11pt] font-bold text-gray-900">
         {title}
       </h2>
       {children}
@@ -88,8 +88,8 @@ export function ApplicationPrintSheet({
   ];
 
   return (
-    <div className="print-sheet mx-auto max-w-[210mm] bg-white px-[12mm] py-[10mm] text-gray-900">
-      <header className="mb-5 flex items-end justify-between border-b-2 border-gray-900 pb-2">
+    <div className="print-sheet mx-auto max-w-[210mm] bg-white px-[12mm] py-[9mm] text-gray-900">
+      <header className="mb-4 flex items-end justify-between border-b-2 border-gray-900 pb-1.5">
         <h1 className="text-[16pt] font-bold tracking-wide">出店申込書</h1>
         <p className="text-[9pt] text-gray-600">作成日 {formatDateJa(printedOn)}</p>
       </header>
@@ -121,10 +121,10 @@ export function ApplicationPrintSheet({
           <table className="w-full table-fixed border-collapse text-[10.5pt]">
             <thead>
               <tr>
-                <th className="w-[55%] border border-gray-300 bg-gray-50 px-2 py-1.5 text-left font-normal text-gray-600">
+                <th className="w-[55%] border border-gray-300 bg-gray-50 px-2 py-1 text-left font-normal text-gray-600">
                   書類
                 </th>
-                <th className="border border-gray-300 bg-gray-50 px-2 py-1.5 text-left font-normal text-gray-600">
+                <th className="border border-gray-300 bg-gray-50 px-2 py-1 text-left font-normal text-gray-600">
                   有効期限
                 </th>
               </tr>
@@ -132,10 +132,10 @@ export function ApplicationPrintSheet({
             <tbody>
               {documents.map((doc) => (
                 <tr key={doc.id} className="align-top">
-                  <td className="border border-gray-300 px-2 py-1.5">
+                  <td className="border border-gray-300 px-2 py-1">
                     {doc.label || documentTypeLabel(doc.type)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1.5">
+                  <td className="border border-gray-300 px-2 py-1">
                     {doc.expiresOn ? (
                       <>
                         {formatDateJa(doc.expiresOn)}
@@ -160,13 +160,13 @@ export function ApplicationPrintSheet({
             <tbody>
               {menuItems.map((item) => (
                 <tr key={item.id} className="align-top">
-                  <td className="w-[70%] border border-gray-300 px-2 py-1.5">
+                  <td className="w-[70%] border border-gray-300 px-2 py-1">
                     {item.name}
                     {item.description && (
                       <span className="ml-1 text-[9pt] text-gray-600">（{item.description}）</span>
                     )}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1.5 text-right">
+                  <td className="border border-gray-300 px-2 py-1 text-right">
                     {item.price !== null ? `${item.price.toLocaleString()}円` : "—"}
                   </td>
                 </tr>
@@ -178,13 +178,13 @@ export function ApplicationPrintSheet({
 
       {(profile?.appeal || store.description) && (
         <Block title="自己PR">
-          <p className="whitespace-pre-wrap border border-gray-300 px-2 py-1.5 text-[10.5pt] leading-relaxed">
+          <p className="whitespace-pre-wrap border border-gray-300 px-2 py-1 text-[10.5pt] leading-relaxed">
             {profile?.appeal || store.description}
           </p>
         </Block>
       )}
 
-      <footer className="mt-6 border-t border-gray-300 pt-2 text-[8.5pt] text-gray-500">
+      <footer className="mt-4 border-t border-gray-300 pt-2 text-[8.5pt] text-gray-500">
         てんむすび（tenmusubi.net）で作成
       </footer>
     </div>
