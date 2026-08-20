@@ -7,16 +7,10 @@
  * 同じ状態になるよう、このスクリプトが作ったデータは先に消してから作り直す。
  * 本番では実行しないこと。
  */
-import { config } from "dotenv";
-config();
-
-import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { randomBytes } from "crypto";
+import { createSeedClient } from "./seed-target";
 
-const prisma = new PrismaClient({
-  adapter: new PrismaLibSql({ url: "file:prisma/dev.db" }),
-});
+const prisma = createSeedClient();
 
 const day = 24 * 60 * 60 * 1000;
 const at = (offsetDays: number, hour = 10) => {

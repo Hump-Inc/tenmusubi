@@ -498,7 +498,28 @@ async function main() {
     )`,
   ];
 
+  // Execute creates
+  for (const sql of createStatements) {
+    try {
+      await client.execute(sql);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes("already exists")) {
+        console.error("Error:", msg);
+      }
+    }
+  }
+
   // Add missing columns to existing tables
+  //
+  // 列の追加判定は CREATE のあとに行う。冒頭で取得した existingTables のままだと、
+  // まっさらなデータベースでは「テーブルが無い」と判定されて ALTER が丸ごと
+  // 飛ばされ、totalPoints のような後付けの列が作られないため。
+  const tablesAfterCreate = await client.execute(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_%'"
+  );
+  for (const row of tablesAfterCreate.rows) existingTables.add(row.name as string);
+
   const alterStatements: string[] = [];
 
   // Check User table for missing columns
@@ -539,18 +560,6 @@ async function main() {
     const storeImageCols = await client.execute("PRAGMA table_info('StoreImage')");
     const colNames = new Set(storeImageCols.rows.map(r => r.name as string));
     if (!colNames.has("isDraft")) alterStatements.push('ALTER TABLE "StoreImage" ADD COLUMN "isDraft" BOOLEAN NOT NULL DEFAULT false');
-  }
-
-  // Execute creates
-  for (const sql of createStatements) {
-    try {
-      await client.execute(sql);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.includes("already exists")) {
-        console.error("Error:", msg);
-      }
-    }
   }
 
   // Execute alters
