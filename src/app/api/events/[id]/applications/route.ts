@@ -1,8 +1,107 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
+import {
+  buildApplicationSnapshot,
+  parseSnapshot,
+  checkFit,
+} from "@/lib/eventApplicationSnapshot";
 import { isAcceptingApplications } from "@/lib/eventFormat";
+
+/**
+ * GET: 主催者が応募を比較するための一覧。
+ *
+ * 主催者は書類を見ないまま話を始めるかを決めるので、車両サイズ・必要電源・
+ * 火気・必要スペース・提供食数を並べて比べられることがこの画面の役割になる。
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+
+    const { id: eventId } = await params;
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { organizer: { select: { userId: true, orgName: true } } },
+    });
+    if (!event) {
+      return NextResponse.json({ error: "募集が見つかりません" }, { status: 404 });
+    }
+    if (event.organizer.userId !== session.user.id && !(await isAdmin(session.user.id))) {
+      return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+    }
+
+    const applications = await prisma.eventApplication.findMany({
+      where: { eventId },
+      include: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            images: { where: { isDraft: false }, orderBy: { order: "asc" }, take: 1 },
+          },
+        },
+        _count: { select: { disclosures: true, messages: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const rows = applications.map((a) => {
+      const snapshot = parseSnapshot(a.snapshot);
+      return {
+        id: a.id,
+        kind: a.kind,
+        status: a.status,
+        message: a.message,
+        createdAt: a.createdAt,
+        lastMessageAt: a.lastMessageAt,
+        // 主催者が最後に読んだ時刻より新しい投稿があれば未読
+        hasUnread:
+          !!a.lastMessageAt &&
+          (!a.organizerLastReadAt || a.lastMessageAt > a.organizerLastReadAt),
+        documentRequestedAt: a.documentRequestedAt,
+        disclosureCount: a._count.disclosures,
+        messageCount: a._count.messages,
+        store: a.store,
+        snapshot,
+        fit: snapshot ? checkFit(snapshot, event) : [],
+      };
+    });
+
+    const stats = {
+      total: rows.length,
+      open: rows.filter((r) => r.status === "open").length,
+      confirmed: rows.filter((r) => r.status === "confirmed").length,
+      rejected: rows.filter((r) => r.status === "rejected").length,
+      slots: event.slots,
+    };
+
+    return NextResponse.json({
+      event: {
+        id: event.id,
+        title: event.title,
+        startAt: event.startAt,
+        slots: event.slots,
+        powerAvailable: event.powerAvailable,
+        powerWatt: event.powerWatt,
+        fireAllowed: event.fireAllowed,
+        spaceWidthM: event.spaceWidthM,
+        spaceDepthM: event.spaceDepthM,
+      },
+      applications: rows,
+      stats,
+    });
+  } catch (error) {
+    console.error("Event applications GET error:", error);
+    return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
+  }
+}
 
 /**
  * 募集への応募。

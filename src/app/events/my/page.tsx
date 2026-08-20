@@ -239,6 +239,12 @@ export default function MyEventsPage() {
                               編集
                             </Link>
                           </Button>
+                          <Button size="sm" className="rounded-full text-xs h-7" asChild>
+                            <Link href={`/events/${e.id}/applications`}>
+                              <Users className="h-3 w-3 mr-1" />
+                              応募 {e._count.applications}件
+                            </Link>
+                          </Button>
                         </div>
                       </CardContent>
                     </div>
