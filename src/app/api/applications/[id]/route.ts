@@ -40,6 +40,18 @@ export async function GET(
     const snapshot = parseSnapshot(application.snapshot);
     const fit = snapshot ? checkFit(snapshot, application.event) : [];
 
+    // 出店者には、開示先を選ぶための自分の書類一覧を返す。
+    // 共有ページ用の visibility はここでは効かせない。この主催者に見せるかは
+    // 出店者がこの場で個別に決めることなので。
+    const myDocuments =
+      role === "vendor"
+        ? await prisma.applicationDocument.findMany({
+            where: { storeId: application.storeId },
+            orderBy: { order: "asc" },
+            select: { id: true, type: true, label: true, expiresOn: true, mimeType: true },
+          })
+        : [];
+
     // 開いた時点で既読にする
     const field = readFieldFor(role);
     if (field) {
@@ -82,6 +94,7 @@ export async function GET(
         disclosedAt: d.disclosedAt,
         document: d.document,
       })),
+      myDocuments,
     });
   } catch (error) {
     console.error("Application GET error:", error);

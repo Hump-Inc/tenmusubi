@@ -12,16 +12,24 @@ import {
   Coins,
   Store as StoreIcon,
   FileCheck2,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ApplicationThread,
   type ThreadMessage,
 } from "@/components/events/ApplicationThread";
 import { ApplicantSpecList } from "@/components/events/ApplicantSpecList";
+import {
+  DisclosurePanel,
+  type Disclosure,
+  type DocumentSummary,
+} from "@/components/events/DisclosurePanel";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
 
@@ -49,11 +57,8 @@ interface ThreadData {
   snapshot: ApplicationSnapshot | null;
   fit: { label: string; ok: boolean; detail: string }[];
   messages: ThreadMessage[];
-  disclosures: {
-    id: string;
-    disclosedAt: string;
-    document: { id: string; type: string; label: string | null; expiresOn: string | null };
-  }[];
+  disclosures: Disclosure[];
+  myDocuments: DocumentSummary[];
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -80,6 +85,9 @@ export default function ApplicationThreadPage({
   const [data, setData] = useState<ThreadData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isWorking, setIsWorking] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -105,6 +113,44 @@ export default function ApplicationThreadPage({
     }
     if (status === "authenticated") load();
   }, [status, router, id, load]);
+
+  const changeStatus = async (next: string) => {
+    setIsWorking(true);
+    setPending(next);
+    setActionError("");
+    try {
+      const res = await fetch(`/api/applications/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionError(json.error || "更新に失敗しました");
+        return;
+      }
+      await load();
+    } finally {
+      setIsWorking(false);
+      setPending(null);
+    }
+  };
+
+  const requestDocuments = async () => {
+    setIsWorking(true);
+    setActionError("");
+    try {
+      const res = await fetch(`/api/applications/${id}/request-documents`, { method: "POST" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionError(json.error || "依頼に失敗しました");
+        return;
+      }
+      await load();
+    } finally {
+      setIsWorking(false);
+    }
+  };
 
   if (status === "loading" || isLoading) {
     return (
@@ -190,21 +236,96 @@ export default function ApplicationThreadPage({
             </CardContent>
           </Card>
 
-          {/* 開示中の書類（実際の操作は E8 で追加する） */}
-          {disclosures.length > 0 && (
+          {/* 書類の開示 */}
+          <div className="mb-4">
+            <DisclosurePanel
+              applicationId={application.id}
+              role={role}
+              status={application.status}
+              disclosures={disclosures}
+              myDocuments={data.myDocuments ?? []}
+              requestedAt={application.documentRequestedAt}
+              onChanged={load}
+            />
+          </div>
+
+          {/* 判断 */}
+          {application.status === "open" && role !== "admin" && (
             <Card className="rounded-2xl border-0 shadow-sm mb-4">
-              <CardContent className="p-5">
-                <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-gray-900">
-                  <FileCheck2 className="h-4 w-4 text-orange-500" />
-                  開示中の書類
-                </p>
-                <ul className="space-y-1">
-                  {disclosures.map((d) => (
-                    <li key={d.id} className="text-sm text-gray-700">
-                      {d.document.label || d.document.type}
-                    </li>
-                  ))}
-                </ul>
+              <CardContent className="p-5 space-y-3">
+                {isOrganizer ? (
+                  <>
+                    <p className="text-sm font-bold text-gray-900">出店の可否を決める</p>
+                    <p className="text-xs text-gray-600">
+                      必要な書類があれば、開示を依頼してから判断できます。
+                      見送りにすると、開示されていた書類は表示されなくなります。
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        className="rounded-full"
+                        onClick={() => changeStatus("confirmed")}
+                        disabled={isWorking}
+                      >
+                        {isWorking && pending === "confirmed" ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        )}
+                        出店を決定する
+                      </Button>
+                      {!application.documentRequestedAt && (
+                        <Button
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={requestDocuments}
+                          disabled={isWorking}
+                        >
+                          <FileCheck2 className="mr-1.5 h-4 w-4" />
+                          書類の開示を依頼
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        className="rounded-full text-gray-500 hover:text-red-600"
+                        onClick={() => changeStatus("rejected")}
+                        disabled={isWorking}
+                      >
+                        <XCircle className="mr-1.5 h-4 w-4" />
+                        見送る
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-gray-600">
+                      主催者からの返答をお待ちください。
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full text-gray-500 hover:text-red-600"
+                      onClick={() => changeStatus("withdrawn")}
+                      disabled={isWorking}
+                    >
+                      応募を取り下げる
+                    </Button>
+                  </div>
+                )}
+                {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          {application.status === "confirmed" && (
+            <Card className="rounded-2xl border-0 shadow-sm mb-4 bg-green-50">
+              <CardContent className="p-5 flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-green-900">出店が決定しています</p>
+                  <p className="text-sm text-green-800 mt-1">
+                    当日の詳細は、このやり取りで確認してください。
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}

@@ -69,3 +69,10 @@ export function parseJsonArray(value: string | null): string[] {
     return [];
   }
 }
+
+/** 有効期限が切れているか。書類の表示で使う。 */
+export function isExpiredDate(value: Date | string | null | undefined): boolean {
+  if (!value) return false;
+  const d = typeof value === "string" ? new Date(value) : value;
+  return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
+}
