@@ -32,6 +32,7 @@ import {
   ClipboardList,
   Share2,
   CalendarDays,
+  Send,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -481,6 +482,16 @@ export default function MyPage() {
                       </Link>
                     ))}
                     <Separator className="my-2" />
+                    <Link
+                      href="/events/applications"
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Send className="h-5 w-5 text-gray-900" />
+                        <span className="text-sm font-medium text-gray-900">応募した募集</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </Link>
                     <Link
                       href="/events/my"
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"

@@ -14,6 +14,10 @@ export async function GET() {
       where: { ownerId: session.user.id },
       include: {
         images: { orderBy: { order: "asc" }, take: 1 },
+        // 応募画面で「出店申込情報が未登録」を出すために使う
+        applicationProfile: {
+          select: { id: true, powerWatt: true, usesFire: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });

@@ -16,6 +16,7 @@ import {
   Building2,
   Globe,
   Pencil,
+  CheckCircle2,
 } from "lucide-react";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -108,6 +109,14 @@ export default async function EventDetailPage({
   const viewerId = session?.user?.id;
   const isOwner = !!viewerId && event.organizer.userId === viewerId;
   const canPreview = isOwner || (!!viewerId && (await isAdmin(viewerId)));
+
+  // 自分の店舗がすでに応募していれば、二重に応募させずやり取りへ案内する
+  const myApplication = viewerId
+    ? await prisma.eventApplication.findFirst({
+        where: { eventId: event.id, store: { ownerId: viewerId } },
+        select: { id: true, status: true, store: { select: { name: true } } },
+      })
+    : null;
 
   // 下書き・中止は関係者だけが見られる
   if (event.status !== "published" && event.status !== "closed" && !canPreview) {
@@ -297,18 +306,34 @@ export default async function EventDetailPage({
           {/* 応募 */}
           <div className="sticky bottom-4">
             <div className="rounded-2xl bg-white p-4 shadow-md">
-              {accepting ? (
-                <Button size="lg" className="w-full rounded-full" asChild>
-                  <Link href={`/events/${event.id}/apply`}>この募集に応募する</Link>
+              {myApplication ? (
+                <>
+                  <p className="mb-3 text-center text-sm text-gray-700">
+                    <CheckCircle2 className="mr-1 inline h-4 w-4 align-[-3px] text-green-600" />
+                    {myApplication.store.name}で応募済みです
+                  </p>
+                  <Button size="lg" variant="outline" className="w-full rounded-full" asChild>
+                    <Link href={`/events/applications/${myApplication.id}`}>やり取りを見る</Link>
+                  </Button>
+                </>
+              ) : isOwner ? (
+                <Button size="lg" variant="outline" className="w-full rounded-full" asChild>
+                  <Link href={`/events/${event.id}/applications`}>応募を確認する</Link>
                 </Button>
+              ) : accepting ? (
+                <>
+                  <Button size="lg" className="w-full rounded-full" asChild>
+                    <Link href={`/events/${event.id}/apply`}>この募集に応募する</Link>
+                  </Button>
+                  <p className="mt-2 text-center text-xs text-gray-500">
+                    応募しても書類は届きません。やり取りのうえで開示されます。
+                  </p>
+                </>
               ) : (
                 <p className="text-center text-sm text-gray-500 py-2">
                   {reason ?? "現在は応募を受け付けていません"}
                 </p>
               )}
-              <p className="mt-2 text-center text-xs text-gray-500">
-                応募しても書類は届きません。やり取りのうえで開示されます。
-              </p>
             </div>
           </div>
         </div>
