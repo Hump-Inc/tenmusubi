@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { SEARCH_CATEGORIES, AREAS } from "@/lib/constants";
 
 interface SearchResult {
@@ -40,9 +41,38 @@ interface SearchResult {
 const categories = SEARCH_CATEGORIES;
 const areas = AREAS;
 
+type SearchType = "vendor" | "space" | "event";
+
+const TYPE_LABEL: Record<SearchType, string> = {
+  vendor: "出店者",
+  space: "スペース",
+  event: "出店募集",
+};
+
+/** 開催月の選択肢。募集は2ヶ月ほど先が中心なので、当月から6ヶ月分あれば足りる。 */
+function upcomingMonths(): { value: string; label: string }[] {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    return {
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: `${d.getFullYear()}年${d.getMonth() + 1}月`,
+    };
+  });
+}
+
+const FEE_OPTIONS = [
+  { value: "すべて", label: "指定なし" },
+  { value: "0", label: "無料" },
+  { value: "5000", label: "5,000円以下" },
+  { value: "10000", label: "1万円以下" },
+  { value: "20000", label: "2万円以下" },
+  { value: "50000", label: "5万円以下" },
+];
+
 function SearchContent() {
   const searchParams = useSearchParams();
-  const [searchType, setSearchType] = useState<"vendor" | "space">("vendor");
+  const [searchType, setSearchType] = useState<SearchType>("vendor");
   const [selectedCategory, setSelectedCategory] = useState("すべて");
   const [selectedArea, setSelectedArea] = useState("すべて");
   const [sortBy, setSortBy] = useState("recommended");
@@ -51,6 +81,10 @@ function SearchContent() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [events, setEvents] = useState<EventCardData[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState("すべて");
+  const [selectedFee, setSelectedFee] = useState("すべて");
+  const months = upcomingMonths();
 
   const fetchResults = useCallback(async () => {
     setIsLoading(true);
@@ -64,6 +98,18 @@ function SearchContent() {
         params.set("area", selectedArea);
       }
       if (selectedCategory !== "すべて") params.set("category", selectedCategory);
+
+      if (searchType === "event") {
+        // イベントはカードの中身が出店者・スペースと大きく違うので、別の一覧として扱う
+        if (selectedMonth !== "すべて") params.set("month", selectedMonth);
+        if (selectedFee !== "すべて") params.set("maxFee", selectedFee);
+        const res = await fetch(`/api/events?${params.toString()}`);
+        const data = await res.json();
+        setEvents(data.events || []);
+        setResults([]);
+        setTotal(data.total || 0);
+        return;
+      }
 
       const endpoint = searchType === "vendor" ? "/api/vendors" : "/api/spaces";
       const res = await fetch(`${endpoint}?${params.toString()}`);
@@ -102,11 +148,11 @@ function SearchContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchType, selectedArea, selectedCategory]);
+  }, [searchType, selectedArea, selectedCategory, selectedMonth, selectedFee]);
 
   useEffect(() => {
     const type = searchParams.get("type");
-    if (type === "vendor" || type === "space") {
+    if (type === "vendor" || type === "space" || type === "event") {
       setSearchType(type);
     }
     const area = searchParams.get("area");
@@ -121,11 +167,19 @@ function SearchContent() {
   const activeFilters = [
     selectedCategory !== "すべて" && selectedCategory,
     selectedArea !== "すべて" && selectedArea,
+    searchType === "event" &&
+      selectedMonth !== "すべて" &&
+      months.find((m) => m.value === selectedMonth)?.label,
+    searchType === "event" &&
+      selectedFee !== "すべて" &&
+      FEE_OPTIONS.find((f) => f.value === selectedFee)?.label,
   ].filter((x): x is string => Boolean(x));
 
   const clearFilters = () => {
     setSelectedCategory("すべて");
     setSelectedArea("すべて");
+    setSelectedMonth("すべて");
+    setSelectedFee("すべて");
   };
 
   return (
@@ -147,13 +201,16 @@ function SearchContent() {
             <div className="flex flex-col gap-4 mb-6">
               {/* Type Tabs and View Controls */}
               <div className="flex items-center justify-between">
-                <Tabs value={searchType} onValueChange={(v) => setSearchType(v as "vendor" | "space")}>
+                <Tabs value={searchType} onValueChange={(v) => setSearchType(v as SearchType)}>
                   <TabsList className="rounded-full bg-muted">
                     <TabsTrigger value="vendor" className="rounded-full">
                       出店者
                     </TabsTrigger>
                     <TabsTrigger value="space" className="rounded-full">
                       出店スペース
+                    </TabsTrigger>
+                    <TabsTrigger value="event" className="rounded-full">
+                      出店募集
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -225,6 +282,47 @@ function SearchContent() {
                             ))}
                           </div>
                         </div>
+                        {searchType === "event" && (
+                          <>
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium">開催月</label>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge
+                                  variant={selectedMonth === "すべて" ? "default" : "outline"}
+                                  className="cursor-pointer rounded-full px-4 py-2"
+                                  onClick={() => setSelectedMonth("すべて")}
+                                >
+                                  指定なし
+                                </Badge>
+                                {months.map((m) => (
+                                  <Badge
+                                    key={m.value}
+                                    variant={selectedMonth === m.value ? "default" : "outline"}
+                                    className="cursor-pointer rounded-full px-4 py-2"
+                                    onClick={() => setSelectedMonth(m.value)}
+                                  >
+                                    {m.label}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium">出展料</label>
+                              <div className="flex flex-wrap gap-2">
+                                {FEE_OPTIONS.map((f) => (
+                                  <Badge
+                                    key={f.value}
+                                    variant={selectedFee === f.value ? "default" : "outline"}
+                                    className="cursor-pointer rounded-full px-4 py-2"
+                                    onClick={() => setSelectedFee(f.value)}
+                                  >
+                                    {f.label}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
                         <Button
                           className="w-full rounded-full"
                           onClick={() => setFilterOpen(false)}
@@ -238,8 +336,8 @@ function SearchContent() {
               </div>
 
               {/* Desktop Filters */}
-              <div className="hidden sm:flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="hidden sm:flex flex-wrap items-center justify-between gap-y-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">絞り込み:</span>
@@ -268,6 +366,35 @@ function SearchContent() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {searchType === "event" && (
+                    <>
+                      <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                        <SelectTrigger className="w-[140px] rounded-full border-border/50">
+                          <SelectValue placeholder="開催月" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="すべて">開催月</SelectItem>
+                          {months.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>
+                              {m.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={selectedFee} onValueChange={setSelectedFee}>
+                        <SelectTrigger className="w-[140px] rounded-full border-border/50">
+                          <SelectValue placeholder="出展料" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {FEE_OPTIONS.map((f) => (
+                            <SelectItem key={f.value} value={f.value}>
+                              {f.value === "すべて" ? "出展料" : f.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
+                  )}
                   {activeFilters.length > 0 && (
                     <Button
                       variant="ghost"
@@ -281,7 +408,7 @@ function SearchContent() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className={`items-center gap-2 ${searchType === "event" ? "hidden" : "flex"}`}>
                   <span className="text-sm text-muted-foreground">並び替え:</span>
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-[140px] rounded-full border-border/50">
@@ -315,7 +442,7 @@ function SearchContent() {
 
               {/* Results Count */}
               <div className="text-sm text-muted-foreground">
-                {total}件の{searchType === "vendor" ? "出店者" : "スペース"}が見つかりました
+                {total}件の{TYPE_LABEL[searchType]}が見つかりました
               </div>
             </div>
 
@@ -324,10 +451,25 @@ function SearchContent() {
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
+            ) : searchType === "event" ? (
+              events.length === 0 ? (
+                <div className="text-center py-20">
+                  <p className="text-muted-foreground">募集中の出店募集が見つかりませんでした</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    条件を変更するか、少し先の開催月でお試しください
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {events.map((e) => (
+                    <EventCard key={e.id} event={e} />
+                  ))}
+                </div>
+              )
             ) : results.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-muted-foreground">
-                  {searchType === "vendor" ? "出店者" : "スペース"}が見つかりませんでした
+                  {TYPE_LABEL[searchType]}が見つかりませんでした
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
                   条件を変更して再度検索してみてください
@@ -347,7 +489,7 @@ function SearchContent() {
                     <ProfileCard
                       key={item.id}
                       id={item.id}
-                      type={searchType}
+                      type={searchType === "space" ? "space" : "vendor"}
                       name={item.name}
                       image={item.image}
                       location={item.location}

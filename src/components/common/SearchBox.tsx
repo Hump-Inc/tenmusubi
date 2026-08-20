@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, MapPin, Tag, Calendar } from "lucide-react";
+import { Search, MapPin, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,12 +19,18 @@ const categories = VENDOR_CATEGORY_LABELS;
 
 interface SearchBoxProps {
   variant?: "hero" | "compact";
-  defaultType?: "space" | "vendor";
+  defaultType?: "space" | "vendor" | "event";
 }
 
 export function SearchBox({ variant = "hero", defaultType = "vendor" }: SearchBoxProps) {
   const router = useRouter();
   const [searchType, setSearchType] = useState(defaultType);
+
+  // 検索ページ側でタブを切り替えたときに、こちらのボタンも追随させる。
+  // useState の初期値だけでは、マウント後の変更が反映されない。
+  useEffect(() => {
+    setSearchType(defaultType);
+  }, [defaultType]);
   const [area, setArea] = useState("");
   const [category, setCategory] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -72,6 +78,13 @@ export function SearchBox({ variant = "hero", defaultType = "vendor" }: SearchBo
           onClick={() => setSearchType("space")}
         >
           出店先を探す
+        </Button>
+        <Button
+          variant={searchType === "event" ? "default" : "outline"}
+          className="rounded-full"
+          onClick={() => setSearchType("event")}
+        >
+          出店募集を探す
         </Button>
       </div>
 

@@ -38,6 +38,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const area = searchParams.get("area");
+    const category = searchParams.get("category");
     const query = searchParams.get("q");
     const month = searchParams.get("month"); // "2026-10"
     const maxFee = searchParams.get("maxFee");
@@ -48,6 +49,8 @@ export async function GET(request: Request) {
     const where: Record<string, unknown> = { status: "published" };
 
     if (area && area !== "すべて") where.area = area;
+    // 募集業種は JSON 配列の文字列なので、部分一致で絞る
+    if (category && category !== "すべて") where.categories = { contains: category };
     if (query) {
       where.OR = [
         { title: { contains: query } },
