@@ -7,6 +7,7 @@ import {
   checkFit,
 } from "@/lib/eventApplicationSnapshot";
 import { isAcceptingApplications } from "@/lib/eventFormat";
+import { createNotification } from "@/lib/notifications";
 
 /**
  * GET: 主催者が応募を比較するための一覧。
@@ -196,6 +197,15 @@ export async function POST(
         body: `${store.name} が応募しました`,
       },
     });
+
+    // 応募が放置されると、この機能そのものが死ぬので必ず知らせる
+    await createNotification({
+      userId: event.organizer.userId,
+      type: "booking",
+      title: `新しい応募が届きました: ${event.title}`,
+      body: `${store.name} が応募しました。条件を確認して返信してください。`,
+      link: `/events/applications/${application.id}`,
+    }).catch((e) => console.error("Application notification error:", e));
 
     return NextResponse.json({ application }, { status: 201 });
   } catch (error) {

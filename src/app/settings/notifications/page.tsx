@@ -109,7 +109,7 @@ export default function NotificationSettingsPage() {
       key: "bookings" as const,
       icon: Calendar,
       label: "予約・申請通知",
-      description: "予約の申請や承認、キャンセルの際にメールで通知します",
+      description: "出店募集への応募、承認、見送りの際にメールで通知します",
     },
     {
       key: "reviews" as const,

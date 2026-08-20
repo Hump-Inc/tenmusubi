@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadApplicationForViewer, readFieldFor } from "@/lib/eventApplicationAccess";
+import { createNotification } from "@/lib/notifications";
 
 // POST: やり取りに投稿する
 export async function POST(
@@ -45,12 +46,41 @@ export async function POST(
       include: { sender: { select: { id: true, name: true, image: true } } },
     });
 
+    // 相手がすでに未読を抱えているなら、追い打ちのメールは送らない。
+    // 往復のたびに1通ずつ届くと、やり取りそのものが億劫になるため。
+    const counterpartField = role === "vendor" ? "organizerLastReadAt" : "vendorLastReadAt";
+    const counterpartHadUnread =
+      !!application.lastMessageAt &&
+      (!application[counterpartField] ||
+        application.lastMessageAt > application[counterpartField]!);
+
     // 投稿した本人は既読にしておく。相手側の未読は据え置く。
     const field = readFieldFor(role);
     await prisma.eventApplication.update({
       where: { id },
       data: { lastMessageAt: new Date(), ...(field ? { [field]: new Date() } : {}) },
     });
+
+    if (!counterpartHadUnread) {
+      const store = await prisma.store.findUnique({
+        where: { id: application.storeId },
+        select: { ownerId: true, name: true },
+      });
+      const targetUserId =
+        role === "vendor" ? application.event.organizer.userId : store?.ownerId;
+      const fromName =
+        role === "vendor" ? store?.name : application.event.organizer.orgName;
+
+      if (targetUserId) {
+        await createNotification({
+          userId: targetUserId,
+          type: "message",
+          title: `${fromName ?? "相手"}から新しいメッセージがあります`,
+          body: `${application.event.title} のやり取り`,
+          link: `/events/applications/${id}`,
+        }).catch((e) => console.error("Thread message notification error:", e));
+      }
+    }
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {

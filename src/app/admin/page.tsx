@@ -20,6 +20,7 @@ import {
   Inbox,
   BarChart3,
   CalendarDays,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,8 @@ interface DashboardStats {
   newSpaceLeads: number;
   shareLinks: number;
   pendingOrganizers: number;
+  publishedEvents: number;
+  stalledEvents: number;
 }
 
 export default function AdminDashboardPage() {
@@ -53,6 +56,8 @@ export default function AdminDashboardPage() {
     newSpaceLeads: 0,
     shareLinks: 0,
     pendingOrganizers: 0,
+    publishedEvents: 0,
+    stalledEvents: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -67,7 +72,7 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes, eventsRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
@@ -79,6 +84,7 @@ export default function AdminDashboardPage() {
           fetch("/api/admin/space-leads?status=new").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/application-metrics").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/organizers?status=pending").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/events").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -95,6 +101,8 @@ export default function AdminDashboardPage() {
           newSpaceLeads: spaceLeadsRes?.stats?.new ?? 0,
           shareLinks: metricsRes?.totals?.issued ?? 0,
           pendingOrganizers: organizersRes?.stats?.pending ?? 0,
+          publishedEvents: eventsRes?.stats?.published ?? 0,
+          stalledEvents: eventsRes?.stats?.stalled ?? 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -190,6 +198,17 @@ export default function AdminDashboardPage() {
       statLabel: "人のユーザー",
       color: "text-sky-500",
       bgColor: "bg-sky-50",
+    },
+    {
+      icon: Megaphone,
+      label: "出店募集",
+      description: "掲載中のイベントと応募の状況",
+      href: "/admin/events",
+      stat: stats.publishedEvents,
+      statLabel: stats.stalledEvents > 0 ? `件（未返信 ${stats.stalledEvents}）` : "件を掲載中",
+      color: "text-cyan-500",
+      bgColor: "bg-cyan-50",
+      highlight: stats.stalledEvents > 0,
     },
     {
       icon: CalendarDays,
