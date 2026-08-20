@@ -11,6 +11,7 @@ import {
   Zap,
   Coins,
   ClipboardList,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EventImageSection } from "@/components/events/EventImageSection";
 import {
   ALL_PREFECTURES,
   VENDOR_CATEGORY_LABELS,
@@ -503,6 +505,23 @@ export function EventForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* 写真。保存前は募集が存在しないので、編集時だけ出す。 */}
+      {eventId ? (
+        <EventImageSection eventId={eventId} />
+      ) : (
+        <Card className="rounded-2xl border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-orange-500" />
+              写真
+            </CardTitle>
+            <CardDescription>
+              下書き保存すると、この画面から写真を追加できるようになります。
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* 必要書類・備考 */}
       <Card className="rounded-2xl border-0 shadow-sm">
