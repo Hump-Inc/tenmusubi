@@ -46,6 +46,7 @@ export interface EventFormValues {
   applicationCloseAt: string;
   slots: string;
   exhibitFee: string;
+  exhibitFeeMax: string;
   feeNote: string;
   spaceWidthM: string;
   spaceDepthM: string;
@@ -72,6 +73,7 @@ export const EMPTY_EVENT: EventFormValues = {
   applicationCloseAt: "",
   slots: "",
   exhibitFee: "",
+  exhibitFeeMax: "",
   feeNote: "",
   spaceWidthM: "",
   spaceDepthM: "",
@@ -337,22 +339,43 @@ export function EventForm({
               <Label htmlFor="exhibitFee">
                 出展料 <span className="text-red-500">*</span>
               </Label>
-              <div className="relative">
-                <Input
-                  id="exhibitFee"
-                  type="number"
-                  min={0}
-                  value={form.exhibitFee}
-                  onChange={(e) => set("exhibitFee", e.target.value)}
-                  placeholder="15000"
-                  className="pr-8"
-                  required
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                  円
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="exhibitFee"
+                    type="number"
+                    min={0}
+                    value={form.exhibitFee}
+                    onChange={(e) => set("exhibitFee", e.target.value)}
+                    placeholder="8000"
+                    className="pr-8"
+                    required
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    円
+                  </span>
+                </div>
+                <span className="text-sm text-gray-500">〜</span>
+                <div className="relative flex-1">
+                  <Input
+                    id="exhibitFeeMax"
+                    type="number"
+                    min={0}
+                    value={form.exhibitFeeMax}
+                    onChange={(e) => set("exhibitFeeMax", e.target.value)}
+                    placeholder="15000"
+                    className="pr-8"
+                    aria-label="出展料の上限"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    円
+                  </span>
+                </div>
               </div>
-              <p className="text-xs text-gray-500">無料の場合は 0 を入力してください</p>
+              <p className="text-xs text-gray-500">
+                無料の場合は 0 を入力してください。区画やエリアで金額が変わる場合は、右に上限を入れると
+                「8,000円〜15,000円」と表示されます（同じ金額なら左だけでOK）。
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="feeNote">出展料の補足</Label>
@@ -360,8 +383,11 @@ export function EventForm({
                 id="feeNote"
                 value={form.feeNote}
                 onChange={(e) => set("feeNote", e.target.value)}
-                placeholder="例: +売上の10%"
+                placeholder="例: +売上の10% / Aエリアは角地"
               />
+              <p className="text-xs text-gray-500">
+                区画ごとの内訳など、金額の理由をここに書けます
+              </p>
             </div>
           </div>
 

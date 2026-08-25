@@ -31,6 +31,7 @@ interface AdminEvent {
   venueName: string;
   startAt: string;
   exhibitFee: number;
+  exhibitFeeMax: number | null;
   slots: number | null;
   status: string;
   createdAt: string;
@@ -213,7 +214,7 @@ export default function AdminEventsPage() {
                         {formatDate(e.startAt)}
                       </TableCell>
                       <TableCell className="align-top text-right text-sm whitespace-nowrap">
-                        {formatFee(e.exhibitFee)}
+                        {formatFee(e.exhibitFee, null, e.exhibitFeeMax)}
                       </TableCell>
                       <TableCell className="align-top text-right whitespace-nowrap">
                         <span className="text-sm font-medium text-gray-900">

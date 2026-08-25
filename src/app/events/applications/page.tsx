@@ -36,6 +36,7 @@ interface MyApplication {
     area: string;
     startAt: string;
     exhibitFee: number;
+    exhibitFeeMax: number | null;
     status: string;
     organizer: { orgName: string };
   };
@@ -192,7 +193,7 @@ function ApplicationsContent() {
                         </span>
                         <span className="inline-flex items-center gap-1">
                           <Coins className="h-3 w-3" />
-                          {formatFee(a.event.exhibitFee)}
+                          {formatFee(a.event.exhibitFee, null, a.event.exhibitFeeMax)}
                         </span>
                       </div>
 

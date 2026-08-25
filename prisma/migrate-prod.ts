@@ -434,6 +434,7 @@ async function main() {
       "applicationCloseAt" DATETIME,
       "slots" INTEGER,
       "exhibitFee" INTEGER NOT NULL,
+      "exhibitFeeMax" INTEGER,
       "feeNote" TEXT,
       "spaceWidthM" REAL,
       "spaceDepthM" REAL,
@@ -553,6 +554,13 @@ async function main() {
     if (!colNames.has("claimStatus")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "claimStatus" TEXT NOT NULL DEFAULT \'none\'');
     if (!colNames.has("invitedAt")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "invitedAt" DATETIME');
     if (!colNames.has("claimedAt")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "claimedAt" DATETIME');
+  }
+
+  // Check Event table for missing columns
+  if (existingTables.has("Event")) {
+    const eventCols = await client.execute("PRAGMA table_info('Event')");
+    const colNames = new Set(eventCols.rows.map(r => r.name as string));
+    if (!colNames.has("exhibitFeeMax")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "exhibitFeeMax" INTEGER');
   }
 
   // Check StoreImage table for missing columns

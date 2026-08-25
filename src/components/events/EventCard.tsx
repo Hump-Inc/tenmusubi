@@ -12,6 +12,7 @@ export interface EventCardData {
   startAt: string;
   endAt: string;
   exhibitFee: number;
+  exhibitFeeMax: number | null;
   feeNote: string | null;
   slots: number | null;
   applicationCloseAt: string | null;
@@ -62,7 +63,7 @@ export function EventCard({ event }: { event: EventCardData }) {
         )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
           <Badge className="bg-white/95 text-gray-900 hover:bg-white/95 shadow-sm">
-            {formatFee(event.exhibitFee)}
+            {formatFee(event.exhibitFee, null, event.exhibitFeeMax)}
           </Badge>
           {left !== null && left >= 0 && left <= 7 && (
             <Badge className="bg-orange-500 text-white hover:bg-orange-500 shadow-sm">
@@ -97,7 +98,7 @@ export function EventCard({ event }: { event: EventCardData }) {
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs">
           <span className="inline-flex items-center gap-1 font-medium text-foreground">
             <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-            {formatFee(event.exhibitFee, event.feeNote)}
+            {formatFee(event.exhibitFee, event.feeNote, event.exhibitFeeMax)}
           </span>
           {event.slots !== null && (
             <span className="inline-flex items-center gap-1 text-muted-foreground">

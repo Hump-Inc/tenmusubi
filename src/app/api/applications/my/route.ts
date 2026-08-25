@@ -23,6 +23,7 @@ export async function GET() {
             startAt: true,
             endAt: true,
             exhibitFee: true,
+            exhibitFeeMax: true,
             status: true,
             organizer: { select: { orgName: true } },
           },

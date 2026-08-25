@@ -103,6 +103,7 @@ export async function PUT(
     const startAt = body.startAt ? new Date(body.startAt) : null;
     const endAt = body.endAt ? new Date(body.endAt) : null;
     const exhibitFee = toInt(body.exhibitFee);
+    const exhibitFeeMax = toInt(body.exhibitFeeMax);
 
     if (!title || !venueName || !area) {
       return NextResponse.json(
@@ -122,6 +123,13 @@ export async function PUT(
     if (exhibitFee === null || exhibitFee < 0) {
       return NextResponse.json(
         { error: "出展料を入力してください（無料の場合は0）" },
+        { status: 400 }
+      );
+    }
+    // 上限は区画やエリアで金額が変わる募集のためのもの。下限を割る値は誤入力。
+    if (exhibitFeeMax !== null && exhibitFeeMax < exhibitFee) {
+      return NextResponse.json(
+        { error: "出展料の上限は、下限と同じかそれより高い金額にしてください" },
         { status: 400 }
       );
     }
@@ -152,6 +160,8 @@ export async function PUT(
         applicationCloseAt: body.applicationCloseAt ? new Date(body.applicationCloseAt) : null,
         slots: toInt(body.slots),
         exhibitFee,
+        exhibitFeeMax:
+          exhibitFeeMax !== null && exhibitFeeMax > exhibitFee ? exhibitFeeMax : null,
         feeNote: toStr(body.feeNote, 200),
         spaceWidthM: toFloat(body.spaceWidthM),
         spaceDepthM: toFloat(body.spaceDepthM),

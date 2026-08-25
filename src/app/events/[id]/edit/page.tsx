@@ -60,6 +60,7 @@ export default function EditEventPage({ params }: { params: Promise<{ id: string
         applicationCloseAt: toLocalInput(e.applicationCloseAt, "date"),
         slots: str(e.slots),
         exhibitFee: str(e.exhibitFee),
+        exhibitFeeMax: str(e.exhibitFeeMax),
         feeNote: str(e.feeNote),
         spaceWidthM: str(e.spaceWidthM),
         spaceDepthM: str(e.spaceDepthM),

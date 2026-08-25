@@ -25,8 +25,22 @@ export function formatDateShort(value: Date | string | null | undefined): string
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-export function formatFee(fee: number, note?: string | null): string {
-  const base = fee === 0 ? "無料" : `${fee.toLocaleString()}円`;
+/**
+ * 出展料の表示。区画で金額が変わる募集は max を持つので「8,000円〜15,000円」と幅で出す。
+ * 幅がある場合に「無料」と言い切ってしまうと誤解を招くので、下限0円は「0円〜」にする。
+ */
+export function formatFee(
+  fee: number,
+  note?: string | null,
+  max?: number | null
+): string {
+  const hasRange = typeof max === "number" && max > fee;
+  const yen = (v: number) => `${v.toLocaleString()}円`;
+  const base = hasRange
+    ? `${yen(fee)}〜${yen(max)}`
+    : fee === 0
+      ? "無料"
+      : yen(fee);
   return note ? `${base}（${note}）` : base;
 }
 

@@ -50,6 +50,7 @@ interface ThreadData {
       startAt: string;
       endAt: string;
       exhibitFee: number;
+      exhibitFeeMax: number | null;
       feeNote: string | null;
       organizer: { orgName: string };
     };
@@ -230,7 +231,11 @@ export default function ApplicationThreadPage({
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Coins className="h-4 w-4 text-gray-400" />
-                  {formatFee(application.event.exhibitFee, application.event.feeNote)}
+                  {formatFee(
+                    application.event.exhibitFee,
+                    application.event.feeNote,
+                    application.event.exhibitFeeMax
+                  )}
                 </span>
               </div>
             </CardContent>

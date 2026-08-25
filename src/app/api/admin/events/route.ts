@@ -40,6 +40,7 @@ export async function GET(request: Request) {
         venueName: e.venueName,
         startAt: e.startAt,
         exhibitFee: e.exhibitFee,
+        exhibitFeeMax: e.exhibitFeeMax,
         slots: e.slots,
         status: e.status,
         createdAt: e.createdAt,

@@ -682,9 +682,13 @@ model Event {
   applicationCloseAt DateTime?
   slots              Int? // 募集枠数
 
-  // 出展料は必須。「応相談」は許さず、出店者が金額で絞り込めることを優先する（無料は0円）
-  exhibitFee Int
-  feeNote    String? // 「+売上の10%」などの補足
+  // 出展料は必須。「応相談」は許さず、出店者が金額で絞り込めることを優先する（無料は0円）。
+  // 区画やエリアで金額が変わる募集があるので、上限も持てるようにする。
+  // exhibitFee = 最安値、exhibitFeeMax = 最高値（単一料金なら null）。検索の絞り込みは
+  // 必ず最安値 exhibitFee で判定する。
+  exhibitFee    Int
+  exhibitFeeMax Int?
+  feeNote       String? // 「+売上の10%」「Aエリアは角地」などの補足
 
   // 出店条件（出店者が応募前に知りたい項目）
   spaceWidthM       Float?

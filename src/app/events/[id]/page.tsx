@@ -59,7 +59,7 @@ export async function generateMetadata({
   if (!event) return { title: "募集が見つかりません" };
 
   const title = `${event.title}｜出店者募集`;
-  const description = `${event.area}・${event.venueName}／${formatEventDate(event.startAt, event.endAt)}／出展料 ${formatFee(event.exhibitFee)}。キッチンカー・出店者を募集しています。`;
+  const description = `${event.area}・${event.venueName}／${formatEventDate(event.startAt, event.endAt)}／出展料 ${formatFee(event.exhibitFee, null, event.exhibitFeeMax)}。キッチンカー・出店者を募集しています。`;
 
   return {
     title,
@@ -200,7 +200,14 @@ export default async function EventDetailPage({
                 </span>
               </Row>
               <Row icon={<Coins className="h-5 w-5" />} label="出展料">
-                <span className="text-base">{formatFee(event.exhibitFee, event.feeNote)}</span>
+                <span className="text-base">
+                  {formatFee(event.exhibitFee, event.feeNote, event.exhibitFeeMax)}
+                </span>
+                {event.exhibitFeeMax !== null && event.exhibitFeeMax > event.exhibitFee && (
+                  <span className="block text-xs font-normal text-gray-600 mt-0.5">
+                    区画・エリアによって金額が変わります
+                  </span>
+                )}
               </Row>
               {event.slots !== null && (
                 <Row icon={<Users className="h-5 w-5" />} label="募集枠">

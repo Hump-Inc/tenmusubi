@@ -21,6 +21,7 @@ export async function loadApplicationForViewer(applicationId: string, userId: st
           startAt: true,
           endAt: true,
           exhibitFee: true,
+          exhibitFeeMax: true,
           feeNote: true,
           slots: true,
           powerAvailable: true,
