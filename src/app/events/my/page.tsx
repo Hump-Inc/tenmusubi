@@ -2,65 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Loader2,
-  CalendarDays,
-  Plus,
-  MapPin,
-  Users,
-  Pencil,
-  ExternalLink,
-  AlertTriangle,
-} from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, Plus, AlertTriangle } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-
-interface MyEvent {
-  id: string;
-  title: string;
-  venueName: string;
-  area: string;
-  startAt: string;
-  endAt: string;
-  exhibitFee: number;
-  slots: number | null;
-  status: string;
-  images: { id: string; url: string }[];
-  _count: { applications: number };
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "下書き",
-  published: "公開中",
-  closed: "募集終了",
-  cancelled: "中止",
-};
-const STATUS_STYLE: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600 hover:bg-gray-100",
-  published: "bg-green-100 text-green-700 hover:bg-green-100",
-  closed: "bg-gray-100 text-gray-600 hover:bg-gray-100",
-  cancelled: "bg-red-100 text-red-700 hover:bg-red-100",
-};
-
-function formatRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-  const same = s.toDateString() === e.toDateString();
-  const d = (x: Date) => `${x.getFullYear()}/${x.getMonth() + 1}/${x.getDate()}`;
-  return same ? d(s) : `${d(s)}〜${d(e)}`;
-}
+import { MyEventCard, type MyEventData } from "@/components/events/MyEventCard";
 
 export default function MyEventsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [events, setEvents] = useState<MyEvent[]>([]);
+  const [events, setEvents] = useState<MyEventData[]>([]);
   const [organizerStatus, setOrganizerStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -186,69 +140,7 @@ export default function MyEventsPage() {
             <ul className="space-y-3">
               {events.map((e) => (
                 <li key={e.id}>
-                  <Card className="rounded-2xl border-0 shadow-sm overflow-hidden">
-                    <div className="flex">
-                      <div className="relative w-28 sm:w-40 shrink-0 bg-gray-100">
-                        {e.images[0]?.url ? (
-                          <Image src={e.images[0].url} alt="" fill className="object-cover" sizes="160px" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <CalendarDays className="h-7 w-7 text-gray-300" />
-                          </div>
-                        )}
-                      </div>
-                      <CardContent className="flex-1 p-4 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <Link
-                            href={`/events/${e.id}`}
-                            className="font-bold text-gray-900 hover:underline line-clamp-2"
-                          >
-                            {e.title}
-                          </Link>
-                          <Badge className={`shrink-0 ${STATUS_STYLE[e.status] ?? ""}`}>
-                            {STATUS_LABEL[e.status] ?? e.status}
-                          </Badge>
-                        </div>
-
-                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarDays className="h-3 w-3" />
-                            {formatRange(e.startAt, e.endAt)}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {e.area}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-orange-600">
-                            <Users className="h-3 w-3" />
-                            応募 {e._count.applications}件
-                            {e.slots ? ` / ${e.slots}枠` : ""}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap justify-end gap-2">
-                          <Button variant="outline" size="sm" className="rounded-full text-xs h-7" asChild>
-                            <Link href={`/events/${e.id}`} target="_blank">
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              {e.status === "draft" ? "プレビュー" : "公開ページ"}
-                            </Link>
-                          </Button>
-                          <Button variant="outline" size="sm" className="rounded-full text-xs h-7" asChild>
-                            <Link href={`/events/${e.id}/edit`}>
-                              <Pencil className="h-3 w-3 mr-1" />
-                              編集
-                            </Link>
-                          </Button>
-                          <Button size="sm" className="rounded-full text-xs h-7" asChild>
-                            <Link href={`/events/${e.id}/applications`}>
-                              <Users className="h-3 w-3 mr-1" />
-                              応募 {e._count.applications}件
-                            </Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </div>
-                  </Card>
+                  <MyEventCard event={e} />
                 </li>
               ))}
             </ul>

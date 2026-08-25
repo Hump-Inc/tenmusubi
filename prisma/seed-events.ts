@@ -153,6 +153,27 @@ async function main() {
       publishedAt: new Date(),
     },
     {
+      // マイページの「過去に実施したイベント」を確認するための開催済み1件
+      title: "夏の商店街ナイトマーケット",
+      description: "商店街の歩行者天国で行った夜のマーケットです。",
+      venueName: "〇〇商店街 歩行者天国",
+      area: "東京都",
+      startAt: at(-40, 17),
+      endAt: at(-40, 21),
+      applicationOpenAt: at(-100),
+      applicationCloseAt: at(-55),
+      slots: 10,
+      exhibitFee: 10000,
+      powerAvailable: true,
+      powerWatt: 1000,
+      waterAvailable: false,
+      fireAllowed: true,
+      categories: JSON.stringify(["キッチンカー"]),
+      expectedVisitors: 3000,
+      status: "closed",
+      publishedAt: new Date(),
+    },
+    {
       title: "（下書き）春のさくらマルシェ",
       description: "まだ会場と日程を調整中です。",
       venueName: "調整中",
@@ -171,7 +192,7 @@ async function main() {
   for (const e of events) {
     await prisma.event.create({ data: { ...e, organizerId: approved.id } });
   }
-  console.log(`イベント: ${events.length}件（募集中2 / 締切済み1 / 下書き1）`);
+  console.log(`イベント: ${events.length}件（募集中2 / 締切済み1 / 開催済み1 / 下書き1）`);
 
   // ---- 出店申込パック（応募時に主催者へ渡る情報） ----
   const profiles = [
