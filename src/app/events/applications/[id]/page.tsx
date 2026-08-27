@@ -180,6 +180,9 @@ export default function ApplicationThreadPage({
 
   const { application, snapshot, fit, messages, disclosures, role } = data;
   const isOrganizer = role === "organizer";
+  // スカウトは主催者から声をかけたもの。出店者が受けると決めるまで出店内容が無い。
+  const isScout = application.kind === "scout";
+  const awaitingScoutReply = isScout && !snapshot;
   const backHref = isOrganizer
     ? `/events/${application.event.id}/applications`
     : "/events/applications";
@@ -212,8 +215,8 @@ export default function ApplicationThreadPage({
             </h1>
             <p className="text-sm text-gray-600 mt-1">
               {isOrganizer
-                ? `${application.event.title} への応募`
-                : `主催 ${application.event.organizer.orgName}`}
+                ? `${application.event.title} への${isScout ? "スカウト" : "応募"}`
+                : `主催 ${application.event.organizer.orgName}${isScout ? " からのお誘い" : ""}`}
             </p>
           </div>
 
@@ -303,17 +306,28 @@ export default function ApplicationThreadPage({
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-gray-600">
-                      主催者からの返答をお待ちください。
+                      {awaitingScoutReply
+                        ? "出店内容を送ると、主催者が受け入れの可否を判断できます。"
+                        : "主催者からの返答をお待ちください。"}
                     </p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full text-gray-500 hover:text-red-600"
-                      onClick={() => changeStatus("withdrawn")}
-                      disabled={isWorking}
-                    >
-                      応募を取り下げる
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {awaitingScoutReply && (
+                        <Button size="sm" className="rounded-full" asChild>
+                          <Link href={`/events/${application.event.id}/apply`}>
+                            出店内容を送る
+                          </Link>
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full text-gray-500 hover:text-red-600"
+                        onClick={() => changeStatus("withdrawn")}
+                        disabled={isWorking}
+                      >
+                        {isScout ? "辞退する" : "応募を取り下げる"}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {actionError && <p className="text-sm text-red-600">{actionError}</p>}
@@ -350,7 +364,17 @@ export default function ApplicationThreadPage({
             />
           </div>
 
-          {/* 応募者の条件 */}
+          {/* 応募者の条件。スカウトは出店者が受けるまで内容が無い。 */}
+          {awaitingScoutReply && (
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-5 text-sm text-gray-600">
+                {isOrganizer
+                  ? "出店内容はまだ届いていません。出店者がこのお誘いを受けると、車両・設備・メニューがここに表示されます。"
+                  : "「出店内容を送る」から、今回の火気や提供数・メニューを入力してください。"}
+              </CardContent>
+            </Card>
+          )}
+
           {snapshot && (
             <Card className="rounded-2xl border-0 shadow-sm">
               <CardContent className="p-5">

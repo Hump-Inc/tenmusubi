@@ -49,16 +49,26 @@ const TYPE_LABEL: Record<SearchType, string> = {
   event: "出店募集",
 };
 
-/** 開催月の選択肢。募集は2ヶ月ほど先が中心なので、当月から6ヶ月分あれば足りる。 */
-function upcomingMonths(): { value: string; label: string }[] {
+/**
+ * 開催月の選択肢。当月から5ヶ月分は月ごとに、その先は「◯年◯月以降」でまとめる。
+ * 半年より先の募集も掲載するので、6ヶ月で打ち止めにすると選べないイベントができる
+ * （2026-08-27 MTG）。「以降」は value を "from:YYYY-MM" にして API 側で分ける。
+ */
+function monthOptions(): { value: string; label: string }[] {
   const now = new Date();
-  return Array.from({ length: 6 }, (_, i) => {
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+  const months = Array.from({ length: 5 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    return {
-      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: `${d.getFullYear()}年${d.getMonth() + 1}月`,
-    };
+    return { value: key(d), label: `${d.getFullYear()}年${d.getMonth() + 1}月` };
   });
+
+  const rest = new Date(now.getFullYear(), now.getMonth() + 5, 1);
+  months.push({
+    value: `from:${key(rest)}`,
+    label: `${rest.getFullYear()}年${rest.getMonth() + 1}月以降`,
+  });
+  return months;
 }
 
 const FEE_OPTIONS = [
@@ -84,7 +94,7 @@ function SearchContent() {
   const [events, setEvents] = useState<EventCardData[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("すべて");
   const [selectedFee, setSelectedFee] = useState("すべて");
-  const months = upcomingMonths();
+  const months = monthOptions();
 
   const fetchResults = useCallback(async () => {
     setIsLoading(true);
@@ -101,7 +111,14 @@ function SearchContent() {
 
       if (searchType === "event") {
         // イベントはカードの中身が出店者・スペースと大きく違うので、別の一覧として扱う
-        if (selectedMonth !== "すべて") params.set("month", selectedMonth);
+        if (selectedMonth !== "すべて") {
+          // 「◯月以降」は月そのものではなく開始月として渡す
+          if (selectedMonth.startsWith("from:")) {
+            params.set("monthFrom", selectedMonth.slice("from:".length));
+          } else {
+            params.set("month", selectedMonth);
+          }
+        }
         if (selectedFee !== "すべて") params.set("maxFee", selectedFee);
         const res = await fetch(`/api/events?${params.toString()}`);
         const data = await res.json();

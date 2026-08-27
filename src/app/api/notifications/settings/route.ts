@@ -7,6 +7,7 @@ export interface NotificationSettings {
     messages: boolean;
     bookings: boolean;
     reviews: boolean;
+    events: boolean;
     marketing: boolean;
   };
 }
@@ -16,6 +17,7 @@ const defaultSettings: NotificationSettings = {
     messages: true,
     bookings: true,
     reviews: true,
+    events: true,
     marketing: false,
   },
 };
@@ -70,6 +72,7 @@ export async function PUT(request: Request) {
         messages: !!body.email.messages,
         bookings: !!body.email.bookings,
         reviews: !!body.email.reviews,
+        events: !!body.email.events,
         marketing: !!body.email.marketing,
       },
     };

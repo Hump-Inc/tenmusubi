@@ -17,10 +17,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 
+// 業種で並べるより「何を探しに来たか」で分けた方が迷わない、という
+// 出店者側からの指摘で目的別にした（2026-08-27 MTG）。
 const navigation = [
-  { name: "キッチンカー", href: "/search?type=vendor&category=キッチンカー" },
-  { name: "ハンドメイドショップ", href: "/search?type=vendor&category=ハンドメイドショップ" },
-  { name: "その他", href: "/search?type=vendor&category=その他" },
+  { name: "出店者を探す", href: "/search?type=vendor" },
+  { name: "出店場所を探す", href: "/search?type=space" },
+  { name: "出店募集を探す", href: "/search?type=event" },
   { name: "ランキング", href: "/ranking" },
 ];
 
@@ -28,6 +30,7 @@ export function Header() {
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   // セッションの状態からログイン状態を判定
   const isLoggedIn = status === "authenticated" && !!session;
@@ -42,6 +45,22 @@ export function Header() {
         }
       })
       .catch(() => {});
+  }, [isLoggedIn]);
+
+  // メッセージの未読。DMと出店募集のやり取りを合わせた数を1回の取得で出す。
+  // 応募のやり取りがDMと別の場所に届くのが分かりにくかったため（2026-08-27 MTG）。
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const load = () =>
+      fetch("/api/messages/threads")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) setUnreadMessages((data.unreadThreads ?? 0) + (data.unreadDirect ?? 0));
+        })
+        .catch(() => {});
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, [isLoggedIn]);
 
   const avatarSrc = profileImageUrl || session?.user?.image || "";
@@ -80,9 +99,19 @@ export function Header() {
                   <Search className="h-5 w-5" />
                 </Link>
               </Button>
-              <Button variant="ghost" size="icon" className="rounded-full text-gray-600 hover:text-gray-900" asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full text-gray-600 hover:text-gray-900 relative"
+                asChild
+              >
                 <Link href="/messages">
                   <MessageCircle className="h-5 w-5" />
+                  {unreadMessages > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium">
+                      {unreadMessages > 9 ? "9+" : unreadMessages}
+                    </span>
+                  )}
                 </Link>
               </Button>
               <NotificationBell />
@@ -109,8 +138,13 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/messages" className="cursor-pointer">
+                    <Link href="/messages" className="cursor-pointer justify-between">
                       メッセージ
+                      {unreadMessages > 0 && (
+                        <span className="ml-2 rounded-full bg-red-500 px-1.5 text-[10px] font-medium text-white">
+                          {unreadMessages > 9 ? "9+" : unreadMessages}
+                        </span>
+                      )}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -194,10 +228,15 @@ export function Header() {
                     </Link>
                     <Link
                       href="/messages"
-                      className="text-lg font-medium text-gray-900"
+                      className="flex items-center gap-2 text-lg font-medium text-gray-900"
                       onClick={() => setOpen(false)}
                     >
                       メッセージ
+                      {unreadMessages > 0 && (
+                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                          {unreadMessages > 9 ? "9+" : unreadMessages}
+                        </span>
+                      )}
                     </Link>
                     <Button
                       variant="outline"

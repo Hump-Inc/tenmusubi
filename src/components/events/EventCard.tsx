@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { CalendarDays, MapPin, Coins, Users, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatFee, formatDateShort } from "@/lib/eventFormat";
+import { formatFee, formatApplicationPeriod } from "@/lib/eventFormat";
 
 export interface EventCardData {
   id: string;
@@ -15,6 +15,7 @@ export interface EventCardData {
   exhibitFeeMax: number | null;
   feeNote: string | null;
   slots: number | null;
+  applicationOpenAt: string | null;
   applicationCloseAt: string | null;
   powerAvailable: boolean;
   images: { id: string; url: string }[];
@@ -32,6 +33,27 @@ function formatDay(start: string, end: string): string {
   return same ? `${s.getFullYear()}年 ${d(s)}` : `${s.getFullYear()}年 ${d(s)}〜${d(e)}`;
 }
 
+/** 「2026/8/10〜9/24」。年が同じなら右側の年は省く。カードは幅が狭い。 */
+function formatPeriodLine(openAt: string | null, closeAt: string | null): string | null {
+  const parse = (v: string | null) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const ymd = (d: Date) => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  const md = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+
+  const open = parse(openAt);
+  const close = parse(closeAt);
+  if (open && close) {
+    const right = open.getFullYear() === close.getFullYear() ? md(close) : ymd(close);
+    return `募集 ${ymd(open)}〜${right}`;
+  }
+  if (close) return `募集締切 ${ymd(close)}`;
+  if (open) return `募集開始 ${ymd(open)}`;
+  return null;
+}
+
 /** 締切までの残り日数。近いものは急かさずに、事実として出す。 */
 function daysLeft(closeAt: string | null): number | null {
   if (!closeAt) return null;
@@ -41,6 +63,10 @@ function daysLeft(closeAt: string | null): number | null {
 
 export function EventCard({ event }: { event: EventCardData }) {
   const left = daysLeft(event.applicationCloseAt);
+  // 一覧の主役は金額ではなく募集期間。区画やエリアで金額が変わる募集が多く、
+  // 一律の金額を大きく出すと誤解を招く（2026-08-27 MTG）。金額は下段に幅で出す。
+  const period = formatApplicationPeriod(event.applicationOpenAt, event.applicationCloseAt);
+  const periodLine = formatPeriodLine(event.applicationOpenAt, event.applicationCloseAt);
 
   return (
     <Link
@@ -63,12 +89,20 @@ export function EventCard({ event }: { event: EventCardData }) {
         )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
           <Badge className="bg-white/95 text-gray-900 hover:bg-white/95 shadow-sm">
-            {formatFee(event.exhibitFee, null, event.exhibitFeeMax)}
+            {period.text}
           </Badge>
-          {left !== null && left >= 0 && left <= 7 && (
-            <Badge className="bg-orange-500 text-white hover:bg-orange-500 shadow-sm">
-              締切まで{left === 0 ? "本日" : `${left}日`}
+          {period.beforeOpen ? (
+            <Badge className="bg-gray-900/80 text-white hover:bg-gray-900/80 shadow-sm">
+              募集開始前
             </Badge>
+          ) : (
+            left !== null &&
+            left >= 0 &&
+            left <= 7 && (
+              <Badge className="bg-orange-500 text-white hover:bg-orange-500 shadow-sm">
+                締切まで{left === 0 ? "本日" : `${left}日`}
+              </Badge>
+            )
           )}
         </div>
       </div>
@@ -87,10 +121,10 @@ export function EventCard({ event }: { event: EventCardData }) {
               {event.area} ・ {event.venueName}
             </span>
           </span>
-          {event.applicationCloseAt && (
+          {periodLine && (
             <span className="inline-flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 shrink-0" />
-              募集締切 {formatDateShort(event.applicationCloseAt)}
+              <span className="truncate">{periodLine}</span>
             </span>
           )}
         </div>

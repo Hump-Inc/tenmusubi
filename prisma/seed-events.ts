@@ -44,6 +44,7 @@ async function main() {
   }
 
   // 作り直し（このスクリプトが作るものだけ消す）
+  await prisma.organizerFollow.deleteMany({});
   await prisma.organizerProfile.deleteMany({});
   await prisma.storeApplicationProfile.deleteMany({});
   await prisma.applicationDocument.deleteMany({});
@@ -92,9 +93,17 @@ async function main() {
       applicationOpenAt: at(-15),
       applicationCloseAt: at(30),
       slots: 12,
+      // 区画ごとの実額。exhibitFee / exhibitFeeMax はこの行の最安値・最高値と揃える。
       exhibitFee: 12000,
       exhibitFeeMax: 18000,
-      feeNote: "+売上の10% / 角地は18,000円",
+      feeNote: "+売上の10%",
+      feeTiers: {
+        create: [
+          { label: "Aエリア（正面ゲート横）", fee: 18000, slots: 2, widthM: 4, depthM: 6, note: "角地・電源1500Wまで", order: 0 },
+          { label: "Bエリア（芝生広場）", fee: 14000, slots: 6, widthM: 4, depthM: 6, order: 1 },
+          { label: "Cエリア（並木沿い）", fee: 12000, slots: 4, widthM: 3, depthM: 5, note: "電源なし・発電機可", order: 2 },
+        ],
+      },
       spaceWidthM: 4,
       spaceDepthM: 6,
       powerAvailable: true,
@@ -174,6 +183,38 @@ async function main() {
       publishedAt: new Date(),
     },
     {
+      // 開催月の「◯年◯月以降」と、募集開始前カードの表示を確かめるための遠い先の1件
+      title: "さくらフェスティバル 2027",
+      description: "桜の開花に合わせた春の大型イベントです。募集は開催の3ヶ月前から始めます。",
+      venueName: "県立中央公園",
+      area: "神奈川県",
+      startAt: at(230, 10),
+      endAt: at(231, 17),
+      applicationOpenAt: at(140),
+      applicationCloseAt: at(215),
+      slots: 40,
+      exhibitFee: 15000,
+      exhibitFeeMax: 25000,
+      feeNote: null,
+      feeTiers: {
+        create: [
+          { label: "大区画（5m×4m）", fee: 25000, slots: 10, widthM: 5, depthM: 4, order: 0 },
+          { label: "中区画（4m×3m）", fee: 20000, slots: 20, widthM: 4, depthM: 3, order: 1 },
+          { label: "小区画（3m×3m）", fee: 15000, slots: 10, widthM: 3, depthM: 3, note: "テント出店向け", order: 2 },
+        ],
+      },
+      spaceWidthM: 5,
+      spaceDepthM: 4,
+      powerAvailable: true,
+      powerWatt: 1500,
+      waterAvailable: true,
+      fireAllowed: true,
+      categories: JSON.stringify(["キッチンカー", "ハンドメイドショップ"]),
+      expectedVisitors: 20000,
+      status: "published",
+      publishedAt: new Date(),
+    },
+    {
       title: "（下書き）春のさくらマルシェ",
       description: "まだ会場と日程を調整中です。",
       venueName: "調整中",
@@ -192,7 +233,23 @@ async function main() {
   for (const e of events) {
     await prisma.event.create({ data: { ...e, organizerId: approved.id } });
   }
-  console.log(`イベント: ${events.length}件（募集中2 / 締切済み1 / 開催済み1 / 下書き1）`);
+  console.log(
+    `イベント: ${events.length}件（募集中1 / 募集開始前2 / 締切済み1 / 開催済み1 / 下書き1）`
+  );
+
+  // ---- 主催者のフォロー ----
+  // 承認済みの主催者を、店舗を持っている出店者が何人かフォローしている状態にする。
+  // 新着募集の通知と、スカウト画面の「フォロー中」表示を確かめるためのもの。
+  const followerOwnerIds = Array.from(
+    new Set(stores.map((s) => s.ownerId).filter((id): id is string => !!id))
+  ).filter((id) => id !== approvedUser.id);
+
+  for (const userId of followerOwnerIds.slice(0, 3)) {
+    await prisma.organizerFollow.create({
+      data: { userId, organizerId: approved.id },
+    });
+  }
+  console.log(`主催者のフォロー: ${Math.min(followerOwnerIds.length, 3)}件`);
 
   // ---- 出店申込パック（応募時に主催者へ渡る情報） ----
   const profiles = [

@@ -31,6 +31,7 @@ export interface ApplicationSnapshot {
   generatorNoiseDb: number | null;
   usesFire: boolean;
   fireType: string | null;
+  fireApplianceCount: number | null;
   waterTankLiter: number | null;
   minSpaceWidthM: number | null;
   minSpaceDepthM: number | null;
@@ -42,9 +43,36 @@ export interface ApplicationSnapshot {
   prepKitchenNote: string | null;
   // メニュー
   menuItems: { name: string; price: number | null; description: string | null }[];
+  // 希望する区画。区画ごとに金額が違う募集で、どれを見て応募したのかを残す。
+  desiredFeeTier: { label: string | null; fee: number } | null;
   // 参考情報（書類の中身ではなく、提出できる書類の種類と有効期限だけ）
   documentSummary: { type: string; expiresOn: string | null }[];
+  // 登録内容から今回だけ変えた項目のラベル。主催者が「この募集向けに直したもの」と
+  // 分かるようにするため。
+  adjustedFields: string[];
   capturedAt: string;
+}
+
+/**
+ * 応募のたびに変わる項目。イベントごとにメニューも火気の台数も変わるので、
+ * 登録内容を初期値にして応募時に上書きできるようにする（2026-08-27 MTG）。
+ *
+ * ここに無い項目（車両サイズ・書類・自己PRなど）はイベントで変わらないため、
+ * 登録内容をそのまま使う。上書きしても登録内容そのものは書き換えない。
+ */
+export interface ApplicationOverrides {
+  usesFire?: boolean;
+  fireType?: string | null;
+  fireApplianceCount?: number | null;
+  hasGenerator?: boolean;
+  powerWatt?: number | null;
+  maxServingsPerHour?: number | null;
+  minSpaceWidthM?: number | null;
+  minSpaceDepthM?: number | null;
+  /** 今回持って行くメニュー。未指定なら登録済みのすべて。 */
+  menuItemIds?: string[];
+  /** 希望する区画。募集側の行と突き合わせた結果をAPIが入れる。 */
+  desiredFeeTier?: { label: string | null; fee: number } | null;
 }
 
 function parseJsonArray(value: string | null): string[] {
@@ -58,7 +86,8 @@ function parseJsonArray(value: string | null): string[] {
 }
 
 export async function buildApplicationSnapshot(
-  storeId: string
+  storeId: string,
+  overrides?: ApplicationOverrides
 ): Promise<ApplicationSnapshot | null> {
   const [store, profile, menuItems, documents] = await Promise.all([
     prisma.store.findUnique({ where: { id: storeId } }),
@@ -66,7 +95,7 @@ export async function buildApplicationSnapshot(
     prisma.applicationMenuItem.findMany({
       where: { storeId },
       orderBy: { order: "asc" },
-      select: { name: true, price: true, description: true },
+      select: { id: true, name: true, price: true, description: true },
     }),
     // 書類は「何を出せるか」だけ。ファイルへの経路は一切含めない。
     prisma.applicationDocument.findMany({
@@ -77,6 +106,52 @@ export async function buildApplicationSnapshot(
   ]);
 
   if (!store) return null;
+
+  // まず登録内容で組み立てる。上書きはこの後で当てる。
+  const base = {
+    usesFire: profile?.usesFire ?? false,
+    fireType: profile?.fireType ?? null,
+    fireApplianceCount: profile?.fireApplianceCount ?? null,
+    hasGenerator: profile?.hasGenerator ?? false,
+    powerWatt: profile?.powerWatt ?? null,
+    maxServingsPerHour: profile?.maxServingsPerHour ?? null,
+    minSpaceWidthM: profile?.minSpaceWidthM ?? null,
+    minSpaceDepthM: profile?.minSpaceDepthM ?? null,
+  };
+
+  const adjustedFields: string[] = [];
+  const adjusted = { ...base };
+
+  const apply = <K extends keyof typeof base>(key: K, label: string) => {
+    const value = overrides?.[key as keyof ApplicationOverrides];
+    if (value === undefined) return;
+    if (value === base[key]) return;
+    adjusted[key] = value as (typeof base)[K];
+    if (!adjustedFields.includes(label)) adjustedFields.push(label);
+  };
+
+  apply("usesFire", "火気");
+  apply("fireType", "火気");
+  apply("fireApplianceCount", "火気");
+  apply("hasGenerator", "発電機");
+  apply("powerWatt", "必要電源");
+  apply("maxServingsPerHour", "提供食数");
+  apply("minSpaceWidthM", "必要スペース");
+  apply("minSpaceDepthM", "必要スペース");
+
+  // 火気を使わないなら、種類と台数は残さない。判断材料として矛盾するため。
+  if (!adjusted.usesFire) {
+    adjusted.fireType = null;
+    adjusted.fireApplianceCount = null;
+  }
+
+  // 今回持って行くメニュー。未指定なら登録済みのすべて。
+  const selectedMenu = overrides?.menuItemIds
+    ? menuItems.filter((m) => overrides.menuItemIds!.includes(m.id))
+    : menuItems;
+  if (overrides?.menuItemIds && selectedMenu.length !== menuItems.length) {
+    adjustedFields.push("メニュー");
+  }
 
   return {
     storeName: store.name,
@@ -93,27 +168,34 @@ export async function buildApplicationSnapshot(
     vehicleHeight: store.vehicleHeight,
     vehicleWeightKg: profile?.vehicleWeightKg ?? null,
 
-    powerWatt: profile?.powerWatt ?? null,
-    hasGenerator: profile?.hasGenerator ?? false,
+    powerWatt: adjusted.powerWatt,
+    hasGenerator: adjusted.hasGenerator,
     generatorModel: profile?.generatorModel ?? null,
     generatorNoiseDb: profile?.generatorNoiseDb ?? null,
-    usesFire: profile?.usesFire ?? false,
-    fireType: profile?.fireType ?? null,
+    usesFire: adjusted.usesFire,
+    fireType: adjusted.fireType,
+    fireApplianceCount: adjusted.fireApplianceCount,
     waterTankLiter: profile?.waterTankLiter ?? null,
-    minSpaceWidthM: profile?.minSpaceWidthM ?? null,
-    minSpaceDepthM: profile?.minSpaceDepthM ?? null,
+    minSpaceWidthM: adjusted.minSpaceWidthM,
+    minSpaceDepthM: adjusted.minSpaceDepthM,
 
-    maxServingsPerHour: profile?.maxServingsPerHour ?? null,
+    maxServingsPerHour: adjusted.maxServingsPerHour,
     secondsPerServing: profile?.secondsPerServing ?? null,
     availableDays: parseJsonArray(profile?.availableDays ?? null),
     hasPrepKitchen: profile?.hasPrepKitchen ?? false,
     prepKitchenNote: profile?.prepKitchenNote ?? null,
 
-    menuItems,
+    desiredFeeTier: overrides?.desiredFeeTier ?? null,
+    menuItems: selectedMenu.map((m) => ({
+      name: m.name,
+      price: m.price,
+      description: m.description,
+    })),
     documentSummary: documents.map((d) => ({
       type: d.type,
       expiresOn: d.expiresOn ? d.expiresOn.toISOString() : null,
     })),
+    adjustedFields,
     capturedAt: new Date().toISOString(),
   };
 }
@@ -128,11 +210,23 @@ export function parseSnapshot(value: string | null): ApplicationSnapshot | null 
 }
 
 /**
+ * 照合に使う設備の値だけを取り出した型。応募のスナップショットのほかに、
+ * まだ応募していない店舗の登録内容（スカウト候補）も同じ判定にかけられるようにする。
+ */
+export interface FitSpec {
+  powerWatt: number | null;
+  hasGenerator: boolean;
+  usesFire: boolean;
+  minSpaceWidthM: number | null;
+  minSpaceDepthM: number | null;
+}
+
+/**
  * 募集の条件と、応募者の設備が噛み合っているか。
  * 主催者が可否を判断しやすくするために、応募一覧でも同じ判定を使う。
  */
 export function checkFit(
-  snapshot: ApplicationSnapshot,
+  snapshot: FitSpec,
   event: {
     powerAvailable: boolean;
     powerWatt: number | null;

@@ -32,6 +32,9 @@ import {
   isAcceptingApplications,
   parseJsonArray,
 } from "@/lib/eventFormat";
+import { feeTierLabel } from "@/lib/eventFeeTiers";
+import { SHOW_ORGANIZER_PAST_EVENTS } from "@/lib/constants";
+import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +46,7 @@ async function getEvent(id: string) {
         select: { id: true, userId: true, orgName: true, intro: true, website: true },
       },
       images: { orderBy: { order: "asc" } },
+      feeTiers: { orderBy: { order: "asc" } },
       _count: { select: { applications: true } },
     },
   });
@@ -123,6 +127,51 @@ export default async function EventDetailPage({
     notFound();
   }
 
+  // 主催者の情報は募集ページの中で完結させる（単独の主催者ページは作らない、2026-08-27 決定）。
+  const now = new Date();
+  const [followerCount, myFollow, otherOpenEvents, pastEvents] = await Promise.all([
+    prisma.organizerFollow.count({ where: { organizerId: event.organizer.id } }),
+    viewerId
+      ? prisma.organizerFollow.findUnique({
+          where: {
+            userId_organizerId: { userId: viewerId, organizerId: event.organizer.id },
+          },
+          select: { id: true },
+        })
+      : null,
+    prisma.event.findMany({
+      where: {
+        organizerId: event.organizer.id,
+        id: { not: event.id },
+        status: "published",
+        startAt: { gte: now },
+      },
+      orderBy: { startAt: "asc" },
+      take: 3,
+      select: { id: true, title: true, startAt: true, area: true },
+    }),
+    // 実績は既定で出さない。出すかどうかは検証してから決める。
+    SHOW_ORGANIZER_PAST_EVENTS
+      ? prisma.event.findMany({
+          where: {
+            organizerId: event.organizer.id,
+            id: { not: event.id },
+            status: { in: ["published", "closed"] },
+            startAt: { lt: now },
+          },
+          orderBy: { startAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            title: true,
+            startAt: true,
+            area: true,
+            _count: { select: { applications: true } },
+          },
+        })
+      : [],
+  ]);
+
   const { accepting, reason } = isAcceptingApplications(event);
   const categories = parseJsonArray(event.categories);
   const requiredDocuments = parseJsonArray(event.requiredDocuments);
@@ -200,13 +249,63 @@ export default async function EventDetailPage({
                 </span>
               </Row>
               <Row icon={<Coins className="h-5 w-5" />} label="出展料">
-                <span className="text-base">
-                  {formatFee(event.exhibitFee, event.feeNote, event.exhibitFeeMax)}
-                </span>
-                {event.exhibitFeeMax !== null && event.exhibitFeeMax > event.exhibitFee && (
-                  <span className="block text-xs font-normal text-gray-600 mt-0.5">
-                    区画・エリアによって金額が変わります
-                  </span>
+                {event.feeTiers.length > 1 ? (
+                  // 区画ごとの実額を並べる。幅だけ見せるより、どの区画がいくらか
+                  // 分かる方が出店者は判断しやすい（2026-08-27 MTG）。
+                  <div className="space-y-2">
+                    <ul className="divide-y divide-gray-100">
+                      {event.feeTiers.map((tier) => (
+                        <li key={tier.id} className="flex flex-wrap items-baseline gap-x-3 py-1.5">
+                          <span className="min-w-0 flex-1 text-sm text-gray-700">
+                            {feeTierLabel(tier.label)}
+                            {(tier.widthM || tier.depthM) && (
+                              <span className="ml-1.5 text-xs font-normal text-gray-500">
+                                {tier.widthM ?? "—"}m × {tier.depthM ?? "—"}m
+                              </span>
+                            )}
+                            {tier.slots !== null && (
+                              <span className="ml-1.5 text-xs font-normal text-gray-500">
+                                {tier.slots}枠
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-base tabular-nums">
+                            {tier.fee === 0 ? "無料" : `${tier.fee.toLocaleString()}円`}
+                          </span>
+                          {tier.note && (
+                            <span className="w-full text-xs font-normal text-gray-500">
+                              {tier.note}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {event.feeNote && (
+                      <p className="text-xs font-normal text-gray-600">
+                        すべての区画に {event.feeNote}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-base">
+                      {formatFee(
+                        event.feeTiers[0]?.fee ?? event.exhibitFee,
+                        event.feeNote,
+                        event.exhibitFeeMax
+                      )}
+                    </span>
+                    {event.feeTiers[0]?.note && (
+                      <span className="block text-xs font-normal text-gray-600 mt-0.5">
+                        {event.feeTiers[0].note}
+                      </span>
+                    )}
+                    {event.exhibitFeeMax !== null && event.exhibitFeeMax > event.exhibitFee && (
+                      <span className="block text-xs font-normal text-gray-600 mt-0.5">
+                        区画・エリアによって金額が変わります
+                      </span>
+                    )}
+                  </>
                 )}
               </Row>
               {event.slots !== null && (
@@ -291,7 +390,15 @@ export default async function EventDetailPage({
               <Building2 className="h-5 w-5 text-orange-500" />
               主催者
             </h2>
-            <p className="font-medium text-gray-900">{event.organizer.orgName}</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="font-medium text-gray-900">{event.organizer.orgName}</p>
+              <OrganizerFollowButton
+                organizerId={event.organizer.id}
+                initialFollowing={!!myFollow}
+                initialCount={followerCount}
+                isSelf={isOwner}
+              />
+            </div>
             {event.organizer.intro && (
               <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
                 {event.organizer.intro}
@@ -307,6 +414,46 @@ export default async function EventDetailPage({
                 <Globe className="h-3.5 w-3.5" />
                 主催者のサイト
               </a>
+            )}
+
+            {otherOpenEvents.length > 0 && (
+              <div className="mt-5 border-t border-gray-100 pt-4">
+                <p className="mb-2 text-xs text-gray-500">この主催者の他の募集</p>
+                <ul className="space-y-1.5">
+                  {otherOpenEvents.map((e) => (
+                    <li key={e.id}>
+                      <Link
+                        href={`/events/${e.id}`}
+                        className="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-900 hover:underline"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{e.title}</span>
+                        <span className="text-xs text-gray-500">
+                          {e.area} ・ {formatDateShort(e.startAt)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {pastEvents.length > 0 && (
+              <div className="mt-5 border-t border-gray-100 pt-4">
+                <p className="mb-2 text-xs text-gray-500">これまでの開催</p>
+                <ul className="space-y-1.5">
+                  {pastEvents.map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-700"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{e.title}</span>
+                      <span className="text-xs text-gray-500">
+                        {e.area} ・ {formatDateShort(e.startAt)} ・ 出店{e._count.applications}件
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </section>
 
@@ -324,9 +471,18 @@ export default async function EventDetailPage({
                   </Button>
                 </>
               ) : isOwner ? (
-                <Button size="lg" variant="outline" className="w-full rounded-full" asChild>
-                  <Link href={`/events/${event.id}/applications`}>応募を確認する</Link>
-                </Button>
+                <div className="space-y-2">
+                  <Button size="lg" variant="outline" className="w-full rounded-full" asChild>
+                    <Link href={`/events/${event.id}/applications`}>応募を確認する</Link>
+                  </Button>
+                  {/* 応募を待つだけでは枠が埋まらない募集があるので、
+                      主催者から声をかける導線も同じ場所に置く（2026-08-27 MTG）。 */}
+                  {event.status === "published" && (
+                    <Button size="lg" className="w-full rounded-full" asChild>
+                      <Link href={`/events/${event.id}/scout`}>出店者をスカウトする</Link>
+                    </Button>
+                  )}
+                </div>
               ) : accepting ? (
                 <>
                   <Button size="lg" className="w-full rounded-full" asChild>

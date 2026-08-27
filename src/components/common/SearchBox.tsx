@@ -77,7 +77,7 @@ export function SearchBox({ variant = "hero", defaultType = "vendor" }: SearchBo
           className="rounded-full"
           onClick={() => setSearchType("space")}
         >
-          出店先を探す
+          出店場所を探す
         </Button>
         <Button
           variant={searchType === "event" ? "default" : "outline"}

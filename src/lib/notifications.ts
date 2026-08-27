@@ -5,13 +5,16 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "てんむすび <noreply@tenmusubi.net>";
 const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
 
-type NotificationType = "message" | "booking" | "review";
+// "event" はフォロー中の主催者からの新着募集。応募のやり取り("booking")に
+// 相乗りさせると、やり取りのメールを切った人に新着が届かなくなるので分けている。
+type NotificationType = "message" | "booking" | "review" | "event";
 
 interface NotificationSettings {
   email: {
     messages: boolean;
     bookings: boolean;
     reviews: boolean;
+    events: boolean;
     marketing: boolean;
   };
 }
@@ -21,6 +24,8 @@ const defaultSettings: NotificationSettings = {
     messages: true,
     bookings: true,
     reviews: true,
+    // 自分でフォローした結果として届くものなので既定はオン
+    events: true,
     marketing: false,
   },
 };
@@ -29,6 +34,7 @@ const typeToSettingKey: Record<NotificationType, keyof NotificationSettings["ema
   message: "messages",
   booking: "bookings",
   review: "reviews",
+  event: "events",
 };
 
 export async function createNotification({
@@ -63,7 +69,9 @@ export async function createNotification({
       : defaultSettings;
 
     const settingKey = typeToSettingKey[type];
-    if (!settings.email[settingKey]) return notification;
+    // 保存済みの設定がこの項目より前のものだと undefined になる。既定値で補う。
+    const enabled = settings.email?.[settingKey] ?? defaultSettings.email[settingKey];
+    if (!enabled) return notification;
 
     const fullLink = link ? `${BASE_URL}${link}` : BASE_URL;
 

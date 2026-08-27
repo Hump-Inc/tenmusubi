@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
+import { notifyFollowersOfNewEvent } from "@/lib/organizerFollowers";
 
 /**
  * 出店募集の一覧取得と作成。
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
     const category = searchParams.get("category");
     const query = searchParams.get("q");
     const month = searchParams.get("month"); // "2026-10"
+    const monthFrom = searchParams.get("monthFrom"); // "2027-01" — その月以降すべて
     const maxFee = searchParams.get("maxFee");
     const includeClosed = searchParams.get("includeClosed") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
@@ -67,12 +70,16 @@ export async function GET(request: Request) {
       if (y && m) {
         where.startAt = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
       }
+    } else if (monthFrom) {
+      // 「◯年◯月以降」。半年より先の募集に届かないと選べない月ができるため。
+      const [y, m] = monthFrom.split("-").map(Number);
+      if (y && m) where.startAt = { gte: new Date(y, m - 1, 1) };
     }
     // 締切済みは既定で除外する。応募できない募集が並ぶと探しづらいため。
     // 「開催日を過ぎたもの」と「募集を締め切ったもの」の両方を落とす。
     if (!includeClosed) {
       const now = new Date();
-      if (!month) where.startAt = { gte: now };
+      if (!month && !monthFrom) where.startAt = { gte: now };
       where.AND = [
         { OR: [{ applicationCloseAt: null }, { applicationCloseAt: { gte: now } }] },
       ];
@@ -84,6 +91,7 @@ export async function GET(request: Request) {
         include: {
           organizer: { select: { id: true, orgName: true } },
           images: { orderBy: { order: "asc" }, take: 1 },
+          feeTiers: { orderBy: { order: "asc" } },
           _count: { select: { applications: true } },
         },
         orderBy: { startAt: "asc" },
@@ -132,8 +140,13 @@ export async function POST(request: Request) {
     const area = toStr(body.area, 20);
     const startAt = body.startAt ? new Date(body.startAt) : null;
     const endAt = body.endAt ? new Date(body.endAt) : null;
-    const exhibitFee = toInt(body.exhibitFee);
-    const exhibitFeeMax = toInt(body.exhibitFeeMax);
+    // 区画ごとの金額。送られていれば、そこから最安値・最高値を出して保存する。
+    const feeTiers = parseFeeTiers(body.feeTiers);
+    const hasTiers = !!feeTiers && feeTiers.length > 0;
+    const derived = hasTiers ? deriveFeeRange(feeTiers!) : null;
+
+    const exhibitFee = derived ? derived.fee : toInt(body.exhibitFee);
+    const exhibitFeeMax = derived ? derived.feeMax : toInt(body.exhibitFeeMax);
 
     if (!title || !venueName || !area) {
       return NextResponse.json(
@@ -154,6 +167,13 @@ export async function POST(request: Request) {
     if (exhibitFee === null || exhibitFee < 0) {
       return NextResponse.json(
         { error: "出展料を入力してください（無料の場合は0）" },
+        { status: 400 }
+      );
+    }
+    // 区画を2行以上出すなら、どれがどれか分かるように名前が要る
+    if (hasTiers && feeTiers!.length > 1 && feeTiers!.some((t) => !t.label)) {
+      return NextResponse.json(
+        { error: "区画を複数に分ける場合は、それぞれに名前を付けてください" },
         { status: 400 }
       );
     }
@@ -194,8 +214,16 @@ export async function POST(request: Request) {
         note: toStr(body.note, 2000),
         status: body.status === "published" ? "published" : "draft",
         publishedAt: body.status === "published" ? new Date() : null,
+        ...(hasTiers ? { feeTiers: { create: feeTiers! } } : {}),
       },
     });
+
+    // 公開で作られたなら、フォロワーへ新着を知らせる
+    if (event.status === "published") {
+      await notifyFollowersOfNewEvent(event.id).catch((e) =>
+        console.error("Follower notification error:", e)
+      );
+    }
 
     return NextResponse.json({ event }, { status: 201 });
   } catch (error) {

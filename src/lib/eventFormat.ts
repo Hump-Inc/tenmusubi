@@ -44,6 +44,34 @@ export function formatFee(
   return note ? `${base}（${note}）` : base;
 }
 
+/**
+ * 一覧カードに出す募集期間。区画やエリアで出展料が変わる募集が多く、一律の金額を
+ * 大きく出すより「いつからいつまで応募できるか」の方が判断に使える（2026-08-27 MTG）。
+ * 募集開始前のものも一覧に載せるので、開始前は「9/14〜11/3」と期間そのものを出す。
+ */
+export function formatApplicationPeriod(
+  openAt: Date | string | null,
+  closeAt: Date | string | null
+): { text: string; beforeOpen: boolean } {
+  const toDate = (v: Date | string | null) => {
+    if (!v) return null;
+    const d = typeof v === "string" ? new Date(v) : v;
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const md = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+
+  const open = toDate(openAt);
+  const close = toDate(closeAt);
+  const beforeOpen = !!open && open.getTime() > Date.now();
+
+  if (open && close) {
+    return { text: beforeOpen ? `募集 ${md(open)}〜${md(close)}` : `募集 〜${md(close)}`, beforeOpen };
+  }
+  if (open) return { text: beforeOpen ? `募集 ${md(open)}〜` : "募集受付中", beforeOpen };
+  if (close) return { text: `募集 〜${md(close)}`, beforeOpen: false };
+  return { text: "募集受付中", beforeOpen: false };
+}
+
 /** 募集を受け付けている状態かどうか */
 export function isAcceptingApplications(event: {
   status: string;

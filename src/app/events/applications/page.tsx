@@ -174,12 +174,20 @@ function ApplicationsContent() {
                             {a.event.title}
                           </Link>
                           <p className="text-xs text-gray-500 mt-1">
-                            主催 {a.event.organizer.orgName} ・ {a.store.name}で応募
+                            主催 {a.event.organizer.orgName} ・ {a.store.name}
+                            {a.kind === "scout" ? "へのお誘い" : "で応募"}
                           </p>
                         </div>
-                        <Badge className={`shrink-0 ${STATUS_STYLE[a.status] ?? ""}`}>
-                          {STATUS_LABEL[a.status] ?? a.status}
-                        </Badge>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {a.kind === "scout" && (
+                            <Badge variant="outline" className="font-normal">
+                              スカウト
+                            </Badge>
+                          )}
+                          <Badge className={STATUS_STYLE[a.status] ?? ""}>
+                            {STATUS_LABEL[a.status] ?? a.status}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">

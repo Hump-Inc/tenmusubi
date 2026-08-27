@@ -5,7 +5,9 @@ import {
   buildApplicationSnapshot,
   parseSnapshot,
   checkFit,
+  type ApplicationOverrides,
 } from "@/lib/eventApplicationSnapshot";
+import { FIRE_TYPES } from "@/lib/constants";
 import { isAcceptingApplications } from "@/lib/eventFormat";
 import { createNotification } from "@/lib/notifications";
 
@@ -105,6 +107,49 @@ export async function GET(
 }
 
 /**
+ * 応募時にだけ変える項目を受け取る。イベントごとにメニューも火気の台数も変わるので、
+ * 登録内容ではなくここで受けた値をスナップショットに残す（2026-08-27 MTG）。
+ * 主催者が消防署に出す書類の材料になるため、値はクライアント任せにせずここで整える。
+ */
+function parseOverrides(input: unknown): ApplicationOverrides | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const body = input as Record<string, unknown>;
+  const out: ApplicationOverrides = {};
+
+  const num = (v: unknown, max: number): number | null | undefined => {
+    if (v === undefined) return undefined;
+    if (v === null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return Math.min(n, max);
+  };
+
+  if (typeof body.usesFire === "boolean") out.usesFire = body.usesFire;
+  if (body.fireType !== undefined) {
+    const v = typeof body.fireType === "string" ? body.fireType : "";
+    out.fireType = FIRE_TYPES.some((t) => t.value === v) ? v : null;
+  }
+  const fireCount = num(body.fireApplianceCount, 99);
+  if (fireCount !== undefined) out.fireApplianceCount = fireCount === null ? null : Math.round(fireCount);
+
+  if (typeof body.hasGenerator === "boolean") out.hasGenerator = body.hasGenerator;
+  const watt = num(body.powerWatt, 100000);
+  if (watt !== undefined) out.powerWatt = watt === null ? null : Math.round(watt);
+  const servings = num(body.maxServingsPerHour, 100000);
+  if (servings !== undefined) out.maxServingsPerHour = servings === null ? null : Math.round(servings);
+  const width = num(body.minSpaceWidthM, 100);
+  if (width !== undefined) out.minSpaceWidthM = width;
+  const depth = num(body.minSpaceDepthM, 100);
+  if (depth !== undefined) out.minSpaceDepthM = depth;
+
+  if (Array.isArray(body.menuItemIds)) {
+    out.menuItemIds = body.menuItemIds.filter((v): v is string => typeof v === "string").slice(0, 200);
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
  * 募集への応募。
  *
  * 渡るのは店舗情報と車両・設備・営業条件まで。書類は渡さない。
@@ -124,22 +169,26 @@ export async function POST(
     const body = await request.json();
     const storeId = typeof body.storeId === "string" ? body.storeId : "";
     const message = typeof body.message === "string" ? body.message.trim().slice(0, 1000) : "";
+    const overrides = parseOverrides(body.overrides);
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: { organizer: { select: { userId: true } } },
+      include: {
+        organizer: { select: { userId: true, orgName: true } },
+        feeTiers: { orderBy: { order: "asc" } },
+      },
     });
     if (!event) {
       return NextResponse.json({ error: "募集が見つかりません" }, { status: 404 });
     }
 
-    const { accepting, reason } = isAcceptingApplications(event);
-    if (!accepting) {
-      return NextResponse.json(
-        { error: reason ?? "現在は応募を受け付けていません" },
-        { status: 400 }
-      );
-    }
+    // 希望する区画は、募集側の行と突き合わせてから残す。金額をクライアントに言わせない。
+    const desiredTier = event.feeTiers.find(
+      (t) => typeof body.feeTierId === "string" && t.id === body.feeTierId
+    );
+    const withTier: ApplicationOverrides | undefined = desiredTier
+      ? { ...(overrides ?? {}), desiredFeeTier: { label: desiredTier.label, fee: desiredTier.fee } }
+      : overrides;
 
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
@@ -160,8 +209,53 @@ export async function POST(
 
     const existing = await prisma.eventApplication.findUnique({
       where: { eventId_storeId: { eventId, storeId } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, kind: true, snapshot: true },
     });
+
+    // スカウトへの返事。同じスレッドに出店内容を入れて返す。応募として別のスレッドを
+    // 作ると、主催者から見て同じ店舗が二重に並んでしまう。
+    if (existing && existing.kind === "scout" && existing.status === "open" && !existing.snapshot) {
+      // 募集の締切はスカウトには効かせない（主催者から声をかけた側なので）。
+      // ただし開催日を過ぎたものには返事できない。
+      if (event.startAt.getTime() < Date.now()) {
+        return NextResponse.json({ error: "開催日を過ぎています" }, { status: 400 });
+      }
+
+      const scoutSnapshot = await buildApplicationSnapshot(storeId, withTier);
+      const now = new Date();
+      await prisma.eventApplication.update({
+        where: { id: existing.id },
+        data: {
+          snapshot: scoutSnapshot ? JSON.stringify(scoutSnapshot) : null,
+          lastMessageAt: now,
+          vendorLastReadAt: now,
+        },
+      });
+
+      if (message) {
+        await prisma.eventApplicationMessage.create({
+          data: { applicationId: existing.id, senderId: session.user.id, body: message },
+        });
+      }
+      await prisma.eventApplicationMessage.create({
+        data: {
+          applicationId: existing.id,
+          kind: "system",
+          body: `${store.name} が出店内容を送りました`,
+        },
+      });
+
+      await createNotification({
+        userId: event.organizer.userId,
+        type: "booking",
+        title: `スカウトに返事がありました: ${event.title}`,
+        body: `${store.name} が出店内容を送りました。内容を確認して返信してください。`,
+        link: `/events/applications/${existing.id}`,
+      }).catch((e) => console.error("Scout reply notification error:", e));
+
+      return NextResponse.json({ application: { id: existing.id } });
+    }
+
     if (existing) {
       return NextResponse.json(
         { error: "この募集にはすでに応募しています", applicationId: existing.id },
@@ -169,7 +263,15 @@ export async function POST(
       );
     }
 
-    const snapshot = await buildApplicationSnapshot(storeId);
+    const { accepting, reason } = isAcceptingApplications(event);
+    if (!accepting) {
+      return NextResponse.json(
+        { error: reason ?? "現在は応募を受け付けていません" },
+        { status: 400 }
+      );
+    }
+
+    const snapshot = await buildApplicationSnapshot(storeId, withTier);
 
     const application = await prisma.eventApplication.create({
       data: {

@@ -61,6 +61,11 @@ export async function PATCH(
 
     const now = new Date();
     const closing = next === "rejected" || next === "withdrawn";
+    // 主催者から声をかけたスカウトを断るのは「取り下げ」ではなく「辞退」
+    const label =
+      next === "withdrawn" && application.kind === "scout"
+        ? "出店者がスカウトを辞退しました"
+        : rule.label;
 
     await prisma.eventApplication.update({
       where: { id },
@@ -86,8 +91,8 @@ export async function PATCH(
         applicationId: id,
         kind: "system",
         body: closing
-          ? `${rule.label}${note ? `（${note}）` : ""}。開示されていた書類は表示されなくなりました。`
-          : rule.label,
+          ? `${label}${note ? `（${note}）` : ""}。開示されていた書類は表示されなくなりました。`
+          : label,
       },
     });
 
@@ -108,8 +113,10 @@ export async function PATCH(
             ? `出店が決定しました: ${application.event.title}`
             : next === "rejected"
               ? `見送りとなりました: ${application.event.title}`
+              : application.kind === "scout"
+              ? `スカウトが辞退されました: ${store?.name ?? ""}`
               : `応募が取り下げられました: ${store?.name ?? ""}`,
-        body: note || rule.label,
+        body: note || label,
         link: `/events/applications/${id}`,
       }).catch((e) => console.error("Application status notification error:", e));
     }

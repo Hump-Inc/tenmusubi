@@ -319,6 +319,7 @@ async function main() {
       "generatorNoiseDb" INTEGER,
       "usesFire" BOOLEAN NOT NULL DEFAULT false,
       "fireType" TEXT,
+      "fireApplianceCount" INTEGER,
       "waterTankLiter" INTEGER,
       "minSpaceWidthM" REAL,
       "minSpaceDepthM" REAL,
@@ -459,6 +460,26 @@ async function main() {
       "order" INTEGER NOT NULL DEFAULT 0,
       CONSTRAINT "EventImage_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS "OrganizerFollow" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "organizerId" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "OrganizerFollow_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "OrganizerFollow_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "OrganizerProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventFeeTier" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "eventId" TEXT NOT NULL,
+      "label" TEXT,
+      "fee" INTEGER NOT NULL,
+      "note" TEXT,
+      "slots" INTEGER,
+      "widthM" REAL,
+      "depthM" REAL,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT "EventFeeTier_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
     `CREATE TABLE IF NOT EXISTS "EventApplication" (
       "id" TEXT NOT NULL PRIMARY KEY,
       "eventId" TEXT NOT NULL,
@@ -561,6 +582,21 @@ async function main() {
     const eventCols = await client.execute("PRAGMA table_info('Event')");
     const colNames = new Set(eventCols.rows.map(r => r.name as string));
     if (!colNames.has("exhibitFeeMax")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "exhibitFeeMax" INTEGER');
+    if (!colNames.has("followersNotifiedAt")) {
+      alterStatements.push('ALTER TABLE "Event" ADD COLUMN "followersNotifiedAt" DATETIME');
+      // 列を足した時点で公開済みの募集は「新着」ではない。印を付けて、既存の募集を
+      // 編集しただけでフォロワーに通知が飛ぶのを防ぐ。列追加時の1回だけ走る。
+      alterStatements.push(
+        `UPDATE "Event" SET "followersNotifiedAt" = COALESCE("publishedAt", CURRENT_TIMESTAMP) WHERE "status" = 'published'`
+      );
+    }
+  }
+
+  // Check StoreApplicationProfile table for missing columns
+  if (existingTables.has("StoreApplicationProfile")) {
+    const profileCols = await client.execute("PRAGMA table_info('StoreApplicationProfile')");
+    const colNames = new Set(profileCols.rows.map(r => r.name as string));
+    if (!colNames.has("fireApplianceCount")) alterStatements.push('ALTER TABLE "StoreApplicationProfile" ADD COLUMN "fireApplianceCount" INTEGER');
   }
 
   // Check StoreImage table for missing columns
@@ -671,6 +707,9 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "Event_area_idx" ON "Event"("area")',
     'CREATE INDEX IF NOT EXISTS "Event_organizerId_idx" ON "Event"("organizerId")',
     'CREATE INDEX IF NOT EXISTS "EventImage_eventId_idx" ON "EventImage"("eventId")',
+    'CREATE INDEX IF NOT EXISTS "EventFeeTier_eventId_idx" ON "EventFeeTier"("eventId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerFollow_userId_organizerId_key" ON "OrganizerFollow"("userId", "organizerId")',
+    'CREATE INDEX IF NOT EXISTS "OrganizerFollow_organizerId_idx" ON "OrganizerFollow"("organizerId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventApplication_eventId_storeId_key" ON "EventApplication"("eventId", "storeId")',
     'CREATE INDEX IF NOT EXISTS "EventApplication_eventId_status_idx" ON "EventApplication"("eventId", "status")',
     'CREATE INDEX IF NOT EXISTS "EventApplication_storeId_idx" ON "EventApplication"("storeId")',

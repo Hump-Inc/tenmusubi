@@ -12,6 +12,8 @@ import {
   Coins,
   ClipboardList,
   Image as ImageIcon,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,24 @@ import {
   DOCUMENT_TYPES,
 } from "@/lib/constants";
 
+export interface FeeTierRow {
+  label: string;
+  fee: string;
+  note: string;
+  slots: string;
+  widthM: string;
+  depthM: string;
+}
+
+export const EMPTY_FEE_TIER: FeeTierRow = {
+  label: "",
+  fee: "",
+  note: "",
+  slots: "",
+  widthM: "",
+  depthM: "",
+};
+
 export interface EventFormValues {
   id?: string;
   title: string;
@@ -45,8 +65,9 @@ export interface EventFormValues {
   applicationOpenAt: string;
   applicationCloseAt: string;
   slots: string;
-  exhibitFee: string;
-  exhibitFeeMax: string;
+  // 区画ごとの出展料。最低1行。単一料金なら区画名を空のまま1行だけ入れる。
+  // Event.exhibitFee / exhibitFeeMax はここから算出されるので、フォームでは持たない。
+  feeTiers: FeeTierRow[];
   feeNote: string;
   spaceWidthM: string;
   spaceDepthM: string;
@@ -72,8 +93,7 @@ export const EMPTY_EVENT: EventFormValues = {
   applicationOpenAt: "",
   applicationCloseAt: "",
   slots: "",
-  exhibitFee: "",
-  exhibitFeeMax: "",
+  feeTiers: [{ ...EMPTY_FEE_TIER }],
   feeNote: "",
   spaceWidthM: "",
   spaceDepthM: "",
@@ -143,6 +163,21 @@ export function EventForm({
   const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const setTier = (index: number, key: keyof FeeTierRow, value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      feeTiers: prev.feeTiers.map((t, i) => (i === index ? { ...t, [key]: value } : t)),
+    }));
+
+  const addTier = () =>
+    setForm((prev) => ({ ...prev, feeTiers: [...prev.feeTiers, { ...EMPTY_FEE_TIER }] }));
+
+  const removeTier = (index: number) =>
+    setForm((prev) => ({
+      ...prev,
+      feeTiers: prev.feeTiers.filter((_, i) => i !== index),
+    }));
+
   const toggle = (key: "categories" | "requiredDocuments", value: string) =>
     setForm((prev) => ({
       ...prev,
@@ -166,7 +201,14 @@ export function EventForm({
     setSavingMode(mode);
     setError("");
     try {
-      const payload = { ...form, status: mode };
+      // 金額の入っていない行は捨てる。入力途中の空行がそのまま送られるのを防ぐ。
+      const feeTiers = form.feeTiers.filter((t) => t.fee.trim() !== "");
+      if (feeTiers.length === 0) {
+        setError("出展料を入力してください（無料の場合は0）");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      const payload = { ...form, feeTiers, status: mode };
       const res = await fetch(eventId ? `/api/events/${eventId}` : "/api/events", {
         method: eventId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -334,61 +376,148 @@ export function EventForm({
           <CardDescription>出店者が最初に確認する項目です</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="exhibitFee">
-                出展料 <span className="text-red-500">*</span>
-              </Label>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="exhibitFee"
-                    type="number"
-                    min={0}
-                    value={form.exhibitFee}
-                    onChange={(e) => set("exhibitFee", e.target.value)}
-                    placeholder="8000"
-                    className="pr-8"
-                    required
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                    円
-                  </span>
+          {/* 区画ごとの出展料。一律の金額より、区画・エリアごとの実額が並んでいる方が
+              出店者は判断しやすい（2026-08-27 MTG）。行は何本でも足せる。 */}
+          <div className="space-y-3">
+            <Label>
+              出展料 <span className="text-red-500">*</span>
+            </Label>
+            <div className="space-y-3">
+              {form.feeTiers.map((tier, i) => (
+                <div key={i} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[160px] flex-1 space-y-1.5">
+                      <Label htmlFor={`tierLabel-${i}`} className="text-xs text-gray-600">
+                        区画名
+                      </Label>
+                      <Input
+                        id={`tierLabel-${i}`}
+                        value={tier.label}
+                        onChange={(e) => setTier(i, "label", e.target.value)}
+                        placeholder="例: Aエリア（3m×3m）"
+                        className="bg-white"
+                      />
+                    </div>
+                    <div className="w-[130px] space-y-1.5">
+                      <Label htmlFor={`tierFee-${i}`} className="text-xs text-gray-600">
+                        金額 <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`tierFee-${i}`}
+                          type="number"
+                          min={0}
+                          value={tier.fee}
+                          onChange={(e) => setTier(i, "fee", e.target.value)}
+                          placeholder="8000"
+                          className="bg-white pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                          円
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-[110px] space-y-1.5">
+                      <Label htmlFor={`tierSlots-${i}`} className="text-xs text-gray-600">
+                        枠数
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`tierSlots-${i}`}
+                          type="number"
+                          min={0}
+                          value={tier.slots}
+                          onChange={(e) => setTier(i, "slots", e.target.value)}
+                          placeholder="10"
+                          className="bg-white pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                          枠
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-[150px] space-y-1.5">
+                      <Label className="text-xs text-gray-600">区画サイズ</Label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={tier.widthM}
+                          onChange={(e) => setTier(i, "widthM", e.target.value)}
+                          placeholder="間口"
+                          className="bg-white"
+                          aria-label="間口(m)"
+                        />
+                        <span className="text-xs text-gray-400">×</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={tier.depthM}
+                          onChange={(e) => setTier(i, "depthM", e.target.value)}
+                          placeholder="奥行"
+                          className="bg-white"
+                          aria-label="奥行(m)"
+                        />
+                      </div>
+                    </div>
+                    {form.feeTiers.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-red-600"
+                        onClick={() => removeTier(i)}
+                        aria-label={`${i + 1}行目を削除`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <Label htmlFor={`tierNote-${i}`} className="text-xs text-gray-600">
+                      この区画の補足
+                    </Label>
+                    <Input
+                      id={`tierNote-${i}`}
+                      value={tier.note}
+                      onChange={(e) => setTier(i, "note", e.target.value)}
+                      placeholder="例: 角地・電源1500Wまで"
+                      className="bg-white"
+                    />
+                  </div>
                 </div>
-                <span className="text-sm text-gray-500">〜</span>
-                <div className="relative flex-1">
-                  <Input
-                    id="exhibitFeeMax"
-                    type="number"
-                    min={0}
-                    value={form.exhibitFeeMax}
-                    onChange={(e) => set("exhibitFeeMax", e.target.value)}
-                    placeholder="15000"
-                    className="pr-8"
-                    aria-label="出展料の上限"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                    円
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500">
-                無料の場合は 0 を入力してください。区画やエリアで金額が変わる場合は、右に上限を入れると
-                「8,000円〜15,000円」と表示されます（同じ金額なら左だけでOK）。
-              </p>
+              ))}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="feeNote">出展料の補足</Label>
-              <Input
-                id="feeNote"
-                value={form.feeNote}
-                onChange={(e) => set("feeNote", e.target.value)}
-                placeholder="例: +売上の10% / Aエリアは角地"
-              />
-              <p className="text-xs text-gray-500">
-                区画ごとの内訳など、金額の理由をここに書けます
-              </p>
-            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={addTier}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              区画を追加
+            </Button>
+            <p className="text-xs text-gray-500">
+              無料の場合は 0 を入力してください。区画やエリアで金額が変わるときは行を足すと、
+              一覧では「8,000円〜15,000円」と幅で、募集ページでは区画ごとの金額で表示されます。
+              区画を2つ以上にするときは、それぞれに名前を付けてください。
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="feeNote">出展料の補足（募集全体）</Label>
+            <Input
+              id="feeNote"
+              value={form.feeNote}
+              onChange={(e) => set("feeNote", e.target.value)}
+              placeholder="例: +売上の10%"
+            />
+            <p className="text-xs text-gray-500">
+              どの区画にもかかる条件をここに書きます
+            </p>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">

@@ -44,6 +44,7 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   favorites       Favorite[]
   storeFavorites  StoreFavorite[]
+  organizerFollows OrganizerFollow[]
   reviewsGiven    Review[]  @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
   notifications Notification[]
@@ -485,6 +486,9 @@ model StoreApplicationProfile {
   generatorNoiseDb Int?
   usesFire         Boolean @default(false)
   fireType         String? // "lpg" | "cassette" | "electric_only"
+  // 主催者が消防署に出す書類で台数を書くので、有無だけでは足りない（2026-08-27 MTG）。
+  // ここは平常時の台数。イベントごとの実数は応募時に上書きしてスナップショットへ残す。
+  fireApplianceCount Int?
   waterTankLiter   Int?
   minSpaceWidthM   Float? // 間口(m)
   minSpaceDepthM   Float? // 奥行(m)
@@ -652,12 +656,29 @@ model OrganizerProfile {
   reviewedAt DateTime?
   reviewedBy String? // 対応した管理者のUserId
 
-  events Event[]
+  events    Event[]
+  followers OrganizerFollow[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
+}
+
+// 出店者が主催者をフォローする。次の募集が公開されたときに知らせるためのもの。
+// 募集は期間が短く、見逃すと終わりなので、主催者を起点に取りこぼしを防ぐ
+// （2026-08-27 先方フィードバック）。誰がフォローしているかは主催者に見える。
+model OrganizerFollow {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizerId String
+  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, organizerId])
+  @@index([organizerId])
 }
 
 model Event {
@@ -683,12 +704,12 @@ model Event {
   slots              Int? // 募集枠数
 
   // 出展料は必須。「応相談」は許さず、出店者が金額で絞り込めることを優先する（無料は0円）。
-  // 区画やエリアで金額が変わる募集があるので、上限も持てるようにする。
-  // exhibitFee = 最安値、exhibitFeeMax = 最高値（単一料金なら null）。検索の絞り込みは
-  // 必ず最安値 exhibitFee で判定する。
+  // 区画ごとの実額は EventFeeTier に持ち、この2列はそこから算出した最安値・最高値。
+  // 一覧カード・検索の絞り込み・OGP は必ずこの2列を見る（区画の行を読ませない）。
+  // 単一料金なら exhibitFeeMax は null。
   exhibitFee    Int
   exhibitFeeMax Int?
-  feeNote       String? // 「+売上の10%」「Aエリアは角地」などの補足
+  feeNote       String? // 「+売上の10%」など、募集全体にかかる補足
 
   // 出店条件（出店者が応募前に知りたい項目）
   spaceWidthM       Float?
@@ -704,8 +725,11 @@ model Event {
 
   status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
   publishedAt DateTime?
+  // フォロワーへ新着を知らせた時刻。下書きに戻して再公開しても二重に送らないための印。
+  followersNotifiedAt DateTime?
 
   images       EventImage[]
+  feeTiers     EventFeeTier[]
   applications EventApplication[]
 
   createdAt DateTime @default(now())
@@ -714,6 +738,25 @@ model Event {
   @@index([status, startAt])
   @@index([area])
   @@index([organizerId])
+}
+
+// 区画・エリアごとの出展料。「Aエリア 8,000円 / 角地 15,000円」のように実額を
+// 並べて出せるようにする。概算より細かく書かれている方が出店者は判断しやすい
+// （2026-08-27 MTG）。行は何本でも持てる。
+model EventFeeTier {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  label  String? // 「Aエリア 3m×3m」「角地」。単一料金なら未設定でよい
+  fee    Int
+  note   String? // この区画だけにかかる補足
+  slots  Int? // この区画の枠数
+  widthM Float?
+  depthM Float?
+  order  Int     @default(0)
+
+  @@index([eventId])
 }
 
 model EventImage {

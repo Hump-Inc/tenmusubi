@@ -142,3 +142,13 @@ export const documentTypeLabel = (v: string | null | undefined) => labelFrom(DOC
 export const spaceLeadStatusLabel = (v: string | null | undefined) =>
   labelFrom(SPACE_LEAD_STATUSES, v);
 export const weekdayLabel = (v: string | null | undefined) => labelFrom(WEEKDAYS, v);
+
+/**
+ * 主催者の「これまでの開催」を募集ページに出すか。
+ *
+ * 過去の実績が見えると信頼につながる一方、終わった募集や金額が残り続けることの
+ * 影響を先に確かめたい、という話になっているため既定はオフ（2026-08-27 MTG）。
+ * 検証するときは環境変数 SHOW_ORGANIZER_PAST_EVENTS=true を立てる。
+ */
+export const SHOW_ORGANIZER_PAST_EVENTS =
+  process.env.SHOW_ORGANIZER_PAST_EVENTS === "true";

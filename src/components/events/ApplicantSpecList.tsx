@@ -1,4 +1,12 @@
-import { CheckCircle2, AlertTriangle, Truck, Zap, Clock, UtensilsCrossed } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertTriangle,
+  Truck,
+  Zap,
+  Clock,
+  UtensilsCrossed,
+  Coins,
+} from "lucide-react";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { vehicleTypeLabel, fireTypeLabel, documentTypeLabel } from "@/lib/constants";
 import { formatDays } from "@/lib/applicationFormat";
@@ -74,8 +82,16 @@ export function ApplicantSpecList({
       : null;
   const days = formatDays(snapshot.availableDays);
 
+  const adjusted = snapshot.adjustedFields ?? [];
+
   return (
     <div className="space-y-5">
+      {adjusted.length > 0 && (
+        <p className="rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-900">
+          この募集に合わせて調整された項目: {adjusted.join(" / ")}
+        </p>
+      )}
+
       {fit.length > 0 && (
         <div className="rounded-xl bg-gray-50 p-4 space-y-2">
           <p className="text-xs text-gray-500">この会場の条件との照合</p>
@@ -88,6 +104,19 @@ export function ApplicantSpecList({
             ))}
           </ul>
         </div>
+      )}
+
+      {snapshot.desiredFeeTier && (
+        <Section icon={<Coins className="h-4 w-4" />} title="希望する区画">
+          <Row
+            label={snapshot.desiredFeeTier.label || "出展料"}
+            value={
+              snapshot.desiredFeeTier.fee === 0
+                ? "無料"
+                : `${snapshot.desiredFeeTier.fee.toLocaleString()}円`
+            }
+          />
+        </Section>
       )}
 
       <Section icon={<Truck className="h-4 w-4" />} title="車両">
@@ -119,7 +148,10 @@ export function ApplicantSpecList({
           label="火気使用"
           value={
             snapshot.usesFire
-              ? `あり（${fireTypeLabel(snapshot.fireType) ?? "種類未登録"}）`
+              ? `あり（${[
+                  fireTypeLabel(snapshot.fireType) ?? "種類未登録",
+                  snapshot.fireApplianceCount ? `${snapshot.fireApplianceCount}台` : "台数未記入",
+                ].join(" / ")}）`
               : "なし"
           }
         />

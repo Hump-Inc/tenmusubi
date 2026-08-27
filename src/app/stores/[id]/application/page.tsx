@@ -62,6 +62,7 @@ interface FormState {
   generatorNoiseDb: string;
   usesFire: boolean;
   fireType: string;
+  fireApplianceCount: string;
   waterTankLiter: string;
   minSpaceWidthM: string;
   minSpaceDepthM: string;
@@ -89,6 +90,7 @@ const EMPTY_FORM: FormState = {
   generatorNoiseDb: "",
   usesFire: false,
   fireType: "",
+  fireApplianceCount: "",
   waterTankLiter: "",
   minSpaceWidthM: "",
   minSpaceDepthM: "",
@@ -156,6 +158,7 @@ export default function StoreApplicationPage({
         generatorNoiseDb: str(p?.generatorNoiseDb),
         usesFire: p?.usesFire ?? false,
         fireType: str(p?.fireType),
+        fireApplianceCount: str(p?.fireApplianceCount),
         waterTankLiter: str(p?.waterTankLiter),
         minSpaceWidthM: str(p?.minSpaceWidthM),
         minSpaceDepthM: str(p?.minSpaceDepthM),
@@ -526,23 +529,45 @@ export default function StoreApplicationPage({
                     />
                   </div>
                   {form.usesFire && (
-                    <div className="space-y-2 pt-1">
-                      <Label>種類</Label>
-                      <Select
-                        value={form.fireType || undefined}
-                        onValueChange={(v) => update("fireType", v)}
-                      >
-                        <SelectTrigger className="max-w-[240px]">
-                          <SelectValue placeholder="選択してください" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FIRE_TYPES.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="flex flex-wrap gap-4 pt-1">
+                      <div className="space-y-2">
+                        <Label>種類</Label>
+                        <Select
+                          value={form.fireType || undefined}
+                          onValueChange={(v) => update("fireType", v)}
+                        >
+                          <SelectTrigger className="w-[240px]">
+                            <SelectValue placeholder="選択してください" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FIRE_TYPES.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="fireApplianceCount">台数</Label>
+                        <div className="relative w-[140px]">
+                          <Input
+                            id="fireApplianceCount"
+                            type="number"
+                            min={0}
+                            value={form.fireApplianceCount}
+                            onChange={(e) => update("fireApplianceCount", e.target.value)}
+                            placeholder="例: 2"
+                            className="pr-10"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                            台
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          主催者が消防署に出す書類で使います。応募時にイベントごとに直せます。
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>

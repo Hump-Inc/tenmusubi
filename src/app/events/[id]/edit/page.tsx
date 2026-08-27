@@ -10,6 +10,7 @@ import { Footer } from "@/components/layout/Footer";
 import {
   EventForm,
   EMPTY_EVENT,
+  EMPTY_FEE_TIER,
   toLocalInput,
   type EventFormValues,
 } from "@/components/events/EventForm";
@@ -59,8 +60,28 @@ export default function EditEventPage({ params }: { params: Promise<{ id: string
         applicationOpenAt: toLocalInput(e.applicationOpenAt, "date"),
         applicationCloseAt: toLocalInput(e.applicationCloseAt, "date"),
         slots: str(e.slots),
-        exhibitFee: str(e.exhibitFee),
-        exhibitFeeMax: str(e.exhibitFeeMax),
+        // 区画の行がまだ無い募集（この機能より前に作られたもの）は、
+        // 既存の金額から1行だけ作って引き継ぐ
+        feeTiers:
+          Array.isArray(e.feeTiers) && e.feeTiers.length > 0
+            ? e.feeTiers.map(
+                (t: {
+                  label: string | null;
+                  fee: number;
+                  note: string | null;
+                  slots: number | null;
+                  widthM: number | null;
+                  depthM: number | null;
+                }) => ({
+                  label: str(t.label),
+                  fee: str(t.fee),
+                  note: str(t.note),
+                  slots: str(t.slots),
+                  widthM: str(t.widthM),
+                  depthM: str(t.depthM),
+                })
+              )
+            : [{ ...EMPTY_FEE_TIER, fee: str(e.exhibitFee) }],
         feeNote: str(e.feeNote),
         spaceWidthM: str(e.spaceWidthM),
         spaceDepthM: str(e.spaceDepthM),

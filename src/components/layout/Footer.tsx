@@ -10,7 +10,7 @@ const footerLinks = {
     { name: "すべての出店者", href: "/search?type=vendor" },
   ],
   owner: [
-    { name: "出店先を探す", href: "/search?type=space" },
+    { name: "出店場所を探す", href: "/search?type=space" },
     { name: "スペースを提供する", href: "/register?type=owner" },
   ],
   support: [

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
+import { notifyFollowersOfNewEvent } from "@/lib/organizerFollowers";
 
 /**
  * 募集の取得・更新・削除。
@@ -53,6 +55,7 @@ export async function GET(
           select: { id: true, userId: true, orgName: true, intro: true, website: true, status: true },
         },
         images: { orderBy: { order: "asc" } },
+        feeTiers: { orderBy: { order: "asc" } },
         _count: { select: { applications: true } },
       },
     });
@@ -102,8 +105,13 @@ export async function PUT(
     const area = toStr(body.area, 20);
     const startAt = body.startAt ? new Date(body.startAt) : null;
     const endAt = body.endAt ? new Date(body.endAt) : null;
-    const exhibitFee = toInt(body.exhibitFee);
-    const exhibitFeeMax = toInt(body.exhibitFeeMax);
+    // 区画ごとの金額。送られていれば、そこから最安値・最高値を出して保存する。
+    const feeTiers = parseFeeTiers(body.feeTiers);
+    const hasTiers = !!feeTiers && feeTiers.length > 0;
+    const derived = hasTiers ? deriveFeeRange(feeTiers!) : null;
+
+    const exhibitFee = derived ? derived.fee : toInt(body.exhibitFee);
+    const exhibitFeeMax = derived ? derived.feeMax : toInt(body.exhibitFeeMax);
 
     if (!title || !venueName || !area) {
       return NextResponse.json(
@@ -123,6 +131,13 @@ export async function PUT(
     if (exhibitFee === null || exhibitFee < 0) {
       return NextResponse.json(
         { error: "出展料を入力してください（無料の場合は0）" },
+        { status: 400 }
+      );
+    }
+    // 区画を2行以上出すなら、どれがどれか分かるように名前が要る
+    if (hasTiers && feeTiers!.length > 1 && feeTiers!.some((t) => !t.label)) {
+      return NextResponse.json(
+        { error: "区画を複数に分ける場合は、それぞれに名前を付けてください" },
         { status: 400 }
       );
     }
@@ -146,9 +161,14 @@ export async function PUT(
       );
     }
 
+    // 区画の行は入れ替える。本数も並び順も変わるので、差分を取るより作り直す方が確実。
+    // feeTiers が送られていないリクエスト（旧形式）では触らない。
     const event = await prisma.event.update({
       where: { id },
       data: {
+        ...(feeTiers
+          ? { feeTiers: { deleteMany: {}, ...(hasTiers ? { create: feeTiers } : {}) } }
+          : {}),
         title,
         description: toStr(body.description, 5000),
         venueName,
@@ -180,6 +200,13 @@ export async function PUT(
             : result.event.publishedAt,
       },
     });
+
+    // 公開になったらフォロワーへ知らせる。1募集1回かどうかは呼び先が見る。
+    if (event.status === "published") {
+      await notifyFollowersOfNewEvent(event.id).catch((e) =>
+        console.error("Follower notification error:", e)
+      );
+    }
 
     return NextResponse.json({ event });
   } catch (error) {

@@ -13,6 +13,7 @@ import {
   FileCheck2,
   Store as StoreIcon,
   Inbox,
+  UserPlus,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -146,6 +147,13 @@ export default function EventApplicationsPage({
               </h1>
               <p className="text-sm text-gray-600 mt-1 truncate">{eventTitle}</p>
             </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="rounded-full" asChild>
+                <Link href={`/events/${id}/scout`}>
+                  <UserPlus className="mr-1 h-4 w-4" />
+                  出店者をスカウト
+                </Link>
+              </Button>
             <Select value={filter} onValueChange={setFilter}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue />
@@ -157,6 +165,7 @@ export default function EventApplicationsPage({
                 <SelectItem value="rejected">見送り</SelectItem>
               </SelectContent>
             </Select>
+            </div>
           </div>
 
           {error && (
@@ -216,6 +225,11 @@ export default function EventApplicationsPage({
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-bold text-gray-900">{r.store.name}</p>
+                            {r.kind === "scout" && (
+                              <Badge variant="outline" className="font-normal">
+                                {r.snapshot ? "スカウト" : "スカウト・返事待ち"}
+                              </Badge>
+                            )}
                             <Badge className={STATUS_STYLE[r.status] ?? ""}>
                               {STATUS_LABEL[r.status] ?? r.status}
                             </Badge>
