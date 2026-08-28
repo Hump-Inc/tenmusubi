@@ -26,6 +26,7 @@ import {
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ProfileCard } from "@/components/common/ProfileCard";
+import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { Button } from "@/components/ui/button";
 import { VENDOR_CATEGORIES } from "@/lib/constants";
 
@@ -128,6 +129,9 @@ export default function HomePage() {
   const isLoggedIn = status === "authenticated" && !!session;
   const [featuredVendors, setFeaturedVendors] = useState<VendorResult[]>([]);
   const [vendorCount, setVendorCount] = useState(0);
+  // 募集中のイベント。締切済みと開催済みはAPI側で落ちるので、そのまま並べられる。
+  const [openEvents, setOpenEvents] = useState<EventCardData[]>([]);
+  const [eventTotal, setEventTotal] = useState(0);
 
   useEffect(() => {
     fetch("/api/vendors?featured=true&limit=6")
@@ -137,6 +141,13 @@ export default function HomePage() {
     fetch("/api/vendors?limit=0")
       .then((r) => r.json())
       .then((data) => setVendorCount(data.total || 0))
+      .catch(() => {});
+    fetch("/api/events?limit=6")
+      .then((r) => r.json())
+      .then((data) => {
+        setOpenEvents(data.events || []);
+        setEventTotal(data.total || 0);
+      })
       .catch(() => {});
   }, []);
 
@@ -235,8 +246,41 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* 募集中のイベント。売り文句より先に、いま出ている募集そのものを見せる。
+            1件も無いときは枠ごと出さない（空の棚を見せないため）。 */}
+        {openEvents.length > 0 && (
+          <section className="py-16 md:py-24 bg-white">
+            <div className="container mx-auto px-4">
+              <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+                    いま募集中の出店
+                  </h2>
+                  <p className="mt-3 text-gray-600">
+                    {eventTotal > 0
+                      ? `${eventTotal}件の募集を受付中です。締切前にご確認ください`
+                      : "締切前にご確認ください"}
+                  </p>
+                </div>
+                <Button variant="outline" className="rounded-full" asChild>
+                  <Link href="/search?type=event">
+                    すべての募集を見る
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {openEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Benefits Section */}
-        <section className="py-16 md:py-24 bg-white">
+        <section className="py-16 md:py-24 bg-gray-50">
           <div className="container mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
