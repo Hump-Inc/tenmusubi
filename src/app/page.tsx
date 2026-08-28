@@ -18,7 +18,6 @@ import {
   Send,
   Search,
   Users,
-  Wallet,
   FileCheck2,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -26,7 +25,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ProfileCard } from "@/components/common/ProfileCard";
 import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { CardIcon } from "@/components/common/CardIcon";
-import { HOME_CARD_IMAGES, HOME_ROLE_PHOTOS } from "@/lib/homeImages";
+import { HOME_CARD_IMAGES, HOME_ROLE_PHOTOS, HOME_TRUST_PHOTOS } from "@/lib/homeImages";
 import { Button } from "@/components/ui/button";
 
 interface VendorResult {
@@ -526,7 +525,7 @@ export default function HomePage() {
           <div className="container mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                お金と書類のことで、揉めないように
+                スムーズな取引をサポート
               </h2>
               <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
                 はじめて組む相手とでも取引しやすいように、仕組みの側で守ります
@@ -534,43 +533,66 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-                  <Shield className="h-6 w-6" />
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="relative aspect-[16/9] bg-gray-100">
+                  <Image
+                    src={HOME_TRUST_PHOTOS.documents}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">書類は出す相手を選べます</h3>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  営業許可証やPL保険証券は、応募しただけでは相手に渡りません。
-                  やり取りのうえで出店者自身が開示を決め、いつでも取り消せます。
-                </p>
+                <div className="p-6">
+                  <h3 className="font-bold text-gray-900 mb-2">書類は出す相手を選べます</h3>
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    営業許可証やPL保険証券は、応募しただけでは相手に渡りません。
+                    やり取りのうえで出店者自身が開示を決め、いつでも取り消せます。
+                  </p>
+                </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-                  <CheckCircle2 className="h-6 w-6" />
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="relative aspect-[16/9] bg-gray-100">
+                  <Image
+                    src={HOME_TRUST_PHOTOS.verified}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">主催者は運営が確認します</h3>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  募集を出せるのは、運営が内容を確認した主催者だけです。
-                  どんな団体が、これまでどんなイベントを開いてきたのかを見てから応募できます。
-                </p>
+                <div className="p-6">
+                  <h3 className="font-bold text-gray-900 mb-2">主催者は運営が確認します</h3>
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    募集を出せるのは、運営が内容を確認した主催者だけです。
+                    どんな団体が、これまでどんなイベントを開いてきたのかを見てから応募できます。
+                  </p>
+                </div>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-200 text-gray-500">
-                    <Wallet className="h-6 w-6" />
-                  </div>
-                  <span className="rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600">
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
+                <div className="relative aspect-[16/9] bg-gray-100">
+                  <Image
+                    src={HOME_TRUST_PHOTOS.payment}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
+                  {/* まだ動いていない機能なので、写真の上でも準備中と分かるようにする */}
+                  <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm">
                     準備中
                   </span>
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">出展料のオンライン決済</h3>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  出展料のやり取りをてんむすび上で完結できるようにします。
-                  当日の現金の受け渡しや、支払いの行き違いをなくすための仕組みです。
-                  キャンセル時の返金ルールと合わせて準備しています。
-                </p>
+                <div className="p-6">
+                  <h3 className="font-bold text-gray-900 mb-2">出展料のオンライン決済</h3>
+                  <p className="text-sm leading-relaxed text-gray-600">
+                    出展料のやり取りをてんむすび上で完結できるようにします。
+                    当日の現金の受け渡しや、支払いの行き違いをなくすための仕組みです。
+                    キャンセル時の返金ルールと合わせて準備しています。
+                  </p>
+                </div>
               </div>
             </div>
           </div>

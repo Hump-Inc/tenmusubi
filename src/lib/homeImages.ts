@@ -27,3 +27,13 @@ export const HOME_ROLE_PHOTOS = {
   vendor: "/images/role-vendor.jpg", // 出店したい方
   organizer: "/images/role-organizer.jpg", // イベントを開きたい方
 } as const;
+
+/**
+ * 「スムーズな取引をサポート」の3枚。こちらもカード上部の帯として出す。
+ * 3枚並ぶので役割カードの16:7より少し高い16:9（1000×563）で書き出してある。
+ */
+export const HOME_TRUST_PHOTOS = {
+  documents: "/images/trust-documents.jpg", // 書類は出す相手を選べます
+  verified: "/images/trust-verified.jpg", // 主催者は運営が確認します
+  payment: "/images/trust-payment.jpg", // 出展料のオンライン決済
+} as const;
