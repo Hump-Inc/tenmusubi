@@ -27,6 +27,8 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ProfileCard } from "@/components/common/ProfileCard";
 import { EventCard, type EventCardData } from "@/components/events/EventCard";
+import { CardIcon } from "@/components/common/CardIcon";
+import { HOME_CARD_IMAGES } from "@/lib/homeImages";
 import { Button } from "@/components/ui/button";
 import { VENDOR_CATEGORIES } from "@/lib/constants";
 
@@ -104,21 +106,25 @@ const organizerFeatures = [
 const benefits = [
   {
     icon: Eye,
+    image: HOME_CARD_IMAGES.benefitOwners,
     title: "スペースオーナーの目に留まる",
     desc: "登録するだけで、出店場所を提供したいオーナーがあなたを見つけてくれます。自分から営業する必要はありません。",
   },
   {
     icon: Star,
+    image: HOME_CARD_IMAGES.benefitAppeal,
     title: "あなたの魅力を最大限にアピール",
     desc: "写真・メニュー・こだわりポイントなど、充実したプロフィールであなたのお店の魅力を伝えられます。",
   },
   {
     icon: Shield,
+    image: HOME_CARD_IMAGES.benefitFree,
     title: "完全無料で利用可能",
     desc: "登録もプロフィール作成もすべて無料。まずは登録して、あなたのお店をアピールしましょう。",
   },
   {
     icon: TrendingUp,
+    image: HOME_CARD_IMAGES.benefitChances,
     title: "出店チャンスが広がる",
     desc: "イベント・マルシェ・商業施設など、さまざまなスペースオーナーがあなたの出店先候補です。",
   },
@@ -293,15 +299,12 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {benefits.map((benefit) => {
-                const Icon = benefit.icon;
                 return (
                   <div
                     key={benefit.title}
                     className="flex gap-4 p-6 rounded-2xl border border-gray-100 bg-white shadow-sm"
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                      <Icon className="h-6 w-6" />
-                    </div>
+                    <CardIcon src={benefit.image} icon={benefit.icon} />
                     <div>
                       <h3 className="font-bold text-gray-900 mb-2">{benefit.title}</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">{benefit.desc}</p>
@@ -329,9 +332,11 @@ export default function HomePage() {
               {/* 出店したい人 */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Truck className="h-6 w-6" />
-                  </div>
+                  <CardIcon
+                    src={HOME_CARD_IMAGES.roleVendor}
+                    icon={Truck}
+                    className="h-11 w-11 rounded-xl"
+                  />
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">出店したい方</h3>
                     <p className="text-sm text-gray-500">キッチンカー・ハンドメイド・物販</p>
@@ -359,9 +364,11 @@ export default function HomePage() {
               {/* イベントを開きたい人 */}
               <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <CalendarDays className="h-6 w-6" />
-                  </div>
+                  <CardIcon
+                    src={HOME_CARD_IMAGES.roleOrganizer}
+                    icon={CalendarDays}
+                    className="h-11 w-11 rounded-xl"
+                  />
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">イベントを開きたい方</h3>
                     <p className="text-sm text-gray-500">主催者・商業施設・自治体</p>
