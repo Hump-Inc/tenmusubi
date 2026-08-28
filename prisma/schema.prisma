@@ -45,6 +45,7 @@ model User {
   favorites       Favorite[]
   storeFavorites  StoreFavorite[]
   organizerFollows OrganizerFollow[]
+  eventFavorites  EventFavorite[]
   reviewsGiven    Review[]  @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
   notifications Notification[]
@@ -730,6 +731,7 @@ model Event {
 
   images       EventImage[]
   feeTiers     EventFeeTier[]
+  favorites    EventFavorite[]
   applications EventApplication[]
 
   createdAt DateTime @default(now())
@@ -738,6 +740,24 @@ model Event {
   @@index([status, startAt])
   @@index([area])
   @@index([organizerId])
+}
+
+// 出店者が「気になる」と印を付けた募集。応募するか迷っている間に締切を過ぎる、
+// という取りこぼしを防ぐためのもの（2026-08-28 先方要望）。締切が近づいたら知らせる。
+model EventFavorite {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // 締切リマインドを送った時刻。1つの募集につき1回だけ送るための印。
+  remindedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([eventId])
 }
 
 // 区画・エリアごとの出展料。「Aエリア 8,000円 / 角地 15,000円」のように実額を

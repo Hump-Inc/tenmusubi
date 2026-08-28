@@ -123,6 +123,15 @@ const menuItems = [
 ];
 
 
+interface FavoriteEvent {
+  id: string;
+  title: string;
+  area: string;
+  venueName: string;
+  startAt: string;
+  applicationCloseAt: string | null;
+}
+
 interface FollowedOrganizer {
   id: string;
   orgName: string;
@@ -160,6 +169,8 @@ export default function MyPage() {
   const [eventThreads, setEventThreads] = useState<EventThreadSummary[]>([]);
   // フォロー中の主催者。次の募集が公開されたら通知が届く。
   const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
+  // 気になる募集。締切が近い順に返ってくる。
+  const [favoriteEvents, setFavoriteEvents] = useState<FavoriteEvent[]>([]);
   const [stats, setStats] = useState({ favorites: 0, messages: 0, bookings: 0, reviews: 0, spaces: 0, stores: 0, checkIns: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
@@ -277,6 +288,17 @@ export default function MyPage() {
           if (threadsRes.ok) {
             const threadsData = await threadsRes.json();
             setEventThreads(threadsData.threads ?? []);
+          }
+        } catch {
+          // silent
+        }
+
+        // 気になる募集
+        try {
+          const favEventsRes = await fetch("/api/events/favorites");
+          if (favEventsRes.ok) {
+            const favEventsData = await favEventsRes.json();
+            setFavoriteEvents(favEventsData.events ?? []);
           }
         } catch {
           // silent
@@ -1041,6 +1063,55 @@ export default function MyPage() {
                 {/* Favorites Tab */}
                 {isVendor && (
                   <TabsContent value="favorites" className="space-y-6">
+                    {/* 気になる募集。締切が近い順。迷ったまま期限が来るのを防ぐのが目的なので、
+                        残り日数を目立たせる。 */}
+                    {favoriteEvents.length > 0 && (
+                      <div>
+                        <h2 className="mb-3 text-xl font-bold text-gray-900">気になる募集</h2>
+                        <div className="divide-y divide-gray-100 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+                          {favoriteEvents.map((e) => {
+                            const left = e.applicationCloseAt
+                              ? Math.ceil(
+                                  (new Date(e.applicationCloseAt).getTime() - Date.now()) /
+                                    (24 * 60 * 60 * 1000)
+                                )
+                              : null;
+                            return (
+                              <Link
+                                key={e.id}
+                                href={`/events/${e.id}`}
+                                className="flex items-center gap-3 py-3 transition-colors hover:bg-gray-50"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-gray-900">
+                                    {e.title}
+                                  </p>
+                                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                                    {e.area} ・ {e.venueName}
+                                  </p>
+                                </div>
+                                {left !== null && left >= 0 && (
+                                  <span
+                                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                      left <= 7
+                                        ? "bg-orange-100 text-orange-700"
+                                        : "bg-gray-100 text-gray-600"
+                                    }`}
+                                  >
+                                    締切まで{left === 0 ? "本日" : `${left}日`}
+                                  </span>
+                                )}
+                                <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                              </Link>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">
+                          締切の3日前にお知らせします
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold text-gray-900">お気に入り一覧</h2>
                     </div>

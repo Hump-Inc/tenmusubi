@@ -35,6 +35,7 @@ import {
 import { feeTierLabel } from "@/lib/eventFeeTiers";
 import { SHOW_ORGANIZER_PAST_EVENTS } from "@/lib/constants";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
+import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +172,13 @@ export default async function EventDetailPage({
         })
       : [],
   ]);
+
+  const myFavorite = viewerId
+    ? await prisma.eventFavorite.findUnique({
+        where: { userId_eventId: { userId: viewerId, eventId: event.id } },
+        select: { id: true },
+      })
+    : null;
 
   const { accepting, reason } = isAcceptingApplications(event);
   const categories = parseJsonArray(event.categories);
@@ -491,6 +499,14 @@ export default async function EventDetailPage({
                   <p className="mt-2 text-center text-xs text-gray-500">
                     応募しても書類は届きません。やり取りのうえで開示されます。
                   </p>
+                  {/* 迷っている間に締切を過ぎるのを防ぐ。応募済みの人には出さない。 */}
+                  <div className="mt-3">
+                    <EventFavoriteButton
+                      eventId={event.id}
+                      initialFavorited={!!myFavorite}
+                      hasDeadline={!!event.applicationCloseAt}
+                    />
+                  </div>
                 </>
               ) : (
                 <p className="text-center text-sm text-gray-500 py-2">
