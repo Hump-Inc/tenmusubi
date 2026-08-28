@@ -11,12 +11,17 @@ import {
   Package,
   Eye,
   UserPlus,
-  MessageCircle,
   Handshake,
   CheckCircle2,
   Star,
   Shield,
   TrendingUp,
+  CalendarDays,
+  Send,
+  Search,
+  Users,
+  Wallet,
+  FileCheck2,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -45,9 +50,54 @@ interface VendorResult {
 
 const steps = [
   { icon: UserPlus, title: "無料で登録", desc: "メールまたはSNSで簡単アカウント作成" },
-  { icon: Truck, title: "プロフィールを作成", desc: "写真・メニュー・こだわりをアピール" },
-  { icon: Eye, title: "スペースオーナーが閲覧", desc: "あなたのページをオーナーが見つけます" },
-  { icon: Handshake, title: "出店オファーが届く", desc: "メッセージで条件を相談して出店決定" },
+  { icon: Truck, title: "出店情報を登録", desc: "写真・メニュー・車両や設備の条件をまとめて登録" },
+  {
+    icon: Send,
+    title: "応募する / 声がかかる",
+    desc: "出店募集に応募。主催者からスカウトが届くこともあります",
+  },
+  { icon: Handshake, title: "やり取りして出店決定", desc: "条件を相談し、書類は必要なときだけ開示" },
+];
+
+/**
+ * てんむすびでできること。出店者と主催者の両方の入口をここで見せる。
+ * キッチンカーのオーナー自身がイベントを開けることが伝わっていなかったため
+ * （2026-08-28 先方要望）。
+ */
+const vendorFeatures = [
+  {
+    icon: Search,
+    title: "出店募集を探して応募する",
+    desc: "エリア・開催月・業種で募集を絞り込み。区画ごとの出展料まで見てから応募できます。",
+  },
+  {
+    icon: Send,
+    title: "主催者からスカウトが届く",
+    desc: "登録しておくと、出店者を探している主催者から直接お誘いが届きます。",
+  },
+  {
+    icon: FileCheck2,
+    title: "申込情報は一度の登録で使い回す",
+    desc: "車両・設備・メニューを登録しておけば、応募のたびに書き直す必要はありません。イベントごとに変わる火気の台数などは、その場で直せます。",
+  },
+];
+
+const organizerFeatures = [
+  {
+    icon: CalendarDays,
+    title: "出店募集をつくる",
+    desc: "開催日・会場・区画ごとの出展料・必要な設備を登録して公開。募集ページがそのまま告知になります。",
+  },
+  {
+    icon: Users,
+    title: "応募をまとめて比べる",
+    desc: "電源・火気・必要スペースが会場の条件と噛み合うかを自動で照合。並べて比較できます。",
+  },
+  {
+    icon: Send,
+    title: "こちらからスカウトする",
+    desc: "応募を待つだけでなく、出店してほしいお店へ直接お誘いを送れます。",
+  },
 ];
 
 const benefits = [
@@ -140,7 +190,8 @@ export default function HomePage() {
                 出店オファーが届く
               </h1>
               <p className="mt-6 text-lg md:text-xl text-white/90 leading-relaxed max-w-xl">
-                てんむすびに登録すれば、スペースオーナーがあなたのお店を見つけてくれます。営業不要、プロフィールを作るだけ。
+                出店募集を探して応募する。主催者から声がかかる。自分でイベントを開く。
+                出店にまつわることが、ここでひと続きになります。
               </p>
 
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
@@ -160,8 +211,8 @@ export default function HomePage() {
                   className="rounded-full px-8 h-14 text-base"
                   asChild
                 >
-                  <Link href="/search?type=vendor">
-                    登録中の出店者を見る
+                  <Link href="/search?type=event">
+                    出店募集を見る
                   </Link>
                 </Button>
               </div>
@@ -177,7 +228,7 @@ export default function HomePage() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4 text-green-400" />
-                  オーナーから直接連絡
+                  出店募集への応募も主催もできる
                 </span>
               </div>
             </div>
@@ -214,6 +265,107 @@ export default function HomePage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* できること。出店する側と、イベントを開く側の両方を並べて見せる。 */}
+        <section className="py-16 md:py-24 bg-white border-t border-gray-100">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-14">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+                てんむすびでできること
+              </h2>
+              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
+                出店する側にも、イベントを開く側にもなれます。ひとつのアカウントで両方使えます。
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              {/* 出店したい人 */}
+              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Truck className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">出店したい方</h3>
+                    <p className="text-sm text-gray-500">キッチンカー・ハンドメイド・物販</p>
+                  </div>
+                </div>
+                <ul className="space-y-5">
+                  {vendorFeatures.map((f) => {
+                    const Icon = f.icon;
+                    return (
+                      <li key={f.title} className="flex gap-3">
+                        <Icon className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+                        <div>
+                          <p className="font-bold text-gray-900">{f.title}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-gray-600">{f.desc}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Button variant="outline" className="mt-7 w-full rounded-full" asChild>
+                  <Link href="/search?type=event">出店募集を探す</Link>
+                </Button>
+              </div>
+
+              {/* イベントを開きたい人 */}
+              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <CalendarDays className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">イベントを開きたい方</h3>
+                    <p className="text-sm text-gray-500">主催者・商業施設・自治体</p>
+                  </div>
+                </div>
+                <ul className="space-y-5">
+                  {organizerFeatures.map((f) => {
+                    const Icon = f.icon;
+                    return (
+                      <li key={f.title} className="flex gap-3">
+                        <Icon className="h-5 w-5 shrink-0 text-primary mt-0.5" />
+                        <div>
+                          <p className="font-bold text-gray-900">{f.title}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-gray-600">{f.desc}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Button variant="outline" className="mt-7 w-full rounded-full" asChild>
+                  <Link href="/organizer">イベントを主催する</Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* 出店者自身が主催に回れることを、独立して伝える */}
+            <div className="mt-8 max-w-5xl mx-auto rounded-2xl bg-cream p-6 sm:p-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
+                  <TrendingUp className="h-7 w-7" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    キッチンカーのオーナーが、主催者になれます
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                    出店を待つだけでなく、自分でイベントを立てて出店者を集められます。
+                    仲間のキッチンカーに声をかけてマルシェを開けば、出店の売上とは別に出展料という収入源が生まれます。
+                    出店する側の勝手が分かっているからこそ、集まりやすい募集がつくれます。
+                  </p>
+                </div>
+                <Button className="shrink-0 rounded-full px-6" asChild>
+                  <Link href="/organizer">
+                    はじめる
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         </section>
@@ -343,20 +495,75 @@ export default function HomePage() {
           </section>
         )}
 
+        {/* 取引の安心。決済はまだ動いていないので「準備中」と明記する。 */}
+        <section className="py-16 md:py-24 bg-white border-t border-gray-100">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-14">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+                お金と書類のことで、揉めないように
+              </h2>
+              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
+                はじめて組む相手とでも取引しやすいように、仕組みの側で守ります
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">書類は出す相手を選べます</h3>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  営業許可証やPL保険証券は、応募しただけでは相手に渡りません。
+                  やり取りのうえで出店者自身が開示を決め、いつでも取り消せます。
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">主催者は運営が確認します</h3>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  募集を出せるのは、運営が内容を確認した主催者だけです。
+                  どんな団体が、これまでどんなイベントを開いてきたのかを見てから応募できます。
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-200 text-gray-500">
+                    <Wallet className="h-6 w-6" />
+                  </div>
+                  <span className="rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600">
+                    準備中
+                  </span>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">出展料のオンライン決済</h3>
+                <p className="text-sm leading-relaxed text-gray-600">
+                  出展料のやり取りをてんむすび上で完結できるようにします。
+                  当日の現金の受け渡しや、支払いの行き違いをなくすための仕組みです。
+                  キャンセル時の返金ルールと合わせて準備しています。
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA Section */}
         <section className="py-16 md:py-24 bg-primary text-white">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold">
-              あなたのお店を待っている
+              出店するのも、
               <br className="sm:hidden" />
-              オーナーがいます
+              イベントを開くのも
             </h2>
             <p className="mt-4 text-white/90 max-w-xl mx-auto">
-              てんむすびに登録して、出店チャンスを広げましょう。
+              ひとつのアカウントではじめられます。
               <br />
               登録は無料、わずか1分で完了します。
             </p>
-            <div className="mt-10">
+            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
                 variant="white-primary"
@@ -367,6 +574,14 @@ export default function HomePage() {
                   {ctaLabel}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
+              </Button>
+              <Button
+                size="lg"
+                variant="outline-white"
+                className="rounded-full px-10 h-14 text-base"
+                asChild
+              >
+                <Link href="/organizer">イベントを主催する</Link>
               </Button>
             </div>
           </div>
