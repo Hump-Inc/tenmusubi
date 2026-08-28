@@ -7,8 +7,6 @@ import Image from "next/image";
 import {
   ArrowRight,
   Truck,
-  Palette,
-  Package,
   Eye,
   UserPlus,
   Handshake,
@@ -30,13 +28,6 @@ import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { CardIcon } from "@/components/common/CardIcon";
 import { HOME_CARD_IMAGES, HOME_ROLE_PHOTOS } from "@/lib/homeImages";
 import { Button } from "@/components/ui/button";
-import { VENDOR_CATEGORIES } from "@/lib/constants";
-
-const categoryIcons = {
-  Truck,
-  Palette,
-  Package,
-} as const;
 
 interface VendorResult {
   id: string;
@@ -485,45 +476,9 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Category Cards */}
-        <section className="py-16 md:py-24 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                登録できるカテゴリ
-              </h2>
-              <p className="mt-4 text-gray-600">
-                あなたの業種に合ったカテゴリで登録できます
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {VENDOR_CATEGORIES.map((cat) => {
-                const Icon = categoryIcons[cat.icon as keyof typeof categoryIcons];
-                return (
-                  <div
-                    key={cat.id}
-                    className="relative rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm"
-                  >
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary mx-auto mb-4">
-                      <Icon className="h-8 w-8" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">
-                      {cat.label}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {cat.description}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
         {/* Featured Vendors */}
         {featuredVendors.length > 0 && (
-          <section className="py-16 md:py-24 bg-gray-50">
+          <section className="py-16 md:py-24 bg-white">
             <div className="container mx-auto px-4">
               <div className="text-center mb-12">
                 <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
