@@ -147,8 +147,11 @@ export const weekdayLabel = (v: string | null | undefined) => labelFrom(WEEKDAYS
  * 主催者の「これまでの開催」を募集ページに出すか。
  *
  * 過去の実績が見えると信頼につながる一方、終わった募集や金額が残り続けることの
- * 影響を先に確かめたい、という話になっているため既定はオフ（2026-08-27 MTG）。
- * 検証するときは環境変数 SHOW_ORGANIZER_PAST_EVENTS=true を立てる。
+ * 影響を先に確かめたい、という話になっていた（2026-08-27 MTG）。
+ *
+ * 2026-08-28 に「一旦なし。実際にイベントが行われてから判断する」と決まったため
+ * オフのまま置いてある。実績が溜まってから見せると決めたら、環境変数
+ * SHOW_ORGANIZER_PAST_EVENTS=true を立てるだけでよい。表示側の実装は済んでいる。
  */
 export const SHOW_ORGANIZER_PAST_EVENTS =
   process.env.SHOW_ORGANIZER_PAST_EVENTS === "true";
