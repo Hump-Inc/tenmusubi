@@ -9,6 +9,10 @@ const footerLinks = {
     { name: "その他の出店者", href: "/search?type=vendor&category=その他" },
     { name: "すべての出店者", href: "/search?type=vendor" },
   ],
+  events: [
+    { name: "出店募集を探す", href: "/search?type=event" },
+    { name: "イベントを主催する", href: "/organizer" },
+  ],
   owner: [
     { name: "出店場所を探す", href: "/search?type=space" },
     { name: "スペースを提供する", href: "/register?type=owner" },
@@ -32,7 +36,7 @@ export function Footer() {
     <footer className="bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-16">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link href="/" className="flex items-center gap-3">
@@ -68,6 +72,23 @@ export function Footer() {
             <h3 className="font-bold text-white mb-4">出店者を探す</h3>
             <ul className="space-y-3">
               {footerLinks.categories.map((link) => (
+                <li key={link.name}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-gray-400 transition-colors hover:text-white"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Event Links */}
+          <div>
+            <h3 className="font-bold text-white mb-4">出店募集</h3>
+            <ul className="space-y-3">
+              {footerLinks.events.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}

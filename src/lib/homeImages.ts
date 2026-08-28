@@ -15,7 +15,15 @@ export const HOME_CARD_IMAGES = {
   benefitFree: "/images/benefit-free.png", // 完全無料で利用可能
   benefitChances: "/images/benefit-chances.png", // 出店チャンスが広がる
 
-  // 「てんむすびでできること」の2枚
-  roleVendor: "/images/role-vendor.png", // 出店したい方
-  roleOrganizer: "/images/role-organizer.png", // イベントを開きたい方
+} as const;
+
+/**
+ * 「てんむすびでできること」のカード上部に敷く写真。
+ *
+ * こちらは小さなアイコン枠ではなく帯として出す。横長の写真を48pxの枠に入れても
+ * 何の写真か分からないため（2026-08-28 決定）。16:7 で書き出してある。
+ */
+export const HOME_ROLE_PHOTOS = {
+  vendor: "/images/role-vendor.jpg", // 出店したい方
+  organizer: "/images/role-organizer.jpg", // イベントを開きたい方
 } as const;

@@ -28,7 +28,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ProfileCard } from "@/components/common/ProfileCard";
 import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { CardIcon } from "@/components/common/CardIcon";
-import { HOME_CARD_IMAGES } from "@/lib/homeImages";
+import { HOME_CARD_IMAGES, HOME_ROLE_PHOTOS } from "@/lib/homeImages";
 import { Button } from "@/components/ui/button";
 import { VENDOR_CATEGORIES } from "@/lib/constants";
 
@@ -201,10 +201,12 @@ export default function HomePage() {
                   : "出店者の登録受付中"}
               </div>
 
+              {/* 募集を探す・声がかかる・自分で開くの3つが入った今は、
+                  オファーを待つだけの見出しだと実態を映さない（2026-08-28 変更）。 */}
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                登録するだけで
+                次の出店先が、
                 <br />
-                出店オファーが届く
+                ここで見つかる
               </h1>
               <p className="mt-6 text-lg md:text-xl text-white/90 leading-relaxed max-w-xl">
                 出店募集を探して応募する。主催者から声がかかる。自分でイベントを開く。
@@ -330,13 +332,21 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
               {/* 出店したい人 */}
-              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <CardIcon
-                    src={HOME_CARD_IMAGES.roleVendor}
-                    icon={Truck}
-                    className="h-11 w-11 rounded-xl"
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="relative aspect-[16/7] bg-gray-100">
+                  <Image
+                    src={HOME_ROLE_PHOTOS.vendor}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                   />
+                </div>
+                <div className="p-6 sm:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Truck className="h-6 w-6" />
+                  </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">出店したい方</h3>
                     <p className="text-sm text-gray-500">キッチンカー・ハンドメイド・物販</p>
@@ -359,16 +369,25 @@ export default function HomePage() {
                 <Button variant="outline" className="mt-7 w-full rounded-full" asChild>
                   <Link href="/search?type=event">出店募集を探す</Link>
                 </Button>
+                </div>
               </div>
 
               {/* イベントを開きたい人 */}
-              <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <CardIcon
-                    src={HOME_CARD_IMAGES.roleOrganizer}
-                    icon={CalendarDays}
-                    className="h-11 w-11 rounded-xl"
+              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="relative aspect-[16/7] bg-gray-100">
+                  <Image
+                    src={HOME_ROLE_PHOTOS.organizer}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                   />
+                </div>
+                <div className="p-6 sm:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <CalendarDays className="h-6 w-6" />
+                  </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">イベントを開きたい方</h3>
                     <p className="text-sm text-gray-500">主催者・商業施設・自治体</p>
@@ -391,6 +410,7 @@ export default function HomePage() {
                 <Button variant="outline" className="mt-7 w-full rounded-full" asChild>
                   <Link href="/organizer">イベントを主催する</Link>
                 </Button>
+                </div>
               </div>
             </div>
 
