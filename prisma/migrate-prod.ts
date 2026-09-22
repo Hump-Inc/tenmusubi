@@ -516,6 +516,9 @@ async function main() {
       "documentRequestedAt" DATETIME,
       "confirmedAt" DATETIME,
       "closedAt" DATETIME,
+      "policyVersion" TEXT,
+      "vendorPolicyAgreedAt" DATETIME,
+      "organizerPolicyAgreedAt" DATETIME,
       "lastMessageAt" DATETIME,
       "vendorLastReadAt" DATETIME,
       "organizerLastReadAt" DATETIME,
@@ -648,6 +651,15 @@ async function main() {
     if (!colNames.has("stripeAccountId")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeAccountId" TEXT');
     if (!colNames.has("stripeChargesEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeChargesEnabled" BOOLEAN NOT NULL DEFAULT false');
     if (!colNames.has("stripePayoutsEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripePayoutsEnabled" BOOLEAN NOT NULL DEFAULT false');
+  }
+
+  // Check EventApplication table for missing columns
+  if (existingTables.has("EventApplication")) {
+    const appCols = await client.execute("PRAGMA table_info('EventApplication')");
+    const colNames = new Set(appCols.rows.map(r => r.name as string));
+    if (!colNames.has("policyVersion")) alterStatements.push('ALTER TABLE "EventApplication" ADD COLUMN "policyVersion" TEXT');
+    if (!colNames.has("vendorPolicyAgreedAt")) alterStatements.push('ALTER TABLE "EventApplication" ADD COLUMN "vendorPolicyAgreedAt" DATETIME');
+    if (!colNames.has("organizerPolicyAgreedAt")) alterStatements.push('ALTER TABLE "EventApplication" ADD COLUMN "organizerPolicyAgreedAt" DATETIME');
   }
 
   // Check EventPayment table for missing columns

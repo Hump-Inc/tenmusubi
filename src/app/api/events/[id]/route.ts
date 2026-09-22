@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -77,7 +78,8 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ event });
+    // 応募画面で、キャンセル規定への同意を求めるかどうかに使う
+    return NextResponse.json({ event, paymentsEnabled: EVENT_PAYMENTS_ENABLED });
   } catch (error) {
     console.error("Event GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });

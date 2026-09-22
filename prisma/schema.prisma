@@ -843,6 +843,13 @@ model EventApplication {
   confirmedAt DateTime?
   closedAt    DateTime?
 
+  // キャンセル規定（src/lib/cancellationPolicy.ts）への同意。出店者は応募時、主催者は
+  // 出店の決定時に同意する。「聞いていない」を避けるため、どの版にいつ同意したかを残す。
+  // 出展料の決済が有効なときだけ求めるので、それ以外の応募では null。
+  policyVersion           String?
+  vendorPolicyAgreedAt    DateTime?
+  organizerPolicyAgreedAt DateTime?
+
   lastMessageAt      DateTime?
   vendorLastReadAt   DateTime?
   organizerLastReadAt DateTime?

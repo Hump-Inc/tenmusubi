@@ -314,6 +314,14 @@ export function PaymentPanel({
         </div>
       )}
 
+      <p className="text-xs text-gray-500">
+        キャンセルと返金は
+        <Link href="/cancel-policy" target="_blank" className="mx-0.5 text-orange-600 hover:underline">
+          出展料のキャンセル規定
+        </Link>
+        に沿って扱います。
+      </p>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );

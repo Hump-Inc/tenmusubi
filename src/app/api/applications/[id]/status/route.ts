@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadApplicationForViewer } from "@/lib/eventApplicationAccess";
 import { createNotification } from "@/lib/notifications";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { CANCELLATION_POLICY_VERSION } from "@/lib/cancellationPolicy";
 
 /**
  * PATCH: 成立・見送り・取り下げ。
@@ -59,6 +61,14 @@ export async function PATCH(
       );
     }
 
+    // 出店の決定で出展料が確定する。主催者にもキャンセル規定へ同意してもらう。
+    if (next === "confirmed" && EVENT_PAYMENTS_ENABLED && body.policyAgreed !== true) {
+      return NextResponse.json(
+        { error: "キャンセル規定を確認し、同意してください" },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
     const closing = next === "rejected" || next === "withdrawn";
     // 主催者から声をかけたスカウトを断るのは「取り下げ」ではなく「辞退」
@@ -72,6 +82,12 @@ export async function PATCH(
       data: {
         status: next,
         confirmedAt: next === "confirmed" ? now : null,
+        ...(next === "confirmed" && EVENT_PAYMENTS_ENABLED
+          ? {
+              organizerPolicyAgreedAt: now,
+              policyVersion: application.policyVersion ?? CANCELLATION_POLICY_VERSION,
+            }
+          : {}),
         closedAt: closing ? now : null,
         lastMessageAt: now,
       },

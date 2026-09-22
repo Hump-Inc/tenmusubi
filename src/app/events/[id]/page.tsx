@@ -39,7 +39,7 @@ import {
   decisionDeadlineLabel,
   weatherRefundLabel,
 } from "@/lib/eventWeather";
-import { SHOW_ORGANIZER_PAST_EVENTS } from "@/lib/constants";
+import { SHOW_ORGANIZER_PAST_EVENTS, EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
 
@@ -418,6 +418,24 @@ export default async function EventDetailPage({
               <p className="mt-3 text-xs text-gray-500">
                 応募の時点では提出不要です。主催者とのやり取りの中で、必要に応じて開示します。
               </p>
+            </section>
+          )}
+
+          {/* 応募する前にキャンセルの扱いを読めるようにする。決済を使う間だけ。 */}
+          {EVENT_PAYMENTS_ENABLED && (
+            <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-4">
+              <h2 className="mb-3 font-bold text-gray-900">キャンセルについて</h2>
+              <p className="text-sm leading-relaxed text-gray-700">
+                出店が決まったあとの取りやめは、開催15日前まで無料です。それ以降は時期に応じてキャンセル料がかかります。
+                天候などで中止になった場合は、出展料を
+                {weatherRefundLabel(event.weatherRefundPercent) ?? "募集の条件に沿って返金"}します。
+              </p>
+              <Link
+                href="/cancel-policy"
+                className="mt-2 inline-block text-sm text-orange-600 hover:underline"
+              >
+                出展料のキャンセル規定を読む
+              </Link>
             </section>
           )}
 

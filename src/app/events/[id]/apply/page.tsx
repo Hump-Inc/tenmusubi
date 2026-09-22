@@ -17,6 +17,7 @@ import {
   Coins,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { PolicyAgreement } from "@/components/events/PolicyAgreement";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -107,6 +108,7 @@ interface EventInfo {
   exhibitFee: number;
   feeTiers: FeeTier[];
   feeOptions: FeeOption[];
+  weatherRefundPercent: number | null;
   organizer: { orgName: string };
 }
 
@@ -129,6 +131,9 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
   const [feeTierId, setFeeTierId] = useState("");
   // 希望するオプション（電源 +500円 など）
   const [feeOptionIds, setFeeOptionIds] = useState<string[]>([]);
+  // 出展料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -143,6 +148,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
         return;
       }
       setEvent(eventData.event);
+      setPaymentsEnabled(eventData.paymentsEnabled === true);
       const tiers: FeeTier[] = eventData.event?.feeTiers ?? [];
       if (tiers.length === 1) setFeeTierId(tiers[0].id);
 
@@ -230,6 +236,10 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
       setError("応募する店舗を選んでください");
       return;
     }
+    if (paymentsEnabled && !policyAgreed) {
+      setError("キャンセル規定を確認し、同意してください");
+      return;
+    }
     setIsSubmitting(true);
     setError("");
     try {
@@ -241,6 +251,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
           message,
           feeTierId,
           feeOptionIds,
+          policyAgreed,
           overrides: {
             usesFire: plan.usesFire,
             fireType: plan.usesFire ? plan.fireType : null,
@@ -785,11 +796,20 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
                 </CardContent>
               </Card>
 
+              {paymentsEnabled && (
+                <PolicyAgreement
+                  role="vendor"
+                  weatherRefundPercent={event?.weatherRefundPercent}
+                  agreed={policyAgreed}
+                  onChange={setPolicyAgreed}
+                />
+              )}
+
               <Button
                 type="submit"
                 size="lg"
                 className="w-full rounded-full"
-                disabled={isSubmitting || !selectedStoreId}
+                disabled={isSubmitting || !selectedStoreId || (paymentsEnabled && !policyAgreed)}
               >
                 {isSubmitting ? (
                   <>

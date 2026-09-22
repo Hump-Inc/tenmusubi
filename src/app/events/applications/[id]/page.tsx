@@ -32,6 +32,7 @@ import {
   type DocumentSummary,
 } from "@/components/events/DisclosurePanel";
 import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
+import { PolicyAgreement } from "@/components/events/PolicyAgreement";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
 import { sumSelectedFees } from "@/lib/eventFeeTiers";
@@ -102,6 +103,7 @@ export default function ApplicationThreadPage({
   const [actionError, setActionError] = useState("");
   // Stripe の支払い画面から戻ってきた直後。支払いの確定は Webhook なので、少し遅れて反映される。
   const [returnedFromCheckout, setReturnedFromCheckout] = useState(false);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -144,7 +146,7 @@ export default function ApplicationThreadPage({
       const res = await fetch(`/api/applications/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify({ status: next, policyAgreed: next === "confirmed" && policyAgreed }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -302,11 +304,19 @@ export default function ApplicationThreadPage({
                       必要な書類があれば、開示を依頼してから判断できます。
                       見送りにすると、開示されていた書類は表示されなくなります。
                     </p>
+                    {data.paymentsEnabled && (
+                      <PolicyAgreement
+                        role="organizer"
+                        weatherRefundPercent={application.event.weatherRefundPercent}
+                        agreed={policyAgreed}
+                        onChange={setPolicyAgreed}
+                      />
+                    )}
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Button
                         className="rounded-full"
                         onClick={() => changeStatus("confirmed")}
-                        disabled={isWorking}
+                        disabled={isWorking || (data.paymentsEnabled && !policyAgreed)}
                       >
                         {isWorking && pending === "confirmed" ? (
                           <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

@@ -95,6 +95,15 @@ npm run migrate:prod
 - 返金は当面 Stripe ダッシュボードから運営が行う（destination charge なので「送金の取り消し」も選ぶ）。結果は `charge.refunded` で反映される
 - 手数料率: `EVENT_PAYMENT_FEE_PERCENT`（未設定なら仮の 5%）。請求時点の額を `EventPayment.platformFee` に確定させる
 
+### キャンセル規定
+
+- 本文は `src/lib/cancellationPolicy.ts`、ページは `/cancel-policy`。弁護士の確認前の**草案**なので、
+  決済と同じく `ENABLE_EVENT_PAYMENTS` を立てるまで出さない（404）
+- 出店者は応募時、主催者は「出店を決定する」時に同意する。どの版にいつ同意したかを
+  `EventApplication.policyVersion` / `vendorPolicyAgreedAt` / `organizerPolicyAgreedAt` に残す
+- **文面を変えたら `CANCELLATION_POLICY_VERSION` を上げ、同意欄の要点（`PolicyAgreement.tsx`）も直す**
+- 確認が済んだら `CANCELLATION_POLICY_IS_DRAFT` を false にする
+
 ## 業種カテゴリ
 
 - 業種カテゴリは `src/lib/constants.ts` の `VENDOR_CATEGORIES` / `VENDOR_CATEGORY_LABELS` に一元化。新規登録・編集・検索・トップは全てこの定数を参照する（ハードコードしない）。

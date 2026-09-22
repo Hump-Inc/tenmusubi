@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { CANCELLATION_POLICY_VERSION } from "@/lib/cancellationPolicy";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -205,6 +207,17 @@ export async function POST(
           }
         : overrides;
 
+    // 出展料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
+    if (EVENT_PAYMENTS_ENABLED && body.policyAgreed !== true) {
+      return NextResponse.json(
+        { error: "キャンセル規定を確認し、同意してください" },
+        { status: 400 }
+      );
+    }
+    const agreement = EVENT_PAYMENTS_ENABLED
+      ? { policyVersion: CANCELLATION_POLICY_VERSION, vendorPolicyAgreedAt: new Date() }
+      : {};
+
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
       return NextResponse.json({ error: "店舗が見つかりません" }, { status: 404 });
@@ -242,6 +255,7 @@ export async function POST(
         where: { id: existing.id },
         data: {
           snapshot: scoutSnapshot ? JSON.stringify(scoutSnapshot) : null,
+          ...agreement,
           lastMessageAt: now,
           vendorLastReadAt: now,
         },
@@ -295,6 +309,7 @@ export async function POST(
         kind: "application",
         message: message || null,
         snapshot: snapshot ? JSON.stringify(snapshot) : null,
+        ...agreement,
         lastMessageAt: new Date(),
         vendorLastReadAt: new Date(),
       },
