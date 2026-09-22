@@ -63,6 +63,7 @@ interface ThreadData {
   myDocuments: DocumentSummary[];
   payments: PaymentSummary[];
   payouts: { ready: boolean; feePercent: number } | null;
+  paymentsEnabled: boolean;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -363,7 +364,8 @@ export default function ApplicationThreadPage({
           )}
 
           {/* 出展料のお支払い */}
-          {(application.status === "confirmed" || (data.payments ?? []).length > 0) && (
+          {data.paymentsEnabled &&
+            (application.status === "confirmed" || (data.payments ?? []).length > 0) && (
             <div className="mb-4">
               <PaymentPanel
                 applicationId={application.id}

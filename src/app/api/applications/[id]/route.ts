@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { loadApplicationForViewer, readFieldFor } from "@/lib/eventApplicationAccess";
 import { parseSnapshot, checkFit } from "@/lib/eventApplicationSnapshot";
 import { paymentView, platformFeePercent } from "@/lib/eventPayments";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 
 // GET: 応募1件とやり取りの内容
 export async function GET(
@@ -53,14 +54,15 @@ export async function GET(
           })
         : [];
 
-    const payments = await prisma.eventPayment.findMany({
+    // 決済を切っている間は、過去の請求も含めて出さない（入口を出さないのと揃える）
+    const payments = !EVENT_PAYMENTS_ENABLED ? [] : await prisma.eventPayment.findMany({
       where: { applicationId: id },
       orderBy: { createdAt: "asc" },
     });
 
     // 主催者には、請求できる状態か（受け取り口座の設定が済んでいるか）を返す
     const payouts =
-      role === "organizer"
+      EVENT_PAYMENTS_ENABLED && role === "organizer"
         ? await prisma.organizerProfile
             .findUnique({
               where: { id: application.event.organizer.id },
@@ -114,6 +116,7 @@ export async function GET(
       myDocuments,
       payments: payments.map((p) => paymentView(p, role)),
       payouts,
+      paymentsEnabled: EVENT_PAYMENTS_ENABLED,
     });
   } catch (error) {
     console.error("Application GET error:", error);

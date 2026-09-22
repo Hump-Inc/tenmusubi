@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { stripe } from "@/lib/stripe";
 
 // POST: Stripe の Express ダッシュボード（入金予定・口座の変更）へのワンタイムURL
 export async function POST() {
   try {
+    if (!EVENT_PAYMENTS_ENABLED) {
+      return NextResponse.json({ error: "現在ご利用いただけません" }, { status: 404 });
+    }
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });

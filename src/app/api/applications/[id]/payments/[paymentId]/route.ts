@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { stripe } from "@/lib/stripe";
 import { loadApplicationForViewer } from "@/lib/eventApplicationAccess";
 
@@ -15,6 +16,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; paymentId: string }> }
 ) {
   try {
+    if (!EVENT_PAYMENTS_ENABLED) {
+      return NextResponse.json({ error: "現在ご利用いただけません" }, { status: 404 });
+    }
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });

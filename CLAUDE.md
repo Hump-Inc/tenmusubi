@@ -80,6 +80,9 @@ npm run migrate:prod
 （`on_behalf_of` = 主催者）で送金、運営の手数料を `application_fee_amount` で差し引く。
 ロジックは `src/lib/eventPayments.ts` に集約。
 
+- **既定では無効**。`ENABLE_EVENT_PAYMENTS=true` で有効になる（`src/lib/constants.ts` の `EVENT_PAYMENTS_ENABLED`）。
+  無効の間は口座設定・請求・支払いの入口と API を閉じるが、Webhook は止めない
+
 - **支払いの確定は Webhook だけで行う**（`checkout.session.completed`）。支払い画面から戻ったことは根拠にしない
 - Webhook はすべて `/api/stripe/webhook` で受ける。Stripe 側に2つのエンドポイントを設定すること
   - プラットフォーム用: `checkout.session.completed` / `charge.refunded`（＋既存のサブスク系） → `STRIPE_WEBHOOK_SECRET`

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PayoutState {
+  enabled: boolean;
   state: "none" | "pending" | "ready";
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
@@ -61,6 +62,10 @@ export function PayoutSettingsCard() {
     }
   };
 
+  // 決済を切っている間は枠ごと出さない。切っているかは取得するまで分からないので、
+  // 読み込み中も出さない（出してから消すとちらつく）
+  if (isLoading || (data && !data.enabled)) return null;
+
   return (
     <Card className="rounded-2xl border-0 shadow-sm mb-6">
       <CardHeader>
@@ -74,9 +79,7 @@ export function PayoutSettingsCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-        ) : data ? (
+        {data ? (
           <>
             {data.state === "ready" && (
               <div className="rounded-xl bg-green-50 p-4 flex items-start gap-3 text-green-900">

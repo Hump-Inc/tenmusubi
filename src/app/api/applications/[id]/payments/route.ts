@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { loadApplicationForViewer } from "@/lib/eventApplicationAccess";
 import { createNotification } from "@/lib/notifications";
 import {
@@ -21,6 +22,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!EVENT_PAYMENTS_ENABLED) {
+      return NextResponse.json({ error: "現在ご利用いただけません" }, { status: 404 });
+    }
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });

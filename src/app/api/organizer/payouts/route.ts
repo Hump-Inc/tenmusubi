@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { stripe } from "@/lib/stripe";
 import { platformFeePercent, syncOrganizerAccount } from "@/lib/eventPayments";
 
@@ -30,6 +31,9 @@ async function loadOrganizer(userId: string) {
 // GET: 受け取りの状態。登録画面から戻ってきた直後に呼ばれるので、毎回 Stripe から取り直す。
 export async function GET() {
   try {
+    if (!EVENT_PAYMENTS_ENABLED) {
+      return NextResponse.json({ enabled: false });
+    }
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -51,6 +55,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      enabled: true,
       state: !organizer.stripeAccountId ? "none" : chargesEnabled ? "ready" : "pending",
       chargesEnabled,
       payoutsEnabled,
@@ -66,6 +71,9 @@ export async function GET() {
 // POST: 登録（または続き）を始める。Stripe の登録画面のURLを返す。
 export async function POST() {
   try {
+    if (!EVENT_PAYMENTS_ENABLED) {
+      return NextResponse.json({ error: "現在ご利用いただけません" }, { status: 404 });
+    }
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
