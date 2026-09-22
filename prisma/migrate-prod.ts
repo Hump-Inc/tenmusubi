@@ -417,6 +417,9 @@ async function main() {
       "note" TEXT,
       "reviewedAt" DATETIME,
       "reviewedBy" TEXT,
+      "stripeAccountId" TEXT,
+      "stripeChargesEnabled" BOOLEAN NOT NULL DEFAULT false,
+      "stripePayoutsEnabled" BOOLEAN NOT NULL DEFAULT false,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "OrganizerProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -527,6 +530,24 @@ async function main() {
       CONSTRAINT "EventApplicationDocument_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
       CONSTRAINT "EventApplicationDocument_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "ApplicationDocument" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    // ---- 出展料のオンライン決済 ----
+    `CREATE TABLE IF NOT EXISTS "EventPayment" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "applicationId" TEXT NOT NULL,
+      "description" TEXT NOT NULL,
+      "amount" INTEGER NOT NULL,
+      "platformFee" INTEGER NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'requested',
+      "refundedAmount" INTEGER NOT NULL DEFAULT 0,
+      "stripeCheckoutSessionId" TEXT,
+      "stripePaymentIntentId" TEXT,
+      "requestedById" TEXT NOT NULL,
+      "paidAt" DATETIME,
+      "canceledAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventPayment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
   ];
 
   // Execute creates
@@ -599,6 +620,15 @@ async function main() {
         `UPDATE "Event" SET "followersNotifiedAt" = COALESCE("publishedAt", CURRENT_TIMESTAMP) WHERE "status" = 'published'`
       );
     }
+  }
+
+  // Check OrganizerProfile table for missing columns
+  if (existingTables.has("OrganizerProfile")) {
+    const organizerCols = await client.execute("PRAGMA table_info('OrganizerProfile')");
+    const colNames = new Set(organizerCols.rows.map(r => r.name as string));
+    if (!colNames.has("stripeAccountId")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeAccountId" TEXT');
+    if (!colNames.has("stripeChargesEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeChargesEnabled" BOOLEAN NOT NULL DEFAULT false');
+    if (!colNames.has("stripePayoutsEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripePayoutsEnabled" BOOLEAN NOT NULL DEFAULT false');
   }
 
   // Check StoreApplicationProfile table for missing columns
@@ -727,6 +757,12 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "EventApplicationMessage_applicationId_createdAt_idx" ON "EventApplicationMessage"("applicationId", "createdAt")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventApplicationDocument_applicationId_documentId_key" ON "EventApplicationDocument"("applicationId", "documentId")',
     'CREATE INDEX IF NOT EXISTS "EventApplicationDocument_applicationId_idx" ON "EventApplicationDocument"("applicationId")',
+    // ---- 出展料のオンライン決済 ----
+    'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerProfile_stripeAccountId_key" ON "OrganizerProfile"("stripeAccountId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripeCheckoutSessionId_key" ON "EventPayment"("stripeCheckoutSessionId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripePaymentIntentId_key" ON "EventPayment"("stripePaymentIntentId")',
+    'CREATE INDEX IF NOT EXISTS "EventPayment_applicationId_idx" ON "EventPayment"("applicationId")',
+    'CREATE INDEX IF NOT EXISTS "EventPayment_status_idx" ON "EventPayment"("status")',
   ];
 
   for (const sql of indexes) {

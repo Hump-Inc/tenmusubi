@@ -30,6 +30,7 @@ import {
   type Disclosure,
   type DocumentSummary,
 } from "@/components/events/DisclosurePanel";
+import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
 
@@ -60,6 +61,8 @@ interface ThreadData {
   messages: ThreadMessage[];
   disclosures: Disclosure[];
   myDocuments: DocumentSummary[];
+  payments: PaymentSummary[];
+  payouts: { ready: boolean; feePercent: number } | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -89,6 +92,8 @@ export default function ApplicationThreadPage({
   const [isWorking, setIsWorking] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  // Stripe の支払い画面から戻ってきた直後。支払いの確定は Webhook なので、少し遅れて反映される。
+  const [returnedFromCheckout, setReturnedFromCheckout] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -114,6 +119,14 @@ export default function ApplicationThreadPage({
     }
     if (status === "authenticated") load();
   }, [status, router, id, load]);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("payment") !== "success") return;
+    setReturnedFromCheckout(true);
+    // たいていは数秒で Webhook が届くので、一度だけ自動で取り直す
+    const timer = setTimeout(() => load(), 4000);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const changeStatus = async (next: string) => {
     setIsWorking(true);
@@ -347,6 +360,26 @@ export default function ApplicationThreadPage({
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* 出展料のお支払い */}
+          {(application.status === "confirmed" || (data.payments ?? []).length > 0) && (
+            <div className="mb-4">
+              <PaymentPanel
+                applicationId={application.id}
+                role={role}
+                payments={data.payments ?? []}
+                payouts={data.payouts}
+                defaultAmount={snapshot?.desiredFeeTier?.fee || application.event.exhibitFee || null}
+                defaultDescription={
+                  snapshot?.desiredFeeTier?.label
+                    ? `出展料（${snapshot.desiredFeeTier.label}）`
+                    : "出展料"
+                }
+                returnedFromCheckout={returnedFromCheckout}
+                onChanged={load}
+              />
+            </div>
           )}
 
           {/* やり取り */}

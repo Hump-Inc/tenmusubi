@@ -21,6 +21,7 @@ import {
   BarChart3,
   CalendarDays,
   Megaphone,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,8 @@ interface DashboardStats {
   pendingOrganizers: number;
   publishedEvents: number;
   stalledEvents: number;
+  paymentsNeedingReview: number;
+  unpaidPayments: number;
 }
 
 export default function AdminDashboardPage() {
@@ -58,6 +61,8 @@ export default function AdminDashboardPage() {
     pendingOrganizers: 0,
     publishedEvents: 0,
     stalledEvents: 0,
+    paymentsNeedingReview: 0,
+    unpaidPayments: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,7 +77,7 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes, eventsRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes, eventsRes, paymentsRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
@@ -85,6 +90,7 @@ export default function AdminDashboardPage() {
           fetch("/api/admin/application-metrics").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/organizers?status=pending").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/events").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/payments").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -103,6 +109,8 @@ export default function AdminDashboardPage() {
           pendingOrganizers: organizersRes?.stats?.pending ?? 0,
           publishedEvents: eventsRes?.stats?.published ?? 0,
           stalledEvents: eventsRes?.stats?.stalled ?? 0,
+          paymentsNeedingReview: paymentsRes?.stats?.needsReview ?? 0,
+          unpaidPayments: paymentsRes?.stats?.requested ?? 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -166,6 +174,17 @@ export default function AdminDashboardPage() {
       color: "text-purple-500",
       bgColor: "bg-purple-50",
       highlight: false,
+    },
+    {
+      icon: Wallet,
+      label: "出展料の決済",
+      description: "出展料の請求・支払い・返金の状況",
+      href: "/admin/payments",
+      stat: stats.unpaidPayments,
+      statLabel: "件の未払い請求",
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-50",
+      highlight: stats.paymentsNeedingReview > 0,
     },
     {
       icon: Store,

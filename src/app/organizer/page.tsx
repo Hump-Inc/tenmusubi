@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PayoutSettingsCard } from "@/components/events/PayoutSettingsCard";
 
 interface Organizer {
   id: string;
@@ -197,6 +198,8 @@ export default function OrganizerPage() {
               </CardContent>
             </Card>
           )}
+
+          {organizer?.status === "approved" && <PayoutSettingsCard />}
 
           {saved && !organizer && (
             <div className="mb-6 rounded-xl bg-green-50 p-4 text-sm text-green-800">
