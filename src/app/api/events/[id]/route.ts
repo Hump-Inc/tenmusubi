@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyEventCancelled } from "@/lib/eventCancel";
 import { parseJstInput } from "@/lib/eventFormat";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
@@ -222,6 +223,13 @@ export async function PUT(
       },
     });
 
+    // 中止になったら、やり取り中・出店決定済みの出店者へ知らせる
+    if (event.status === "cancelled" && result.event.status !== "cancelled") {
+      await notifyEventCancelled(event.id).catch((e) =>
+        console.error("Event cancel notify error:", e)
+      );
+    }
+
     // 公開になったらフォロワーへ知らせる。1募集1回かどうかは呼び先が見る。
     if (event.status === "published") {
       await notifyFollowersOfNewEvent(event.id).catch((e) =>
@@ -256,6 +264,9 @@ export async function DELETE(
     const applications = await prisma.eventApplication.count({ where: { eventId: id } });
     if (applications > 0) {
       await prisma.event.update({ where: { id }, data: { status: "cancelled" } });
+      if (result.event.status !== "cancelled") {
+        await notifyEventCancelled(id).catch((e) => console.error("Event cancel notify error:", e));
+      }
       return NextResponse.json({ message: "募集を中止しました", cancelled: true });
     }
 

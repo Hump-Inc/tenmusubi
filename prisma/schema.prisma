@@ -738,6 +738,8 @@ model Event {
   weatherDecisionDaysBefore Int? // 中止を判断する期限: 開催の何日前か（0 = 当日）
   weatherDecisionHour       Int? // 同: 何時までか（0〜23）
   weatherRefundPercent      Int? // 天候で中止になったときに出店者へ返す割合（100 / 50）
+  // 中止判断の期限が近いことを主催者へ知らせた時刻。1募集1回だけ送るための印。
+  weatherRemindedAt         DateTime?
 
   status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
   publishedAt DateTime?

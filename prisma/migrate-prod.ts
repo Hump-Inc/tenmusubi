@@ -454,6 +454,7 @@ async function main() {
       "weatherDecisionDaysBefore" INTEGER,
       "weatherDecisionHour" INTEGER,
       "weatherRefundPercent" INTEGER,
+      "weatherRemindedAt" DATETIME,
       "status" TEXT NOT NULL DEFAULT 'draft',
       "publishedAt" DATETIME,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -634,6 +635,7 @@ async function main() {
     if (!colNames.has("weatherDecisionDaysBefore")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionDaysBefore" INTEGER');
     if (!colNames.has("weatherDecisionHour")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionHour" INTEGER');
     if (!colNames.has("weatherRefundPercent")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRefundPercent" INTEGER');
+    if (!colNames.has("weatherRemindedAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRemindedAt" DATETIME');
     if (!colNames.has("followersNotifiedAt")) {
       alterStatements.push('ALTER TABLE "Event" ADD COLUMN "followersNotifiedAt" DATETIME');
       // 列を足した時点で公開済みの募集は「新着」ではない。印を付けて、既存の募集を
