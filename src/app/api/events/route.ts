@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
+import { parseFeeTiers, parseFeeOptions, deriveFeeRange } from "@/lib/eventFeeTiers";
 import { notifyFollowersOfNewEvent } from "@/lib/organizerFollowers";
 
 /**
@@ -145,6 +145,8 @@ export async function POST(request: Request) {
     const feeTiers = parseFeeTiers(body.feeTiers);
     const hasTiers = !!feeTiers && feeTiers.length > 0;
     const derived = hasTiers ? deriveFeeRange(feeTiers!) : null;
+    // オプション料金（電源 +500円 など）。送られていなければ触らない。
+    const feeOptions = parseFeeOptions(body.feeOptions);
 
     const exhibitFee = derived ? derived.fee : toInt(body.exhibitFee);
     const exhibitFeeMax = derived ? derived.feeMax : toInt(body.exhibitFeeMax);
@@ -222,6 +224,7 @@ export async function POST(request: Request) {
         status: body.status === "published" ? "published" : "draft",
         publishedAt: body.status === "published" ? new Date() : null,
         ...(hasTiers ? { feeTiers: { create: feeTiers! } } : {}),
+        ...(feeOptions && feeOptions.length > 0 ? { feeOptions: { create: feeOptions } } : {}),
       },
     });
 

@@ -54,6 +54,7 @@ async function getEvent(id: string) {
       },
       images: { orderBy: { order: "asc" } },
       feeTiers: { orderBy: { order: "asc" } },
+      feeOptions: { orderBy: { order: "asc" } },
       _count: { select: { applications: true } },
     },
   });
@@ -320,6 +321,22 @@ export default async function EventDetailPage({
                       </span>
                     )}
                   </>
+                )}
+                {event.feeOptions.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
+                    <p className="text-xs font-normal text-gray-500">オプション（希望する場合のみ）</p>
+                    <ul className="mt-1 space-y-1">
+                      {event.feeOptions.map((o) => (
+                        <li key={o.id} className="flex flex-wrap items-baseline gap-x-3 text-sm">
+                          <span className="min-w-0 flex-1 font-normal text-gray-700">{o.label}</span>
+                          <span className="tabular-nums">+{o.fee.toLocaleString()}円</span>
+                          {o.note && (
+                            <span className="w-full text-xs font-normal text-gray-500">{o.note}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </Row>
               {event.slots !== null && (

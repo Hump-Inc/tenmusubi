@@ -34,6 +34,7 @@ import {
 import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
+import { sumSelectedFees } from "@/lib/eventFeeTiers";
 import { rainPolicyLabel, decisionDeadlineLabel, weatherRefundLabel } from "@/lib/eventWeather";
 
 interface ThreadData {
@@ -391,12 +392,19 @@ export default function ApplicationThreadPage({
                 role={role}
                 payments={data.payments ?? []}
                 payouts={data.payouts}
-                defaultAmount={snapshot?.desiredFeeTier?.fee || application.event.exhibitFee || null}
-                defaultDescription={
+                // 請求額の初期値は、希望した区画にオプションを足した額
+                defaultAmount={
+                  sumSelectedFees(
+                    snapshot?.desiredFeeTier?.fee ?? application.event.exhibitFee,
+                    snapshot?.desiredFeeOptions
+                  ) || null
+                }
+                defaultDescription={[
                   snapshot?.desiredFeeTier?.label
                     ? `出展料（${snapshot.desiredFeeTier.label}）`
-                    : "出展料"
-                }
+                    : "出展料",
+                  ...(snapshot?.desiredFeeOptions ?? []).map((o) => o.label),
+                ].join("＋")}
                 returnedFromCheckout={returnedFromCheckout}
                 onChanged={load}
               />

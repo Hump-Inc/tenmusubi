@@ -746,6 +746,7 @@ model Event {
 
   images       EventImage[]
   feeTiers     EventFeeTier[]
+  feeOptions   EventFeeOption[]
   favorites    EventFavorite[]
   applications EventApplication[]
 
@@ -790,6 +791,22 @@ model EventFeeTier {
   widthM Float?
   depthM Float?
   order  Int     @default(0)
+
+  @@index([eventId])
+}
+
+// 区画に足せるオプション料金。「電源 +500円」「テント貸出 +1,000円」など。
+// 区画をまたいで同じものを選べるので、区画ではなく募集に持つ（2026-09-10 MTG）。
+// 一覧・検索の出展料には含めない（選ぶかどうかは出店者次第なので）。
+model EventFeeOption {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  label String // 「電源（1500Wまで）」
+  fee   Int
+  note  String?
+  order Int     @default(0)
 
   @@index([eventId])
 }

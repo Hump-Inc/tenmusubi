@@ -74,3 +74,37 @@ export function deriveFeeRange(tiers: FeeTierInput[]): { fee: number; feeMax: nu
 export function feeTierLabel(label: string | null | undefined): string {
   return label && label.trim() ? label : "出展料";
 }
+
+/**
+ * 区画に足せるオプション料金（電源 +500円 など）。2026-09-10 MTG。
+ * 名前の無い行・金額の無い行は捨てる。上限は 10 行。
+ */
+export interface FeeOptionInput {
+  label: string;
+  fee: number;
+  note: string | null;
+  order: number;
+}
+
+export function parseFeeOptions(value: unknown): FeeOptionInput[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const options: FeeOptionInput[] = [];
+  for (const raw of value.slice(0, 10)) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const label = toStr(row.label, 60);
+    const fee = toInt(row.fee);
+    if (!label || fee === null || fee < 0) continue;
+    options.push({ label, fee, note: toStr(row.note, 120), order: options.length });
+  }
+  return options;
+}
+
+/** 請求額の初期値や明細に使う。区画の金額にオプションを足す。 */
+export function sumSelectedFees(
+  tierFee: number | null | undefined,
+  options: { fee: number }[] | null | undefined
+): number {
+  return (tierFee ?? 0) + (options ?? []).reduce((sum, o) => sum + o.fee, 0);
+}

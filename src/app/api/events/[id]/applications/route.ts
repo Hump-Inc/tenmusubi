@@ -176,6 +176,7 @@ export async function POST(
       include: {
         organizer: { select: { userId: true, orgName: true } },
         feeTiers: { orderBy: { order: "asc" } },
+        feeOptions: { orderBy: { order: "asc" } },
       },
     });
     if (!event) {
@@ -186,9 +187,23 @@ export async function POST(
     const desiredTier = event.feeTiers.find(
       (t) => typeof body.feeTierId === "string" && t.id === body.feeTierId
     );
-    const withTier: ApplicationOverrides | undefined = desiredTier
-      ? { ...(overrides ?? {}), desiredFeeTier: { label: desiredTier.label, fee: desiredTier.fee } }
-      : overrides;
+    // オプションも同じ。知らないIDは黙って捨てる。
+    const optionIds: string[] = Array.isArray(body.feeOptionIds)
+      ? body.feeOptionIds.filter((v: unknown): v is string => typeof v === "string")
+      : [];
+    const desiredOptions = event.feeOptions
+      .filter((o) => optionIds.includes(o.id))
+      .map((o) => ({ label: o.label, fee: o.fee }));
+    const withTier: ApplicationOverrides | undefined =
+      desiredTier || desiredOptions.length > 0
+        ? {
+            ...(overrides ?? {}),
+            ...(desiredTier
+              ? { desiredFeeTier: { label: desiredTier.label, fee: desiredTier.fee } }
+              : {}),
+            ...(desiredOptions.length > 0 ? { desiredFeeOptions: desiredOptions } : {}),
+          }
+        : overrides;
 
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {

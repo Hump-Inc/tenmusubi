@@ -59,6 +59,15 @@ export const EMPTY_FEE_TIER: FeeTierRow = {
   depthM: "",
 };
 
+// 区画に足せるオプション料金（電源 +500円 など）
+export interface FeeOptionRow {
+  label: string;
+  fee: string;
+  note: string;
+}
+
+export const EMPTY_FEE_OPTION: FeeOptionRow = { label: "", fee: "", note: "" };
+
 export interface EventFormValues {
   id?: string;
   title: string;
@@ -74,6 +83,7 @@ export interface EventFormValues {
   // 区画ごとの出展料。最低1行。単一料金なら区画名を空のまま1行だけ入れる。
   // Event.exhibitFee / exhibitFeeMax はここから算出されるので、フォームでは持たない。
   feeTiers: FeeTierRow[];
+  feeOptions: FeeOptionRow[];
   feeNote: string;
   spaceWidthM: string;
   spaceDepthM: string;
@@ -105,6 +115,7 @@ export const EMPTY_EVENT: EventFormValues = {
   applicationCloseAt: "",
   slots: "",
   feeTiers: [{ ...EMPTY_FEE_TIER }],
+  feeOptions: [],
   feeNote: "",
   spaceWidthM: "",
   spaceDepthM: "",
@@ -193,6 +204,21 @@ export function EventForm({
       feeTiers: prev.feeTiers.filter((_, i) => i !== index),
     }));
 
+  const setOption = (index: number, key: keyof FeeOptionRow, value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      feeOptions: prev.feeOptions.map((o, i) => (i === index ? { ...o, [key]: value } : o)),
+    }));
+
+  const addOption = () =>
+    setForm((prev) => ({ ...prev, feeOptions: [...prev.feeOptions, { ...EMPTY_FEE_OPTION }] }));
+
+  const removeOption = (index: number) =>
+    setForm((prev) => ({
+      ...prev,
+      feeOptions: prev.feeOptions.filter((_, i) => i !== index),
+    }));
+
   const toggle = (key: "categories" | "requiredDocuments", value: string) =>
     setForm((prev) => ({
       ...prev,
@@ -223,7 +249,11 @@ export function EventForm({
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
-      const payload = { ...form, feeTiers, status: mode };
+      // オプションは名前と金額の両方がある行だけ送る
+      const feeOptions = form.feeOptions.filter(
+        (o) => o.label.trim() !== "" && o.fee.trim() !== ""
+      );
+      const payload = { ...form, feeTiers, feeOptions, status: mode };
       const res = await fetch(eventId ? `/api/events/${eventId}` : "/api/events", {
         method: eventId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -520,6 +550,86 @@ export function EventForm({
               一覧では「8,000円〜15,000円」と幅で、募集ページでは区画ごとの金額で表示されます。
               区画を2つ以上にするときは、それぞれに名前を付けてください。
             </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label>オプション料金</Label>
+              <p className="mt-1 text-xs text-gray-500">
+                電源やテントの貸し出しなど、希望した出店者にだけかかる料金です。出店者は応募時に選べます。
+              </p>
+            </div>
+            {form.feeOptions.map((option, i) => (
+              <div key={i} className="rounded-xl bg-gray-50 p-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[180px] flex-1 space-y-1.5">
+                    <Label htmlFor={`optionLabel-${i}`} className="text-xs text-gray-600">
+                      名前
+                    </Label>
+                    <Input
+                      id={`optionLabel-${i}`}
+                      value={option.label}
+                      onChange={(e) => setOption(i, "label", e.target.value)}
+                      placeholder="例: 電源（1500Wまで）"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="w-[140px] space-y-1.5">
+                    <Label htmlFor={`optionFee-${i}`} className="text-xs text-gray-600">
+                      追加料金
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id={`optionFee-${i}`}
+                        type="number"
+                        min={0}
+                        value={option.fee}
+                        onChange={(e) => setOption(i, "fee", e.target.value)}
+                        placeholder="500"
+                        className="bg-white pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                        円
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-red-600"
+                    onClick={() => removeOption(i)}
+                    aria-label={`オプション${i + 1}を削除`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <Label htmlFor={`optionNote-${i}`} className="text-xs text-gray-600">
+                    補足
+                  </Label>
+                  <Input
+                    id={`optionNote-${i}`}
+                    value={option.note}
+                    onChange={(e) => setOption(i, "note", e.target.value)}
+                    placeholder="例: 数に限りがあります"
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+            ))}
+            {form.feeOptions.length < 10 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={addOption}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                オプションを追加
+              </Button>
+            )}
           </div>
 
           <div className="space-y-2">

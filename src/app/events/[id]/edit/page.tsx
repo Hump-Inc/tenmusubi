@@ -82,6 +82,13 @@ export default function EditEventPage({ params }: { params: Promise<{ id: string
                 })
               )
             : [{ ...EMPTY_FEE_TIER, fee: str(e.exhibitFee) }],
+        feeOptions: Array.isArray(e.feeOptions)
+          ? e.feeOptions.map((o: { label: string; fee: number; note: string | null }) => ({
+              label: str(o.label),
+              fee: str(o.fee),
+              note: str(o.note),
+            }))
+          : [],
         feeNote: str(e.feeNote),
         spaceWidthM: str(e.spaceWidthM),
         spaceDepthM: str(e.spaceDepthM),

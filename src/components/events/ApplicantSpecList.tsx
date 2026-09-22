@@ -8,6 +8,7 @@ import {
   Coins,
 } from "lucide-react";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
+import { sumSelectedFees } from "@/lib/eventFeeTiers";
 import { vehicleTypeLabel, fireTypeLabel, documentTypeLabel } from "@/lib/constants";
 import { formatDays } from "@/lib/applicationFormat";
 import { formatDateShort } from "@/lib/eventFormat";
@@ -106,16 +107,30 @@ export function ApplicantSpecList({
         </div>
       )}
 
-      {snapshot.desiredFeeTier && (
+      {(snapshot.desiredFeeTier || (snapshot.desiredFeeOptions?.length ?? 0) > 0) && (
         <Section icon={<Coins className="h-4 w-4" />} title="希望する区画">
-          <Row
-            label={snapshot.desiredFeeTier.label || "出展料"}
-            value={
-              snapshot.desiredFeeTier.fee === 0
-                ? "無料"
-                : `${snapshot.desiredFeeTier.fee.toLocaleString()}円`
-            }
-          />
+          {snapshot.desiredFeeTier && (
+            <Row
+              label={snapshot.desiredFeeTier.label || "出展料"}
+              value={
+                snapshot.desiredFeeTier.fee === 0
+                  ? "無料"
+                  : `${snapshot.desiredFeeTier.fee.toLocaleString()}円`
+              }
+            />
+          )}
+          {snapshot.desiredFeeOptions?.map((o) => (
+            <Row key={o.label} label={`オプション: ${o.label}`} value={`+${o.fee.toLocaleString()}円`} />
+          ))}
+          {snapshot.desiredFeeTier && (snapshot.desiredFeeOptions?.length ?? 0) > 0 && (
+            <Row
+              label="合計"
+              value={`${sumSelectedFees(
+                snapshot.desiredFeeTier.fee,
+                snapshot.desiredFeeOptions
+              ).toLocaleString()}円`}
+            />
+          )}
         </Section>
       )}
 

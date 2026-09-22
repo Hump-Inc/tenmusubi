@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
+import { parseFeeTiers, parseFeeOptions, deriveFeeRange } from "@/lib/eventFeeTiers";
 import { notifyFollowersOfNewEvent } from "@/lib/organizerFollowers";
 
 /**
@@ -57,6 +57,7 @@ export async function GET(
         },
         images: { orderBy: { order: "asc" } },
         feeTiers: { orderBy: { order: "asc" } },
+        feeOptions: { orderBy: { order: "asc" } },
         _count: { select: { applications: true } },
       },
     });
@@ -110,6 +111,8 @@ export async function PUT(
     const feeTiers = parseFeeTiers(body.feeTiers);
     const hasTiers = !!feeTiers && feeTiers.length > 0;
     const derived = hasTiers ? deriveFeeRange(feeTiers!) : null;
+    // オプション料金（電源 +500円 など）。送られていなければ触らない。
+    const feeOptions = parseFeeOptions(body.feeOptions);
 
     const exhibitFee = derived ? derived.fee : toInt(body.exhibitFee);
     const exhibitFeeMax = derived ? derived.feeMax : toInt(body.exhibitFeeMax);
@@ -174,6 +177,14 @@ export async function PUT(
       data: {
         ...(feeTiers
           ? { feeTiers: { deleteMany: {}, ...(hasTiers ? { create: feeTiers } : {}) } }
+          : {}),
+        ...(feeOptions
+          ? {
+              feeOptions: {
+                deleteMany: {},
+                ...(feeOptions.length > 0 ? { create: feeOptions } : {}),
+              },
+            }
           : {}),
         title,
         description: toStr(body.description, 5000),

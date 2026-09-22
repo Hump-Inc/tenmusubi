@@ -460,6 +460,15 @@ async function main() {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "Event_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "OrganizerProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS "EventFeeOption" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "eventId" TEXT NOT NULL,
+      "label" TEXT NOT NULL,
+      "fee" INTEGER NOT NULL,
+      "note" TEXT,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT "EventFeeOption_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
     `CREATE TABLE IF NOT EXISTS "EventImage" (
       "id" TEXT NOT NULL PRIMARY KEY,
       "eventId" TEXT NOT NULL,
@@ -755,6 +764,7 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "Event_organizerId_idx" ON "Event"("organizerId")',
     'CREATE INDEX IF NOT EXISTS "EventImage_eventId_idx" ON "EventImage"("eventId")',
     'CREATE INDEX IF NOT EXISTS "EventFeeTier_eventId_idx" ON "EventFeeTier"("eventId")',
+    'CREATE INDEX IF NOT EXISTS "EventFeeOption_eventId_idx" ON "EventFeeOption"("eventId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventFavorite_userId_eventId_key" ON "EventFavorite"("userId", "eventId")',
     'CREATE INDEX IF NOT EXISTS "EventFavorite_eventId_idx" ON "EventFavorite"("eventId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerFollow_userId_organizerId_key" ON "OrganizerFollow"("userId", "organizerId")',
