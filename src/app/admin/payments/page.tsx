@@ -42,6 +42,7 @@ interface PaymentItem {
   status: string;
   refundedAmount: number;
   paidAt: string | null;
+  paidOutAt: string | null;
   createdAt: string;
   applicationId: string;
   storeName: string;
@@ -242,6 +243,13 @@ export default function AdminPaymentsPage() {
                       <TableCell className="text-sm text-right whitespace-nowrap">{yen(p.platformFee)}</TableCell>
                       <TableCell>
                         <Badge variant={s.variant}>{s.label}</Badge>
+                        {p.status === "paid" && (
+                          <p className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+                            {p.paidOutAt
+                              ? `${new Date(p.paidOutAt).toLocaleDateString("ja-JP")} 入金`
+                              : "入金待ち（開催後）"}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <div className="flex items-center gap-1">

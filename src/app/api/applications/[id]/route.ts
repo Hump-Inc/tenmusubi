@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loadApplicationForViewer, readFieldFor } from "@/lib/eventApplicationAccess";
 import { parseSnapshot, checkFit } from "@/lib/eventApplicationSnapshot";
-import { paymentView, platformFeePercent } from "@/lib/eventPayments";
+import { paymentView, platformFeePercent, payoutDueAt } from "@/lib/eventPayments";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 
 // GET: 応募1件とやり取りの内容
@@ -68,7 +68,11 @@ export async function GET(
               where: { id: application.event.organizer.id },
               select: { stripeChargesEnabled: true },
             })
-            .then((o) => ({ ready: o?.stripeChargesEnabled === true, feePercent: platformFeePercent() }))
+            .then((o) => ({
+              ready: o?.stripeChargesEnabled === true,
+              feePercent: platformFeePercent(),
+              payoutDueAt: payoutDueAt(new Date(application.event.endAt)),
+            }))
         : null;
 
     // 開いた時点で既読にする

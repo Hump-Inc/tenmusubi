@@ -6,6 +6,8 @@ import { loadApplicationForViewer } from "@/lib/eventApplicationAccess";
 import { createNotification } from "@/lib/notifications";
 import {
   calcPlatformFee,
+  canRequestPaymentFor,
+  MAX_DAYS_UNTIL_PAYOUT,
   MAX_PAYMENT_AMOUNT,
   MIN_PAYMENT_AMOUNT,
   paymentView,
@@ -43,6 +45,17 @@ export async function POST(
     if (application.status !== "confirmed") {
       return NextResponse.json(
         { error: "出店が決定した応募にだけ請求できます" },
+        { status: 400 }
+      );
+    }
+
+    // 入金は開催後。Stripe は残高を原則90日以内に入金する必要があるため、
+    // 開催が遠い募集はまだ請求できない。
+    if (!canRequestPaymentFor(new Date(application.event.endAt))) {
+      return NextResponse.json(
+        {
+          error: `出展料の請求は、開催のおよそ${MAX_DAYS_UNTIL_PAYOUT - 2}日前からできます`,
+        },
         { status: 400 }
       );
     }

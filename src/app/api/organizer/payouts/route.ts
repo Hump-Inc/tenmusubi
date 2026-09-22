@@ -108,6 +108,9 @@ export async function POST() {
             // マルシェ・イベント運営。登録画面の入力を少しでも減らす
             mcc: "7399",
           },
+          // 入金は開催後にこちらから行う（runEventPayouts）。自動入金にすると、
+          // 開催前に主催者の口座へ出ていき、キャンセルの返金を残高から戻せなくなる。
+          settings: { payouts: { schedule: { interval: "manual" } } },
           metadata: { organizerId: organizer.id },
         },
         // ボタンの連打で口座が2つできないように。キーを主催者ごとに固定すると、口座を
@@ -118,6 +121,11 @@ export async function POST() {
       await prisma.organizerProfile.update({
         where: { id: organizer.id },
         data: { stripeAccountId: accountId },
+      });
+    } else {
+      // この設定より前に作った口座も手動入金に揃える
+      await stripe.accounts.update(accountId, {
+        settings: { payouts: { schedule: { interval: "manual" } } },
       });
     }
 

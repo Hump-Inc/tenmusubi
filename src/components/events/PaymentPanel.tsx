@@ -20,6 +20,7 @@ export interface PaymentSummary {
   paidAt: string | null;
   canceledAt: string | null;
   createdAt: string;
+  paidOutAt?: string | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -56,7 +57,7 @@ export function PaymentPanel({
   applicationId: string;
   role: "vendor" | "organizer" | "admin";
   payments: PaymentSummary[];
-  payouts: { ready: boolean; feePercent: number } | null;
+  payouts: { ready: boolean; feePercent: number; payoutDueAt: string } | null;
   defaultAmount: number | null;
   defaultDescription: string;
   returnedFromCheckout: boolean;
@@ -190,6 +191,15 @@ export function PaymentPanel({
                     <> ・ {yen(p.refundedAmount)} 返金済み</>
                   )}
                 </p>
+                {isOrganizer && p.status === "paid" && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {p.paidOutAt
+                      ? `${formatDateShort(p.paidOutAt)} 口座へ入金手続き済み`
+                      : payouts?.payoutDueAt
+                        ? `開催後、${formatDateShort(payouts.payoutDueAt)}ごろ口座へ入金します`
+                        : "開催後に口座へ入金します"}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 {p.status === "requested" && role === "vendor" && (

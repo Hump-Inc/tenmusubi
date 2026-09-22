@@ -86,7 +86,12 @@ npm run migrate:prod
 - **支払いの確定は Webhook だけで行う**（`checkout.session.completed`）。支払い画面から戻ったことは根拠にしない
 - Webhook はすべて `/api/stripe/webhook` で受ける。Stripe 側に2つのエンドポイントを設定すること
   - プラットフォーム用: `checkout.session.completed` / `charge.refunded`（＋既存のサブスク系） → `STRIPE_WEBHOOK_SECRET`
-  - Connect 用（「連結アカウント」のイベント）: `account.updated` → `STRIPE_CONNECT_WEBHOOK_SECRET`
+  - Connect 用（「連結アカウント」のイベント）: `account.updated` / `payout.failed` → `STRIPE_CONNECT_WEBHOOK_SECRET`
+- **主催者への入金は開催後**（2026-09-10 MTG「Stripe 側でプール」）。主催者の Stripe アカウントは手動入金にしてあり、
+  `/api/cron/event-payouts`（毎日 10:00 JST）が開催終了の2日後以降にまとめて入金する
+  - この cron は本番で `CRON_SECRET` が無いと動かない（お金を動かすため、他の cron と違い素通しにしない）
+  - 残高（available）が足りなければ翌日に回す。`payout.failed` が来たら印を外して翌日やり直す
+  - Stripe は残高を原則90日以内に入金する必要があるため、入金予定が85日より先の募集には請求できない
 - 返金は当面 Stripe ダッシュボードから運営が行う（destination charge なので「送金の取り消し」も選ぶ）。結果は `charge.refunded` で反映される
 - 手数料率: `EVENT_PAYMENT_FEE_PERCENT`（未設定なら仮の 5%）。請求時点の額を `EventPayment.platformFee` に確定させる
 

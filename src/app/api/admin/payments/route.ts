@@ -53,6 +53,7 @@ export async function GET() {
         status: p.status,
         refundedAmount: p.refundedAmount,
         paidAt: p.paidAt,
+        paidOutAt: p.paidOutAt,
         createdAt: p.createdAt,
         applicationId: p.application.id,
         storeName: p.application.store.name,

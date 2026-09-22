@@ -557,6 +557,8 @@ async function main() {
       "requestedById" TEXT NOT NULL,
       "paidAt" DATETIME,
       "canceledAt" DATETIME,
+      "stripePayoutId" TEXT,
+      "paidOutAt" DATETIME,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "EventPayment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -646,6 +648,14 @@ async function main() {
     if (!colNames.has("stripeAccountId")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeAccountId" TEXT');
     if (!colNames.has("stripeChargesEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeChargesEnabled" BOOLEAN NOT NULL DEFAULT false');
     if (!colNames.has("stripePayoutsEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripePayoutsEnabled" BOOLEAN NOT NULL DEFAULT false');
+  }
+
+  // Check EventPayment table for missing columns
+  if (existingTables.has("EventPayment")) {
+    const paymentCols = await client.execute("PRAGMA table_info('EventPayment')");
+    const colNames = new Set(paymentCols.rows.map(r => r.name as string));
+    if (!colNames.has("stripePayoutId")) alterStatements.push('ALTER TABLE "EventPayment" ADD COLUMN "stripePayoutId" TEXT');
+    if (!colNames.has("paidOutAt")) alterStatements.push('ALTER TABLE "EventPayment" ADD COLUMN "paidOutAt" DATETIME');
   }
 
   // Check StoreApplicationProfile table for missing columns
@@ -781,6 +791,7 @@ async function main() {
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripePaymentIntentId_key" ON "EventPayment"("stripePaymentIntentId")',
     'CREATE INDEX IF NOT EXISTS "EventPayment_applicationId_idx" ON "EventPayment"("applicationId")',
     'CREATE INDEX IF NOT EXISTS "EventPayment_status_idx" ON "EventPayment"("status")',
+    'CREATE INDEX IF NOT EXISTS "EventPayment_stripePayoutId_idx" ON "EventPayment"("stripePayoutId")',
   ];
 
   for (const sql of indexes) {

@@ -5,6 +5,7 @@ import type Stripe from "stripe";
 import {
   handleEventCheckoutCompleted,
   handleEventChargeRefunded,
+  handleEventPayoutFailed,
   syncOrganizerAccount,
 } from "@/lib/eventPayments";
 
@@ -77,6 +78,11 @@ export async function POST(request: Request) {
 
       case "charge.refunded": {
         await handleEventChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+      }
+
+      case "payout.failed": {
+        await handleEventPayoutFailed(event.data.object as Stripe.Payout);
         break;
       }
 

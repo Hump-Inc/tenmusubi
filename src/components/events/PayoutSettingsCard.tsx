@@ -116,6 +116,7 @@ export function PayoutSettingsCard() {
               </li>
               <li>
                 受け取った出展料から手数料 {data.feePercent}% を差し引いた額が、登録した口座に入金されます。
+                入金はイベントの終了後です（開催前のキャンセルに返金で応じられるよう、それまでは Stripe でお預かりします）。
               </li>
             </ul>
 

@@ -917,9 +917,16 @@ model EventPayment {
   paidAt        DateTime?
   canceledAt    DateTime?
 
+  // 主催者の口座への入金。お金は主催者の Stripe 残高にプールしておき、開催が
+  // 終わってから入金する（2026-09-10 MTG）。1回の入金で複数の支払いをまとめるので、
+  // 同じ payoutId が複数の行に入る。
+  stripePayoutId String?
+  paidOutAt      DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([applicationId])
   @@index([status])
+  @@index([stripePayoutId])
 }

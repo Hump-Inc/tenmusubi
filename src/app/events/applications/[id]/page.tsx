@@ -69,7 +69,7 @@ interface ThreadData {
   disclosures: Disclosure[];
   myDocuments: DocumentSummary[];
   payments: PaymentSummary[];
-  payouts: { ready: boolean; feePercent: number } | null;
+  payouts: { ready: boolean; feePercent: number; payoutDueAt: string } | null;
   paymentsEnabled: boolean;
 }
 
