@@ -732,6 +732,13 @@ model Event {
   expectedVisitors  Int?
   note              String?
 
+  // 雨天時の扱い（src/lib/eventWeather.ts）。この機能より前の募集は null。
+  // 新規作成・編集の保存時には必須にしている。
+  rainPolicy                String? // "go"（雨天決行） | "storm_cancel"（荒天中止） | "rain_cancel"（雨天中止）
+  weatherDecisionDaysBefore Int? // 中止を判断する期限: 開催の何日前か（0 = 当日）
+  weatherDecisionHour       Int? // 同: 何時までか（0〜23）
+  weatherRefundPercent      Int? // 天候で中止になったときに出店者へ返す割合（100 / 50）
+
   status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
   publishedAt DateTime?
   // フォロワーへ新着を知らせた時刻。下書きに戻して再公開しても二重に送らないための印。

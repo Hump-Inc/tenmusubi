@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
@@ -163,6 +164,11 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    // 雨天時の扱いと中止判断の期限は必須。ここが曖昧だと雨のたびに揉める。
+    const weather = parseWeatherPolicy(body, startAt);
+    if ("error" in weather) {
+      return NextResponse.json({ error: weather.error }, { status: 400 });
+    }
     // 出展料は必須。「応相談」を許さず、出店者が金額で絞り込めることを優先する。
     if (exhibitFee === null || exhibitFee < 0) {
       return NextResponse.json(
@@ -202,6 +208,7 @@ export async function POST(request: Request) {
         exhibitFeeMax:
           exhibitFeeMax !== null && exhibitFeeMax > exhibitFee ? exhibitFeeMax : null,
         feeNote: toStr(body.feeNote, 200),
+        ...weather.value,
         spaceWidthM: toFloat(body.spaceWidthM),
         spaceDepthM: toFloat(body.spaceDepthM),
         powerAvailable: body.powerAvailable === true,

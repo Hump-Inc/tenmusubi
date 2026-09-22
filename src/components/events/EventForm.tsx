@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Plus,
   Trash2,
+  CloudRain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,11 @@ import {
   VENDOR_CATEGORY_LABELS,
   DOCUMENT_TYPES,
 } from "@/lib/constants";
+import {
+  RAIN_POLICIES,
+  DECISION_DAY_OPTIONS,
+  WEATHER_REFUND_OPTIONS,
+} from "@/lib/eventWeather";
 
 export interface FeeTierRow {
   label: string;
@@ -75,6 +81,11 @@ export interface EventFormValues {
   powerWatt: string;
   waterAvailable: boolean;
   fireAllowed: boolean;
+  // 雨天時の扱い。主催者に意識して選んでもらうため、初期値は入れない。
+  rainPolicy: string;
+  weatherDecisionDaysBefore: string;
+  weatherDecisionHour: string;
+  weatherRefundPercent: string;
   categories: string[];
   requiredDocuments: string[];
   expectedVisitors: string;
@@ -101,6 +112,10 @@ export const EMPTY_EVENT: EventFormValues = {
   powerWatt: "",
   waterAvailable: false,
   fireAllowed: false,
+  rainPolicy: "",
+  weatherDecisionDaysBefore: "",
+  weatherDecisionHour: "",
+  weatherRefundPercent: "",
   categories: [],
   requiredDocuments: [],
   expectedVisitors: "",
@@ -657,6 +672,107 @@ export function EventForm({
           <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50 p-4">
             <p className="text-sm font-medium text-gray-900">火気の使用が可能</p>
             <Switch checked={form.fireAllowed} onCheckedChange={(v) => set("fireAllowed", v)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 雨天時の扱い */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CloudRain className="h-5 w-5 text-orange-500" />
+            雨天時の扱い
+          </CardTitle>
+          <CardDescription>
+            出店者は数日前には仕入れを済ませます。中止をいつまでに決めるかを、募集の時点で約束してください
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label>
+              雨の場合 <span className="text-red-500">*</span>
+            </Label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {RAIN_POLICIES.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => set("rainPolicy", p.value)}
+                  className={`rounded-xl border p-3 text-left transition-colors ${
+                    form.rainPolicy === p.value
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900">{p.label}</p>
+                  <p className="mt-1 text-xs text-gray-500">{p.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              中止を判断する期限 <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={form.weatherDecisionDaysBefore}
+                onValueChange={(v) => set("weatherDecisionDaysBefore", v)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="いつ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DECISION_DAY_OPTIONS.map((d) => (
+                    <SelectItem key={d.value} value={String(d.value)}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={form.weatherDecisionHour}
+                onValueChange={(v) => set("weatherDecisionHour", v)}
+              >
+                <SelectTrigger className="w-[110px]">
+                  <SelectValue placeholder="何時" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {h}時
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-gray-600">までに出店者へ知らせる</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              天候で中止になった場合の出展料 <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {WEATHER_REFUND_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => set("weatherRefundPercent", String(o.value))}
+                  className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                    form.weatherRefundPercent === String(o.value)
+                      ? "border-orange-500 bg-orange-50 text-orange-700"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              会場を借りている場合などは半額返金を選べます。出店者が天候を理由に自分で出店を見送った場合は、この対象になりません。
+            </p>
           </div>
         </CardContent>
       </Card>

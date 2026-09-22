@@ -450,6 +450,10 @@ async function main() {
       "requiredDocuments" TEXT,
       "expectedVisitors" INTEGER,
       "note" TEXT,
+      "rainPolicy" TEXT,
+      "weatherDecisionDaysBefore" INTEGER,
+      "weatherDecisionHour" INTEGER,
+      "weatherRefundPercent" INTEGER,
       "status" TEXT NOT NULL DEFAULT 'draft',
       "publishedAt" DATETIME,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -612,6 +616,10 @@ async function main() {
     const eventCols = await client.execute("PRAGMA table_info('Event')");
     const colNames = new Set(eventCols.rows.map(r => r.name as string));
     if (!colNames.has("exhibitFeeMax")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "exhibitFeeMax" INTEGER');
+    if (!colNames.has("rainPolicy")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "rainPolicy" TEXT');
+    if (!colNames.has("weatherDecisionDaysBefore")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionDaysBefore" INTEGER');
+    if (!colNames.has("weatherDecisionHour")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionHour" INTEGER');
+    if (!colNames.has("weatherRefundPercent")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRefundPercent" INTEGER');
     if (!colNames.has("followersNotifiedAt")) {
       alterStatements.push('ALTER TABLE "Event" ADD COLUMN "followersNotifiedAt" DATETIME');
       // 列を足した時点で公開済みの募集は「新着」ではない。印を付けて、既存の募集を

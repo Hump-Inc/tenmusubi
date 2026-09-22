@@ -17,6 +17,7 @@ import {
   Globe,
   Pencil,
   CheckCircle2,
+  CloudRain,
 } from "lucide-react";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -33,6 +34,11 @@ import {
   parseJsonArray,
 } from "@/lib/eventFormat";
 import { feeTierLabel } from "@/lib/eventFeeTiers";
+import {
+  rainPolicyLabel,
+  decisionDeadlineLabel,
+  weatherRefundLabel,
+} from "@/lib/eventWeather";
 import { SHOW_ORGANIZER_PAST_EVENTS } from "@/lib/constants";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
@@ -341,6 +347,20 @@ export default async function EventDetailPage({
               </Row>
               <Row icon={<Flame className="h-5 w-5" />} label="火気の使用">
                 {event.fireAllowed ? "可能" : "不可"}
+              </Row>
+              <Row icon={<CloudRain className="h-5 w-5" />} label="雨天時">
+                {rainPolicyLabel(event.rainPolicy) ? (
+                  <>
+                    {rainPolicyLabel(event.rainPolicy)}
+                    <span className="block text-xs font-normal text-gray-600 mt-0.5">
+                      中止の判断: {decisionDeadlineLabel(event.weatherDecisionDaysBefore, event.weatherDecisionHour)}
+                      {weatherRefundLabel(event.weatherRefundPercent) &&
+                        ` ・ 天候で中止の場合は出展料を${weatherRefundLabel(event.weatherRefundPercent)}`}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-normal text-gray-600">記載なし（主催者にご確認ください）</span>
+                )}
               </Row>
               {event.expectedVisitors !== null && (
                 <Row icon={<Users className="h-5 w-5" />} label="想定来場者数">

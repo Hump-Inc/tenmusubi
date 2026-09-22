@@ -14,6 +14,7 @@ import {
   FileCheck2,
   CheckCircle2,
   XCircle,
+  CloudRain,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -33,6 +34,7 @@ import {
 import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
+import { rainPolicyLabel, decisionDeadlineLabel, weatherRefundLabel } from "@/lib/eventWeather";
 
 interface ThreadData {
   role: "vendor" | "organizer" | "admin";
@@ -53,6 +55,10 @@ interface ThreadData {
       exhibitFee: number;
       exhibitFeeMax: number | null;
       feeNote: string | null;
+      rainPolicy: string | null;
+      weatherDecisionDaysBefore: number | null;
+      weatherDecisionHour: number | null;
+      weatherRefundPercent: number | null;
       organizer: { orgName: string };
     };
   };
@@ -254,6 +260,19 @@ export default function ApplicationThreadPage({
                     application.event.exhibitFeeMax
                   )}
                 </span>
+                {rainPolicyLabel(application.event.rainPolicy) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CloudRain className="h-4 w-4 text-gray-400" />
+                    {rainPolicyLabel(application.event.rainPolicy)}（中止の判断は
+                    {decisionDeadlineLabel(
+                      application.event.weatherDecisionDaysBefore,
+                      application.event.weatherDecisionHour
+                    )}
+                    {weatherRefundLabel(application.event.weatherRefundPercent) &&
+                      `・中止時は${weatherRefundLabel(application.event.weatherRefundPercent)}`}
+                    ）
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
