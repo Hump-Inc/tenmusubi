@@ -115,7 +115,7 @@ export function PayoutSettingsCard() {
                 Instagram などイベントの様子が分かる SNS の URL で大丈夫です。
               </li>
               <li>
-                受け取った出展料から手数料 {data.feePercent}% を差し引いた額が、登録した口座に入金されます。
+                受け取った出展料から手数料 {data.feePercent}%（税込）を差し引いた額が、登録した口座に入金されます。
                 入金はイベントの終了後です（開催前のキャンセルに返金で応じられるよう、それまでは Stripe でお預かりします）。
               </li>
             </ul>

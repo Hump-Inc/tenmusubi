@@ -19,9 +19,13 @@ import { createNotification } from "./notifications";
  * 開催前のキャンセルの返金は、主催者の残高から戻せる。
  */
 
-// 運営の手数料率（%）。未決定のため仮置き。Stripe の決済手数料（国内カード 3.6%）は
-// destination charge では運営の残高から引かれるので、これを下回ると運営が赤字になる。
-const DEFAULT_FEE_PERCENT = 5;
+// 運営の手数料率（%・税込・決済手数料込み）。主催者の受取額から差し引く。
+// 2026-09-22 に 10% で決定。同業の水準（出展料の請求 約5%、チケット販売 5〜10%）の
+// 上限寄りだが、募集・応募のやり取り・書類・規定まで一貫して提供する分を乗せている。
+// Stripe の費用（決済 3.6% ＋ 入金手数料など、実質 4〜5%）は destination charge では
+// 運営の残高から引かれるので、運営の取り分は出展料の 5〜6% 程度になる。
+// 返金しても 3.6% は戻らないため、全額返金が続くとその分は運営の持ち出しになる。
+const DEFAULT_FEE_PERCENT = 10;
 
 export function platformFeePercent(): number {
   const v = Number(process.env.EVENT_PAYMENT_FEE_PERCENT);

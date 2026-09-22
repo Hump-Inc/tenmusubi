@@ -286,7 +286,7 @@ export function PaymentPanel({
             />
             {feePreview !== null && (
               <p className="text-xs text-gray-500">
-                手数料 {payouts.feePercent}%（{yen(feePreview)}）を差し引いた{" "}
+                手数料 {payouts.feePercent}%（税込 {yen(feePreview)}）を差し引いた{" "}
                 {yen(amountNum - feePreview)} が入金されます
               </p>
             )}

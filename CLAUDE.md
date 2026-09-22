@@ -93,7 +93,7 @@ npm run migrate:prod
   - 残高（available）が足りなければ翌日に回す。`payout.failed` が来たら印を外して翌日やり直す
   - Stripe は残高を原則90日以内に入金する必要があるため、入金予定が85日より先の募集には請求できない
 - 返金は当面 Stripe ダッシュボードから運営が行う（destination charge なので「送金の取り消し」も選ぶ）。結果は `charge.refunded` で反映される
-- 手数料率: `EVENT_PAYMENT_FEE_PERCENT`（未設定なら仮の 5%）。請求時点の額を `EventPayment.platformFee` に確定させる
+- 手数料率: `EVENT_PAYMENT_FEE_PERCENT`（未設定なら 10%・税込。2026-09-22 決定）。請求時点の額を `EventPayment.platformFee` に確定させる
 
 ### キャンセル規定
 
