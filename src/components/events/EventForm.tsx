@@ -35,6 +35,7 @@ import {
   VENDOR_CATEGORY_LABELS,
   DOCUMENT_TYPES,
 } from "@/lib/constants";
+import { jst } from "@/lib/eventFormat";
 import {
   RAIN_POLICIES,
   DECISION_DAY_OPTIONS,
@@ -139,9 +140,11 @@ export function toLocalInput(value: string | Date | null | undefined, kind: "dat
   if (!value) return "";
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";
+  // 入力欄は日本時間で出す。保存側（parseJstInput）と揃える。
+  const j = jst(d);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const base = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  return kind === "date" ? base : `${base}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const base = `${j.year}-${pad(j.month)}-${pad(j.day)}`;
+  return kind === "date" ? base : `${base}T${pad(j.hour)}:${pad(j.minute)}`;
 }
 
 function Chips({

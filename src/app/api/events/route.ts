@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJstInput, jstMonthStart } from "@/lib/eventFormat";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -69,12 +70,12 @@ export async function GET(request: Request) {
     if (month) {
       const [y, m] = month.split("-").map(Number);
       if (y && m) {
-        where.startAt = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+        where.startAt = { gte: jstMonthStart(y, m), lt: jstMonthStart(y, m + 1) };
       }
     } else if (monthFrom) {
       // 「◯年◯月以降」。半年より先の募集に届かないと選べない月ができるため。
       const [y, m] = monthFrom.split("-").map(Number);
-      if (y && m) where.startAt = { gte: new Date(y, m - 1, 1) };
+      if (y && m) where.startAt = { gte: jstMonthStart(y, m) };
     }
     // 締切済みは既定で除外する。応募できない募集が並ぶと探しづらいため。
     // 「開催日を過ぎたもの」と「募集を締め切ったもの」の両方を落とす。
@@ -139,8 +140,8 @@ export async function POST(request: Request) {
     const title = toStr(body.title, 120);
     const venueName = toStr(body.venueName, 120);
     const area = toStr(body.area, 20);
-    const startAt = body.startAt ? new Date(body.startAt) : null;
-    const endAt = body.endAt ? new Date(body.endAt) : null;
+    const startAt = parseJstInput(body.startAt);
+    const endAt = parseJstInput(body.endAt);
     // 区画ごとの金額。送られていれば、そこから最安値・最高値を出して保存する。
     const feeTiers = parseFeeTiers(body.feeTiers);
     const hasTiers = !!feeTiers && feeTiers.length > 0;
@@ -203,8 +204,8 @@ export async function POST(request: Request) {
         area,
         startAt,
         endAt,
-        applicationOpenAt: body.applicationOpenAt ? new Date(body.applicationOpenAt) : null,
-        applicationCloseAt: body.applicationCloseAt ? new Date(body.applicationCloseAt) : null,
+        applicationOpenAt: parseJstInput(body.applicationOpenAt),
+        applicationCloseAt: parseJstInput(body.applicationCloseAt),
         slots: toInt(body.slots),
         exhibitFee,
         exhibitFeeMax:

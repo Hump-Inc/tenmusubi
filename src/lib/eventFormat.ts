@@ -1,17 +1,56 @@
 const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
 
-export function formatEventDate(start: Date | string, end: Date | string): string {
-  const s = typeof start === "string" ? new Date(start) : start;
-  const e = typeof end === "string" ? new Date(end) : end;
-  const sameDay =
-    s.getFullYear() === e.getFullYear() &&
-    s.getMonth() === e.getMonth() &&
-    s.getDate() === e.getDate();
+/**
+ * 日付はすべて日本時間で扱う。
+ *
+ * サーバーのタイムゾーンに任せると、Vercel（UTC）で描画したページだけ9時間ずれる
+ * （10:00〜16:00 の募集が 1:00〜7:00 と出る）。Vercel では TZ を変えられないので、
+ * 日本時間の値を UTC の getter で読む形にしている。日本に夏時間は無いので固定でよい。
+ */
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-  const date = (d: Date) =>
-    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${WEEK[d.getDay()]})`;
-  const time = (d: Date) =>
-    `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+export function jst(d: Date) {
+  const t = new Date(d.getTime() + JST_OFFSET_MS);
+  return {
+    year: t.getUTCFullYear(),
+    month: t.getUTCMonth() + 1,
+    day: t.getUTCDate(),
+    weekday: t.getUTCDay(),
+    hour: t.getUTCHours(),
+    minute: t.getUTCMinutes(),
+  };
+}
+
+/**
+ * フォームの datetime-local / date の値（タイムゾーンなし）を日本時間として読む。
+ * new Date("2026-10-11T10:00") はサーバーの時刻として解釈されるので使わない。
+ * すでにタイムゾーンが付いている値（ISO 文字列）はそのまま読む。
+ */
+export function parseJstInput(value: unknown): Date | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const v = value.trim();
+  let iso = v;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) iso = `${v}T00:00:00+09:00`;
+  else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) iso = `${v}:00+09:00`;
+  else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(v)) iso = `${v}+09:00`;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 日本時間の y年m月1日 0時。m は 1〜12（13 を渡すと翌年1月になる）。 */
+export function jstMonthStart(year: number, month: number): Date {
+  return new Date(Date.UTC(year, month - 1, 1) - JST_OFFSET_MS);
+}
+
+export function formatEventDate(start: Date | string, end: Date | string): string {
+  const s = jst(typeof start === "string" ? new Date(start) : start);
+  const e = jst(typeof end === "string" ? new Date(end) : end);
+  const sameDay = s.year === e.year && s.month === e.month && s.day === e.day;
+
+  const date = (d: ReturnType<typeof jst>) =>
+    `${d.year}年${d.month}月${d.day}日(${WEEK[d.weekday]})`;
+  const time = (d: ReturnType<typeof jst>) =>
+    `${d.hour}:${String(d.minute).padStart(2, "0")}`;
 
   return sameDay
     ? `${date(s)} ${time(s)}〜${time(e)}`
@@ -22,7 +61,8 @@ export function formatDateShort(value: Date | string | null | undefined): string
   if (!value) return null;
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return null;
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  const j = jst(d);
+  return `${j.year}年${j.month}月${j.day}日`;
 }
 
 /**
@@ -58,7 +98,7 @@ export function formatApplicationPeriod(
     const d = typeof v === "string" ? new Date(v) : v;
     return Number.isNaN(d.getTime()) ? null : d;
   };
-  const md = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const md = (d: Date) => `${jst(d).month}/${jst(d).day}`;
 
   const open = toDate(openAt);
   const close = toDate(closeAt);

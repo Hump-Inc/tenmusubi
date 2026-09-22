@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseJstInput } from "@/lib/eventFormat";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth, isAdmin } from "@/lib/auth";
@@ -107,8 +108,8 @@ export async function PUT(
     const title = toStr(body.title, 120);
     const venueName = toStr(body.venueName, 120);
     const area = toStr(body.area, 20);
-    const startAt = body.startAt ? new Date(body.startAt) : null;
-    const endAt = body.endAt ? new Date(body.endAt) : null;
+    const startAt = parseJstInput(body.startAt);
+    const endAt = parseJstInput(body.endAt);
     // 区画ごとの金額。送られていれば、そこから最安値・最高値を出して保存する。
     const feeTiers = parseFeeTiers(body.feeTiers);
     const hasTiers = !!feeTiers && feeTiers.length > 0;
@@ -195,8 +196,8 @@ export async function PUT(
         area,
         startAt,
         endAt,
-        applicationOpenAt: body.applicationOpenAt ? new Date(body.applicationOpenAt) : null,
-        applicationCloseAt: body.applicationCloseAt ? new Date(body.applicationCloseAt) : null,
+        applicationOpenAt: parseJstInput(body.applicationOpenAt),
+        applicationCloseAt: parseJstInput(body.applicationCloseAt),
         slots: toInt(body.slots),
         exhibitFee,
         exhibitFeeMax:
