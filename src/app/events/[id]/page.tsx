@@ -40,6 +40,7 @@ import {
   weatherRefundLabel,
 } from "@/lib/eventWeather";
 import { SHOW_ORGANIZER_PAST_EVENTS, EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { CancelEventButton } from "@/components/events/CancelEventButton";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
 
@@ -180,6 +181,26 @@ export default async function EventDetailPage({
       : [],
   ]);
 
+  // 中止したときに知らせが届く出店者の数。確認ダイアログで主催者に見せる。
+  const canCancel =
+    isOwner &&
+    (event.status === "published" || event.status === "closed") &&
+    event.endAt > now;
+  const [cancelRecipients, cancelPaid] = canCancel
+    ? await Promise.all([
+        prisma.eventApplication.count({
+          where: { eventId: event.id, status: { in: ["open", "confirmed"] } },
+        }),
+        prisma.eventApplication.count({
+          where: {
+            eventId: event.id,
+            status: { in: ["open", "confirmed"] },
+            payments: { some: { status: "paid" } },
+          },
+        }),
+      ])
+    : [0, 0];
+
   const myFavorite = viewerId
     ? await prisma.eventFavorite.findUnique({
         where: { userId_eventId: { userId: viewerId, eventId: event.id } },
@@ -204,12 +225,15 @@ export default async function EventDetailPage({
                   ? "この募集は下書きです。まだ出店者には表示されていません。"
                   : "この募集は中止になっています。"}
               </p>
-              <Button size="sm" variant="outline" className="rounded-full" asChild>
-                <Link href={`/events/${event.id}/edit`}>
-                  <Pencil className="h-4 w-4 mr-1" />
-                  編集
-                </Link>
-              </Button>
+              {/* 中止した募集は編集フォームから「公開」に戻せないようにしている */}
+              {(event.status !== "cancelled" || !isOwner) && (
+                <Button size="sm" variant="outline" className="rounded-full" asChild>
+                  <Link href={`/events/${event.id}/edit`}>
+                    <Pencil className="h-4 w-4 mr-1" />
+                    編集
+                  </Link>
+                </Button>
+              )}
             </div>
           )}
 
@@ -519,6 +543,20 @@ export default async function EventDetailPage({
               </div>
             )}
           </section>
+
+          {canCancel && (
+            <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-6">
+              <h2 className="mb-2 font-bold text-gray-900">募集の中止</h2>
+              <p className="mb-4 text-sm text-gray-600">
+                天候などで中止を決めたら、ここから出店者全員へ一斉にお知らせできます。
+              </p>
+              <CancelEventButton
+                eventId={event.id}
+                recipientCount={cancelRecipients}
+                paidCount={cancelPaid}
+              />
+            </section>
+          )}
 
           {/* 応募 */}
           <div className="sticky bottom-4">

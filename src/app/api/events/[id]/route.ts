@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { notifyEventCancelled } from "@/lib/eventCancel";
+import { onEventCancelled } from "@/lib/eventCancel";
 import { parseJstInput } from "@/lib/eventFormat";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { parseWeatherPolicy } from "@/lib/eventWeather";
@@ -102,6 +102,17 @@ export async function PUT(
     const result = await loadOwnEvent(id, session.user.id);
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+    // 中止した募集を編集フォームから保存すると「公開」に戻ってしまい、中止を
+    // 知らされた出店者との話が食い違う。戻せるのは運営だけにする。
+    if (
+      result.event.status === "cancelled" &&
+      result.event.organizer.userId === session.user.id
+    ) {
+      return NextResponse.json(
+        { error: "中止した募集は編集できません。取り消したい場合は運営にお問い合わせください" },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
@@ -225,7 +236,7 @@ export async function PUT(
 
     // 中止になったら、やり取り中・出店決定済みの出店者へ知らせる
     if (event.status === "cancelled" && result.event.status !== "cancelled") {
-      await notifyEventCancelled(event.id).catch((e) =>
+      await onEventCancelled(event.id).catch((e) =>
         console.error("Event cancel notify error:", e)
       );
     }
@@ -265,7 +276,7 @@ export async function DELETE(
     if (applications > 0) {
       await prisma.event.update({ where: { id }, data: { status: "cancelled" } });
       if (result.event.status !== "cancelled") {
-        await notifyEventCancelled(id).catch((e) => console.error("Event cancel notify error:", e));
+        await onEventCancelled(id).catch((e) => console.error("Event cancel notify error:", e));
       }
       return NextResponse.json({ message: "募集を中止しました", cancelled: true });
     }

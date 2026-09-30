@@ -35,6 +35,17 @@ export function Header() {
   // セッションの状態からログイン状態を判定
   const isLoggedIn = status === "authenticated" && !!session;
 
+  // ベルはPCとスマホで置き場所が違う。両方に置くと通知の取得が二重に走るので、
+  // 画面幅を見てどちらか一方だけ描く（md = 768px、Tailwind の既定）。
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   useEffect(() => {
     if (!isLoggedIn) return;
     fetch("/api/profile")
@@ -114,7 +125,7 @@ export function Header() {
                   )}
                 </Link>
               </Button>
-              <NotificationBell />
+              {isDesktop === true && <NotificationBell />}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full">
@@ -185,89 +196,92 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu */}
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">メニューを開く</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[300px] sm:w-[350px] bg-white">
-            <div className="flex flex-col gap-6 pt-6">
-              <Link href="/" className="flex items-center gap-4" onClick={() => setOpen(false)}>
-                <Logo size={72} />
-                <div className="flex flex-col">
-                  <span className="text-3xl font-bold tracking-wide text-[#d35f2d]">てんむすび</span>
-                  <span className="text-xs text-[#8b7355] tracking-wider">出店者ポータルサイト</span>
+        {/* Mobile: 通知はメニューの中に入れず、ヘッダーに常に見せる（ベルが見つからないという声があった） */}
+        <div className="flex items-center gap-1 md:hidden">
+          {isLoggedIn && isDesktop === false && <NotificationBell />}
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">メニューを開く</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] sm:w-[350px] bg-white">
+              <div className="flex flex-col gap-6 pt-6">
+                <Link href="/" className="flex items-center gap-4" onClick={() => setOpen(false)}>
+                  <Logo size={72} />
+                  <div className="flex flex-col">
+                    <span className="text-3xl font-bold tracking-wide text-[#d35f2d]">てんむすび</span>
+                    <span className="text-xs text-[#8b7355] tracking-wider">出店者ポータルサイト</span>
+                  </div>
+                </Link>
+
+                <nav className="flex flex-col gap-4">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="text-lg font-medium text-gray-600 transition-colors hover:text-gray-900"
+                      onClick={() => setOpen(false)}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </nav>
+
+                <div className="flex flex-col gap-3 pt-4 border-t border-gray-100">
+                  {isLoggedIn ? (
+                    <>
+                      <Link
+                        href="/mypage"
+                        className="text-lg font-medium text-gray-900"
+                        onClick={() => setOpen(false)}
+                      >
+                        マイページ
+                      </Link>
+                      <Link
+                        href="/messages"
+                        className="flex items-center gap-2 text-lg font-medium text-gray-900"
+                        onClick={() => setOpen(false)}
+                      >
+                        メッセージ
+                        {unreadMessages > 0 && (
+                          <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                            {unreadMessages > 9 ? "9+" : unreadMessages}
+                          </span>
+                        )}
+                      </Link>
+                      <Button
+                        variant="outline"
+                        className="rounded-full mt-2 border-gray-200"
+                        onClick={() => {
+                          setOpen(false);
+                          signOut({ callbackUrl: "/" });
+                        }}
+                      >
+                        ログアウト
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" className="rounded-full border-gray-200" asChild>
+                        <Link href="/login" onClick={() => setOpen(false)}>
+                          ログイン
+                        </Link>
+                      </Button>
+                      <Button className="rounded-full bg-gray-900 hover:bg-gray-800" asChild>
+                        <Link href="/register" onClick={() => setOpen(false)}>
+                          無料会員登録
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </>
+                  )}
                 </div>
-              </Link>
-
-              <nav className="flex flex-col gap-4">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className="text-lg font-medium text-gray-600 transition-colors hover:text-gray-900"
-                    onClick={() => setOpen(false)}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </nav>
-
-              <div className="flex flex-col gap-3 pt-4 border-t border-gray-100">
-                {isLoggedIn ? (
-                  <>
-                    <Link
-                      href="/mypage"
-                      className="text-lg font-medium text-gray-900"
-                      onClick={() => setOpen(false)}
-                    >
-                      マイページ
-                    </Link>
-                    <Link
-                      href="/messages"
-                      className="flex items-center gap-2 text-lg font-medium text-gray-900"
-                      onClick={() => setOpen(false)}
-                    >
-                      メッセージ
-                      {unreadMessages > 0 && (
-                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
-                          {unreadMessages > 9 ? "9+" : unreadMessages}
-                        </span>
-                      )}
-                    </Link>
-                    <Button
-                      variant="outline"
-                      className="rounded-full mt-2 border-gray-200"
-                      onClick={() => {
-                        setOpen(false);
-                        signOut({ callbackUrl: "/" });
-                      }}
-                    >
-                      ログアウト
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" className="rounded-full border-gray-200" asChild>
-                      <Link href="/login" onClick={() => setOpen(false)}>
-                        ログイン
-                      </Link>
-                    </Button>
-                    <Button className="rounded-full bg-gray-900 hover:bg-gray-800" asChild>
-                      <Link href="/register" onClick={() => setOpen(false)}>
-                        無料会員登録
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </>
-                )}
               </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   );

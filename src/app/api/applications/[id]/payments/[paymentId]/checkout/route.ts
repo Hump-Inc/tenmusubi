@@ -35,6 +35,9 @@ export async function POST(
     if (role !== "vendor") {
       return NextResponse.json({ error: "この操作は出店者のみ行えます" }, { status: 403 });
     }
+    if (application.event.status === "cancelled") {
+      return NextResponse.json({ error: "この募集は中止になったため、お支払いは不要です" }, { status: 400 });
+    }
 
     const payment = await prisma.eventPayment.findFirst({
       where: { id: paymentId, applicationId: id },
