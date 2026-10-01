@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventCard, type EventCardData } from "@/components/events/EventCard";
+import { EventsTestingNotice } from "@/components/events/EventsTestingNotice";
 import { SEARCH_CATEGORIES, AREAS } from "@/lib/constants";
 
 interface SearchResult {
@@ -462,6 +463,12 @@ function SearchContent() {
                 {total}件の{TYPE_LABEL[searchType]}が見つかりました
               </div>
             </div>
+
+            {searchType === "event" && (
+              <div className="mb-6">
+                <EventsTestingNotice />
+              </div>
+            )}
 
             {/* Loading State */}
             {isLoading ? (

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
+import { EventsTestingNotice } from "@/components/events/EventsTestingNotice";
 import {
   ArrowRight,
   Truck,
@@ -266,6 +267,10 @@ export default function HomePage() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
+              </div>
+
+              <div className="-mt-4 mb-8">
+                <EventsTestingNotice />
               </div>
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
