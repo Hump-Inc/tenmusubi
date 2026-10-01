@@ -1,0 +1,980 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Loader2,
+  Save,
+  Send,
+  CalendarDays,
+  MapPin,
+  Zap,
+  Coins,
+  ClipboardList,
+  Image as ImageIcon,
+  Plus,
+  Trash2,
+  CloudRain,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { EventImageSection } from "@/components/events/EventImageSection";
+import {
+  ALL_PREFECTURES,
+  VENDOR_CATEGORY_LABELS,
+  DOCUMENT_TYPES,
+} from "@/lib/constants";
+import { jst } from "@/lib/eventFormat";
+import {
+  RAIN_POLICIES,
+  DECISION_DAY_OPTIONS,
+  WEATHER_REFUND_OPTIONS,
+} from "@/lib/eventWeather";
+
+export interface FeeTierRow {
+  label: string;
+  fee: string;
+  note: string;
+  slots: string;
+  widthM: string;
+  depthM: string;
+}
+
+export const EMPTY_FEE_TIER: FeeTierRow = {
+  label: "",
+  fee: "",
+  note: "",
+  slots: "",
+  widthM: "",
+  depthM: "",
+};
+
+// 区画に足せるオプション料金（電源 +500円 など）
+export interface FeeOptionRow {
+  label: string;
+  fee: string;
+  note: string;
+}
+
+export const EMPTY_FEE_OPTION: FeeOptionRow = { label: "", fee: "", note: "" };
+
+export interface EventFormValues {
+  id?: string;
+  title: string;
+  description: string;
+  venueName: string;
+  address: string;
+  area: string;
+  startAt: string;
+  endAt: string;
+  applicationOpenAt: string;
+  applicationCloseAt: string;
+  slots: string;
+  // 区画ごとの出展料。最低1行。単一料金なら区画名を空のまま1行だけ入れる。
+  // Event.exhibitFee / exhibitFeeMax はここから算出されるので、フォームでは持たない。
+  feeTiers: FeeTierRow[];
+  feeOptions: FeeOptionRow[];
+  feeNote: string;
+  spaceWidthM: string;
+  spaceDepthM: string;
+  powerAvailable: boolean;
+  powerWatt: string;
+  waterAvailable: boolean;
+  fireAllowed: boolean;
+  // 雨天時の扱い。主催者に意識して選んでもらうため、初期値は入れない。
+  rainPolicy: string;
+  weatherDecisionDaysBefore: string;
+  weatherDecisionHour: string;
+  weatherRefundPercent: string;
+  categories: string[];
+  requiredDocuments: string[];
+  expectedVisitors: string;
+  note: string;
+  status: string;
+}
+
+export const EMPTY_EVENT: EventFormValues = {
+  title: "",
+  description: "",
+  venueName: "",
+  address: "",
+  area: "",
+  startAt: "",
+  endAt: "",
+  applicationOpenAt: "",
+  applicationCloseAt: "",
+  slots: "",
+  feeTiers: [{ ...EMPTY_FEE_TIER }],
+  feeOptions: [],
+  feeNote: "",
+  spaceWidthM: "",
+  spaceDepthM: "",
+  powerAvailable: false,
+  powerWatt: "",
+  waterAvailable: false,
+  fireAllowed: false,
+  rainPolicy: "",
+  weatherDecisionDaysBefore: "",
+  weatherDecisionHour: "",
+  weatherRefundPercent: "",
+  categories: [],
+  requiredDocuments: [],
+  expectedVisitors: "",
+  note: "",
+  status: "draft",
+};
+
+/** datetime-local / date の入力値を、ローカル時刻のまま扱うための変換 */
+export function toLocalInput(value: string | Date | null | undefined, kind: "datetime" | "date") {
+  if (!value) return "";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "";
+  // 入力欄は日本時間で出す。保存側（parseJstInput）と揃える。
+  const j = jst(d);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const base = `${j.year}-${pad(j.month)}-${pad(j.day)}`;
+  return kind === "date" ? base : `${base}T${pad(j.hour)}:${pad(j.minute)}`;
+}
+
+function Chips({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onToggle(o.value)}
+          className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+            selected.includes(o.value)
+              ? "border-orange-500 bg-orange-50 text-orange-700"
+              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function EventForm({
+  initial,
+  eventId,
+}: {
+  initial: EventFormValues;
+  eventId?: string;
+}) {
+  const router = useRouter();
+  const [form, setForm] = useState<EventFormValues>(initial);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savingMode, setSavingMode] = useState<"draft" | "published">("draft");
+  const [error, setError] = useState("");
+
+  const set = <K extends keyof EventFormValues>(key: K, value: EventFormValues[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const setTier = (index: number, key: keyof FeeTierRow, value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      feeTiers: prev.feeTiers.map((t, i) => (i === index ? { ...t, [key]: value } : t)),
+    }));
+
+  const addTier = () =>
+    setForm((prev) => ({ ...prev, feeTiers: [...prev.feeTiers, { ...EMPTY_FEE_TIER }] }));
+
+  const removeTier = (index: number) =>
+    setForm((prev) => ({
+      ...prev,
+      feeTiers: prev.feeTiers.filter((_, i) => i !== index),
+    }));
+
+  const setOption = (index: number, key: keyof FeeOptionRow, value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      feeOptions: prev.feeOptions.map((o, i) => (i === index ? { ...o, [key]: value } : o)),
+    }));
+
+  const addOption = () =>
+    setForm((prev) => ({ ...prev, feeOptions: [...prev.feeOptions, { ...EMPTY_FEE_OPTION }] }));
+
+  const removeOption = (index: number) =>
+    setForm((prev) => ({
+      ...prev,
+      feeOptions: prev.feeOptions.filter((_, i) => i !== index),
+    }));
+
+  const toggle = (key: "categories" | "requiredDocuments", value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      [key]: prev[key].includes(value)
+        ? prev[key].filter((v) => v !== value)
+        : [...prev[key], value],
+    }));
+
+  // 主催者は開催の2ヶ月前くらいから募集を始めるので、開催日を入れたら既定で埋める
+  useEffect(() => {
+    if (!form.startAt || form.applicationOpenAt) return;
+    const start = new Date(form.startAt);
+    if (Number.isNaN(start.getTime())) return;
+    const open = new Date(start);
+    open.setMonth(open.getMonth() - 2);
+    setForm((prev) => ({ ...prev, applicationOpenAt: toLocalInput(open, "date") }));
+  }, [form.startAt, form.applicationOpenAt]);
+
+  const save = async (mode: "draft" | "published") => {
+    setIsSaving(true);
+    setSavingMode(mode);
+    setError("");
+    try {
+      // 金額の入っていない行は捨てる。入力途中の空行がそのまま送られるのを防ぐ。
+      const feeTiers = form.feeTiers.filter((t) => t.fee.trim() !== "");
+      if (feeTiers.length === 0) {
+        setError("出展料を入力してください（無料の場合は0）");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      // オプションは名前と金額の両方がある行だけ送る
+      const feeOptions = form.feeOptions.filter(
+        (o) => o.label.trim() !== "" && o.fee.trim() !== ""
+      );
+      const payload = { ...form, feeTiers, feeOptions, status: mode };
+      const res = await fetch(eventId ? `/api/events/${eventId}` : "/api/events", {
+        method: eventId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "保存に失敗しました");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      router.push(`/events/${data.event.id}`);
+      router.refresh();
+    } catch {
+      setError("保存に失敗しました");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save("published");
+      }}
+      className="space-y-6"
+    >
+      {error && <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+
+      {/* 基本 */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-orange-500" />
+            イベントの概要
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">
+              イベント名 <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="title"
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="例: 秋の〇〇マルシェ"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">イベントの紹介</Label>
+            <Textarea
+              id="description"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value.slice(0, 5000))}
+              rows={6}
+              placeholder="どんなイベントか、どんな出店者に来てほしいかを書いてください。"
+            />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startAt">
+                開始日時 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="startAt"
+                type="datetime-local"
+                value={form.startAt}
+                onChange={(e) => set("startAt", e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endAt">
+                終了日時 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="endAt"
+                type="datetime-local"
+                value={form.endAt}
+                onChange={(e) => set("endAt", e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-2 max-w-[240px]">
+            <Label htmlFor="expectedVisitors">想定来場者数</Label>
+            <div className="relative">
+              <Input
+                id="expectedVisitors"
+                type="number"
+                min={0}
+                value={form.expectedVisitors}
+                onChange={(e) => set("expectedVisitors", e.target.value)}
+                placeholder="例: 8000"
+                className="pr-8"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                人
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 会場 */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-orange-500" />
+            会場
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="venueName">
+              会場名 <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="venueName"
+              value={form.venueName}
+              onChange={(e) => set("venueName", e.target.value)}
+              placeholder="例: 〇〇公園 中央広場"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>
+              エリア <span className="text-red-500">*</span>
+            </Label>
+            <Select value={form.area || undefined} onValueChange={(v) => set("area", v)}>
+              <SelectTrigger className="max-w-[240px]">
+                <SelectValue placeholder="都道府県を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALL_PREFECTURES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="address">住所</Label>
+            <Input
+              id="address"
+              value={form.address}
+              onChange={(e) => set("address", e.target.value)}
+              placeholder="例: 東京都世田谷区〇〇1-2-3"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 募集条件 */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Coins className="h-5 w-5 text-orange-500" />
+            募集条件
+          </CardTitle>
+          <CardDescription>出店者が最初に確認する項目です</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 区画ごとの出展料。一律の金額より、区画・エリアごとの実額が並んでいる方が
+              出店者は判断しやすい（2026-08-27 MTG）。行は何本でも足せる。 */}
+          <div className="space-y-3">
+            <Label>
+              出展料 <span className="text-red-500">*</span>
+            </Label>
+            <div className="space-y-3">
+              {form.feeTiers.map((tier, i) => (
+                <div key={i} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="min-w-[160px] flex-1 space-y-1.5">
+                      <Label htmlFor={`tierLabel-${i}`} className="text-xs text-gray-600">
+                        区画名
+                      </Label>
+                      <Input
+                        id={`tierLabel-${i}`}
+                        value={tier.label}
+                        onChange={(e) => setTier(i, "label", e.target.value)}
+                        placeholder="例: Aエリア（3m×3m）"
+                        className="bg-white"
+                      />
+                    </div>
+                    <div className="w-[130px] space-y-1.5">
+                      <Label htmlFor={`tierFee-${i}`} className="text-xs text-gray-600">
+                        金額 <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`tierFee-${i}`}
+                          type="number"
+                          min={0}
+                          value={tier.fee}
+                          onChange={(e) => setTier(i, "fee", e.target.value)}
+                          placeholder="8000"
+                          className="bg-white pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                          円
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-[110px] space-y-1.5">
+                      <Label htmlFor={`tierSlots-${i}`} className="text-xs text-gray-600">
+                        枠数
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id={`tierSlots-${i}`}
+                          type="number"
+                          min={0}
+                          value={tier.slots}
+                          onChange={(e) => setTier(i, "slots", e.target.value)}
+                          placeholder="10"
+                          className="bg-white pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                          枠
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-[150px] space-y-1.5">
+                      <Label className="text-xs text-gray-600">区画サイズ</Label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={tier.widthM}
+                          onChange={(e) => setTier(i, "widthM", e.target.value)}
+                          placeholder="間口"
+                          className="bg-white"
+                          aria-label="間口(m)"
+                        />
+                        <span className="text-xs text-gray-400">×</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.1"
+                          value={tier.depthM}
+                          onChange={(e) => setTier(i, "depthM", e.target.value)}
+                          placeholder="奥行"
+                          className="bg-white"
+                          aria-label="奥行(m)"
+                        />
+                      </div>
+                    </div>
+                    {form.feeTiers.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-red-600"
+                        onClick={() => removeTier(i)}
+                        aria-label={`${i + 1}行目を削除`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    <Label htmlFor={`tierNote-${i}`} className="text-xs text-gray-600">
+                      この区画の補足
+                    </Label>
+                    <Input
+                      id={`tierNote-${i}`}
+                      value={tier.note}
+                      onChange={(e) => setTier(i, "note", e.target.value)}
+                      placeholder="例: 角地・電源1500Wまで"
+                      className="bg-white"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={addTier}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              区画を追加
+            </Button>
+            <p className="text-xs text-gray-500">
+              無料の場合は 0 を入力してください。区画やエリアで金額が変わるときは行を足すと、
+              一覧では「8,000円〜15,000円」と幅で、募集ページでは区画ごとの金額で表示されます。
+              区画を2つ以上にするときは、それぞれに名前を付けてください。
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label>オプション料金</Label>
+              <p className="mt-1 text-xs text-gray-500">
+                電源やテントの貸し出しなど、希望した出店者にだけかかる料金です。出店者は応募時に選べます。
+              </p>
+            </div>
+            {form.feeOptions.map((option, i) => (
+              <div key={i} className="rounded-xl bg-gray-50 p-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[180px] flex-1 space-y-1.5">
+                    <Label htmlFor={`optionLabel-${i}`} className="text-xs text-gray-600">
+                      名前
+                    </Label>
+                    <Input
+                      id={`optionLabel-${i}`}
+                      value={option.label}
+                      onChange={(e) => setOption(i, "label", e.target.value)}
+                      placeholder="例: 電源（1500Wまで）"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="w-[140px] space-y-1.5">
+                    <Label htmlFor={`optionFee-${i}`} className="text-xs text-gray-600">
+                      追加料金
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id={`optionFee-${i}`}
+                        type="number"
+                        min={0}
+                        value={option.fee}
+                        onChange={(e) => setOption(i, "fee", e.target.value)}
+                        placeholder="500"
+                        className="bg-white pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                        円
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-red-600"
+                    onClick={() => removeOption(i)}
+                    aria-label={`オプション${i + 1}を削除`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <Label htmlFor={`optionNote-${i}`} className="text-xs text-gray-600">
+                    補足
+                  </Label>
+                  <Input
+                    id={`optionNote-${i}`}
+                    value={option.note}
+                    onChange={(e) => setOption(i, "note", e.target.value)}
+                    placeholder="例: 数に限りがあります"
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+            ))}
+            {form.feeOptions.length < 10 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={addOption}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                オプションを追加
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="feeNote">出展料の補足（募集全体）</Label>
+            <Input
+              id="feeNote"
+              value={form.feeNote}
+              onChange={(e) => set("feeNote", e.target.value)}
+              placeholder="例: +売上の10%"
+            />
+            <p className="text-xs text-gray-500">
+              どの区画にもかかる条件をここに書きます
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="slots">募集枠数</Label>
+              <div className="relative">
+                <Input
+                  id="slots"
+                  type="number"
+                  min={0}
+                  value={form.slots}
+                  onChange={(e) => set("slots", e.target.value)}
+                  placeholder="例: 12"
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                  台
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>1区画のサイズ</Label>
+              <div className="flex items-center gap-2">
+                <div className="relative w-[100px]">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={form.spaceWidthM}
+                    onChange={(e) => set("spaceWidthM", e.target.value)}
+                    placeholder="間口"
+                    className="pr-7"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    m
+                  </span>
+                </div>
+                <span className="text-gray-400">×</span>
+                <div className="relative w-[100px]">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={form.spaceDepthM}
+                    onChange={(e) => set("spaceDepthM", e.target.value)}
+                    placeholder="奥行"
+                    className="pr-7"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    m
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="applicationOpenAt">募集開始日</Label>
+              <Input
+                id="applicationOpenAt"
+                type="date"
+                value={form.applicationOpenAt}
+                onChange={(e) => set("applicationOpenAt", e.target.value)}
+              />
+              <p className="text-xs text-gray-500">開催の2ヶ月前を既定で入れています</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="applicationCloseAt">募集締切日</Label>
+              <Input
+                id="applicationCloseAt"
+                type="date"
+                value={form.applicationCloseAt}
+                onChange={(e) => set("applicationCloseAt", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>募集する業種</Label>
+            <Chips
+              options={VENDOR_CATEGORY_LABELS.map((l) => ({ value: l, label: l }))}
+              selected={form.categories}
+              onToggle={(v) => toggle("categories", v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 会場設備 */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Zap className="h-5 w-5 text-orange-500" />
+            会場で使える設備
+          </CardTitle>
+          <CardDescription>ここが合わないと出店できないので、正確に書いてください</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3 rounded-xl bg-gray-50 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-medium text-gray-900">電源を用意できる</p>
+              <Switch
+                checked={form.powerAvailable}
+                onCheckedChange={(v) => set("powerAvailable", v)}
+              />
+            </div>
+            {form.powerAvailable && (
+              <div className="space-y-2 max-w-[240px] pt-1">
+                <Label htmlFor="powerWatt">1区画あたりの上限</Label>
+                <div className="relative">
+                  <Input
+                    id="powerWatt"
+                    type="number"
+                    min={0}
+                    value={form.powerWatt}
+                    onChange={(e) => set("powerWatt", e.target.value)}
+                    placeholder="例: 1500"
+                    className="pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    W
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50 p-4">
+            <p className="text-sm font-medium text-gray-900">給排水を使える</p>
+            <Switch
+              checked={form.waterAvailable}
+              onCheckedChange={(v) => set("waterAvailable", v)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50 p-4">
+            <p className="text-sm font-medium text-gray-900">火気の使用が可能</p>
+            <Switch checked={form.fireAllowed} onCheckedChange={(v) => set("fireAllowed", v)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 雨天時の扱い */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CloudRain className="h-5 w-5 text-orange-500" />
+            雨天時の扱い
+          </CardTitle>
+          <CardDescription>
+            出店者は数日前には仕入れを済ませます。中止をいつまでに決めるかを、募集の時点で約束してください
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label>
+              雨の場合 <span className="text-red-500">*</span>
+            </Label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {RAIN_POLICIES.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => set("rainPolicy", p.value)}
+                  className={`rounded-xl border p-3 text-left transition-colors ${
+                    form.rainPolicy === p.value
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900">{p.label}</p>
+                  <p className="mt-1 text-xs text-gray-500">{p.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              中止を判断する期限 <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={form.weatherDecisionDaysBefore}
+                onValueChange={(v) => set("weatherDecisionDaysBefore", v)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="いつ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DECISION_DAY_OPTIONS.map((d) => (
+                    <SelectItem key={d.value} value={String(d.value)}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={form.weatherDecisionHour}
+                onValueChange={(v) => set("weatherDecisionHour", v)}
+              >
+                <SelectTrigger className="w-[110px]">
+                  <SelectValue placeholder="何時" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {h}時
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-gray-600">までに出店者へ知らせる</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              天候で中止になった場合の出展料 <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {WEATHER_REFUND_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => set("weatherRefundPercent", String(o.value))}
+                  className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                    form.weatherRefundPercent === String(o.value)
+                      ? "border-orange-500 bg-orange-50 text-orange-700"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              会場を借りている場合などは半額返金を選べます。出店者が天候を理由に自分で出店を見送った場合は、この対象になりません。
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 写真。保存前は募集が存在しないので、編集時だけ出す。 */}
+      {eventId ? (
+        <EventImageSection eventId={eventId} />
+      ) : (
+        <Card className="rounded-2xl border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-orange-500" />
+              写真
+            </CardTitle>
+            <CardDescription>
+              下書き保存すると、この画面から写真を追加できるようになります。
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* 必要書類・備考 */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-orange-500" />
+            必要書類・その他
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>出店にあたって確認したい書類</Label>
+            <Chips
+              options={DOCUMENT_TYPES.map((d) => ({ value: d.value, label: d.label }))}
+              selected={form.requiredDocuments}
+              onToggle={(v) => toggle("requiredDocuments", v)}
+            />
+            <p className="text-xs text-gray-500">
+              書類は応募時には届きません。やり取りの中で出店者が開示したものを確認できます。
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="note">出店者への連絡事項</Label>
+            <Textarea
+              id="note"
+              value={form.note}
+              onChange={(e) => set("note", e.target.value.slice(0, 2000))}
+              rows={4}
+              placeholder="例: 搬入は8時から可能です。ゴミは各自お持ち帰りください。"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button type="submit" size="lg" className="flex-1 rounded-full" disabled={isSaving}>
+          {isSaving && savingMode === "published" ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              公開中...
+            </>
+          ) : (
+            <>
+              <Send className="mr-2 h-4 w-4" />
+              募集を公開する
+            </>
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="flex-1 rounded-full"
+          disabled={isSaving}
+          onClick={() => save("draft")}
+        >
+          {isSaving && savingMode === "draft" ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              保存中...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              下書き保存
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+}

@@ -1,0 +1,470 @@
+"use client";
+
+import { use, useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Loader2,
+  CalendarDays,
+  MapPin,
+  Coins,
+  Store as StoreIcon,
+  FileCheck2,
+  CheckCircle2,
+  XCircle,
+  CloudRain,
+} from "lucide-react";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  ApplicationThread,
+  type ThreadMessage,
+} from "@/components/events/ApplicationThread";
+import { ApplicantSpecList } from "@/components/events/ApplicantSpecList";
+import {
+  DisclosurePanel,
+  type Disclosure,
+  type DocumentSummary,
+} from "@/components/events/DisclosurePanel";
+import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
+import { PolicyAgreement } from "@/components/events/PolicyAgreement";
+import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
+import { formatFee, formatEventDate } from "@/lib/eventFormat";
+import { sumSelectedFees } from "@/lib/eventFeeTiers";
+import { rainPolicyLabel, decisionDeadlineLabel, weatherRefundLabel } from "@/lib/eventWeather";
+
+interface ThreadData {
+  role: "vendor" | "organizer" | "admin";
+  application: {
+    id: string;
+    kind: string;
+    status: string;
+    documentRequestedAt: string | null;
+    createdAt: string;
+    store: { id: string; name: string; category: string | null };
+    event: {
+      id: string;
+      title: string;
+      venueName: string;
+      area: string;
+      startAt: string;
+      endAt: string;
+      exhibitFee: number;
+      exhibitFeeMax: number | null;
+      feeNote: string | null;
+      rainPolicy: string | null;
+      weatherDecisionDaysBefore: number | null;
+      weatherDecisionHour: number | null;
+      weatherRefundPercent: number | null;
+      organizer: { orgName: string };
+    };
+  };
+  snapshot: ApplicationSnapshot | null;
+  fit: { label: string; ok: boolean; detail: string }[];
+  messages: ThreadMessage[];
+  disclosures: Disclosure[];
+  myDocuments: DocumentSummary[];
+  payments: PaymentSummary[];
+  payouts: { ready: boolean; feePercent: number; payoutDueAt: string } | null;
+  paymentsEnabled: boolean;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  open: "やり取り中",
+  confirmed: "出店決定",
+  rejected: "見送り",
+  withdrawn: "取り下げ",
+};
+const STATUS_STYLE: Record<string, string> = {
+  open: "bg-blue-100 text-blue-700 hover:bg-blue-100",
+  confirmed: "bg-green-100 text-green-700 hover:bg-green-100",
+  rejected: "bg-gray-100 text-gray-600 hover:bg-gray-100",
+  withdrawn: "bg-gray-100 text-gray-600 hover:bg-gray-100",
+};
+
+export default function ApplicationThreadPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [data, setData] = useState<ThreadData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isWorking, setIsWorking] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  // Stripe の支払い画面から戻ってきた直後。支払いの確定は Webhook なので、少し遅れて反映される。
+  const [returnedFromCheckout, setReturnedFromCheckout] = useState(false);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/applications/${id}`);
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "取得に失敗しました");
+        return;
+      }
+      setData(json);
+    } catch {
+      setError("取得に失敗しました");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push(`/login?callbackUrl=/events/applications/${id}`);
+      return;
+    }
+    if (status === "authenticated") load();
+  }, [status, router, id, load]);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("payment") !== "success") return;
+    setReturnedFromCheckout(true);
+    // たいていは数秒で Webhook が届くので、一度だけ自動で取り直す
+    const timer = setTimeout(() => load(), 4000);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const changeStatus = async (next: string) => {
+    setIsWorking(true);
+    setPending(next);
+    setActionError("");
+    try {
+      const res = await fetch(`/api/applications/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next, policyAgreed: next === "confirmed" && policyAgreed }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionError(json.error || "更新に失敗しました");
+        return;
+      }
+      await load();
+    } finally {
+      setIsWorking(false);
+      setPending(null);
+    }
+  };
+
+  const requestDocuments = async () => {
+    setIsWorking(true);
+    setActionError("");
+    try {
+      const res = await fetch(`/api/applications/${id}/request-documents`, { method: "POST" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionError(json.error || "依頼に失敗しました");
+        return;
+      }
+      await load();
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  if (status === "loading" || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  if (!session) return null;
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header />
+        <main className="flex-1 py-8">
+          <div className="container mx-auto px-4 max-w-2xl">
+            <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+              {error || "取得に失敗しました"}
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const { application, snapshot, fit, messages, disclosures, role } = data;
+  const isOrganizer = role === "organizer";
+  // スカウトは主催者から声をかけたもの。出店者が受けると決めるまで出店内容が無い。
+  const isScout = application.kind === "scout";
+  const awaitingScoutReply = isScout && !snapshot;
+  const backHref = isOrganizer
+    ? `/events/${application.event.id}/applications`
+    : "/events/applications";
+  const canPost = role !== "admin" && application.status === "open";
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header />
+
+      <main className="flex-1 py-8">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <Link
+            href={backHref}
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            {isOrganizer ? "応募一覧に戻る" : "応募した募集に戻る"}
+          </Link>
+
+          {/* 見出し */}
+          <div className="mb-6">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Badge className={STATUS_STYLE[application.status] ?? ""}>
+                {STATUS_LABEL[application.status] ?? application.status}
+              </Badge>
+              {application.kind === "scout" && <Badge variant="outline">スカウト</Badge>}
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">
+              {isOrganizer ? application.store.name : application.event.title}
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              {isOrganizer
+                ? `${application.event.title} への${isScout ? "スカウト" : "応募"}`
+                : `主催 ${application.event.organizer.orgName}${isScout ? " からのお誘い" : ""}`}
+            </p>
+          </div>
+
+          {/* 募集の条件 */}
+          <Card className="rounded-2xl border-0 shadow-sm mb-4">
+            <CardContent className="p-5">
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-700">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 text-gray-400" />
+                  {formatEventDate(application.event.startAt, application.event.endAt)}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                  {application.event.area} ・ {application.event.venueName}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-gray-400" />
+                  {formatFee(
+                    application.event.exhibitFee,
+                    application.event.feeNote,
+                    application.event.exhibitFeeMax
+                  )}
+                </span>
+                {rainPolicyLabel(application.event.rainPolicy) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CloudRain className="h-4 w-4 text-gray-400" />
+                    {rainPolicyLabel(application.event.rainPolicy)}（中止の判断は
+                    {decisionDeadlineLabel(
+                      application.event.weatherDecisionDaysBefore,
+                      application.event.weatherDecisionHour
+                    )}
+                    {weatherRefundLabel(application.event.weatherRefundPercent) &&
+                      `・中止時は${weatherRefundLabel(application.event.weatherRefundPercent)}`}
+                    ）
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 書類の開示 */}
+          <div className="mb-4">
+            <DisclosurePanel
+              applicationId={application.id}
+              role={role}
+              status={application.status}
+              disclosures={disclosures}
+              myDocuments={data.myDocuments ?? []}
+              requestedAt={application.documentRequestedAt}
+              onChanged={load}
+            />
+          </div>
+
+          {/* 判断 */}
+          {application.status === "open" && role !== "admin" && (
+            <Card className="rounded-2xl border-0 shadow-sm mb-4">
+              <CardContent className="p-5 space-y-3">
+                {isOrganizer ? (
+                  <>
+                    <p className="text-sm font-bold text-gray-900">出店の可否を決める</p>
+                    <p className="text-xs text-gray-600">
+                      必要な書類があれば、開示を依頼してから判断できます。
+                      見送りにすると、開示されていた書類は表示されなくなります。
+                    </p>
+                    {data.paymentsEnabled && (
+                      <PolicyAgreement
+                        role="organizer"
+                        weatherRefundPercent={application.event.weatherRefundPercent}
+                        agreed={policyAgreed}
+                        onChange={setPolicyAgreed}
+                      />
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        className="rounded-full"
+                        onClick={() => changeStatus("confirmed")}
+                        disabled={isWorking || (data.paymentsEnabled && !policyAgreed)}
+                      >
+                        {isWorking && pending === "confirmed" ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        )}
+                        出店を決定する
+                      </Button>
+                      {!application.documentRequestedAt && (
+                        <Button
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={requestDocuments}
+                          disabled={isWorking}
+                        >
+                          <FileCheck2 className="mr-1.5 h-4 w-4" />
+                          書類の開示を依頼
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        className="rounded-full text-gray-500 hover:text-red-600"
+                        onClick={() => changeStatus("rejected")}
+                        disabled={isWorking}
+                      >
+                        <XCircle className="mr-1.5 h-4 w-4" />
+                        見送る
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-gray-600">
+                      {awaitingScoutReply
+                        ? "出店内容を送ると、主催者が受け入れの可否を判断できます。"
+                        : "主催者からの返答をお待ちください。"}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {awaitingScoutReply && (
+                        <Button size="sm" className="rounded-full" asChild>
+                          <Link href={`/events/${application.event.id}/apply`}>
+                            出店内容を送る
+                          </Link>
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full text-gray-500 hover:text-red-600"
+                        onClick={() => changeStatus("withdrawn")}
+                        disabled={isWorking}
+                      >
+                        {isScout ? "辞退する" : "応募を取り下げる"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          {application.status === "confirmed" && (
+            <Card className="rounded-2xl border-0 shadow-sm mb-4 bg-green-50">
+              <CardContent className="p-5 flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-green-900">出店が決定しています</p>
+                  <p className="text-sm text-green-800 mt-1">
+                    当日の詳細は、このやり取りで確認してください。
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 出展料のお支払い */}
+          {data.paymentsEnabled &&
+            (application.status === "confirmed" || (data.payments ?? []).length > 0) && (
+            <div className="mb-4">
+              <PaymentPanel
+                applicationId={application.id}
+                role={role}
+                payments={data.payments ?? []}
+                payouts={data.payouts}
+                // 請求額の初期値は、希望した区画にオプションを足した額
+                defaultAmount={
+                  sumSelectedFees(
+                    snapshot?.desiredFeeTier?.fee ?? application.event.exhibitFee,
+                    snapshot?.desiredFeeOptions
+                  ) || null
+                }
+                defaultDescription={[
+                  snapshot?.desiredFeeTier?.label
+                    ? `出展料（${snapshot.desiredFeeTier.label}）`
+                    : "出展料",
+                  ...(snapshot?.desiredFeeOptions ?? []).map((o) => o.label),
+                ].join("＋")}
+                returnedFromCheckout={returnedFromCheckout}
+                onChanged={load}
+              />
+            </div>
+          )}
+
+          {/* やり取り */}
+          <div className="mb-4">
+            <ApplicationThread
+              applicationId={application.id}
+              messages={messages}
+              canPost={canPost}
+              closedReason={
+                application.status === "confirmed"
+                  ? "出店が決定しています"
+                  : "このやり取りは終了しています"
+              }
+              onPosted={(m) => setData({ ...data, messages: [...messages, m] })}
+            />
+          </div>
+
+          {/* 応募者の条件。スカウトは出店者が受けるまで内容が無い。 */}
+          {awaitingScoutReply && (
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-5 text-sm text-gray-600">
+                {isOrganizer
+                  ? "出店内容はまだ届いていません。出店者がこのお誘いを受けると、車両・設備・メニューがここに表示されます。"
+                  : "「出店内容を送る」から、今回の火気や提供数・メニューを入力してください。"}
+              </CardContent>
+            </Card>
+          )}
+
+          {snapshot && (
+            <Card className="rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-5">
+                <p className="mb-4 flex items-center gap-1.5 text-sm font-bold text-gray-900">
+                  <StoreIcon className="h-4 w-4 text-orange-500" />
+                  {isOrganizer ? "応募者の条件" : "主催者に伝えている内容"}
+                </p>
+                <ApplicantSpecList snapshot={snapshot} fit={fit} />
+                <p className="mt-4 text-xs text-gray-500">
+                  応募した時点の内容です。出店申込情報を更新しても、ここは変わりません。
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}

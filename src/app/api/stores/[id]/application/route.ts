@@ -142,6 +142,7 @@ export async function PUT(
       generatorNoiseDb: toInt(body.generatorNoiseDb),
       usesFire: body.usesFire === true,
       fireType: toStr(body.fireType, 40),
+      fireApplianceCount: toInt(body.fireApplianceCount),
       waterTankLiter: toInt(body.waterTankLiter),
       minSpaceWidthM: toFloat(body.minSpaceWidthM),
       minSpaceDepthM: toFloat(body.minSpaceDepthM),

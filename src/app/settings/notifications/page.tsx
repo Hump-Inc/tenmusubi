@@ -7,6 +7,7 @@ import {
   Bell,
   MessageCircle,
   Calendar,
+  CalendarDays,
   Star,
   Megaphone,
   Loader2,
@@ -25,6 +26,7 @@ interface NotificationSettings {
     messages: boolean;
     bookings: boolean;
     reviews: boolean;
+    events: boolean;
     marketing: boolean;
   };
 }
@@ -34,6 +36,7 @@ const defaultSettings: NotificationSettings = {
     messages: true,
     bookings: true,
     reviews: true,
+    events: true,
     marketing: false,
   },
 };
@@ -109,13 +112,19 @@ export default function NotificationSettingsPage() {
       key: "bookings" as const,
       icon: Calendar,
       label: "予約・申請通知",
-      description: "予約の申請や承認、キャンセルの際にメールで通知します",
+      description: "出店募集への応募、承認、見送りの際にメールで通知します",
     },
     {
       key: "reviews" as const,
       icon: Star,
       label: "レビュー通知",
       description: "新しいレビューが投稿された際にメールで通知します",
+    },
+    {
+      key: "events" as const,
+      icon: CalendarDays,
+      label: "フォロー中の主催者の新着募集",
+      description: "フォローしている主催者が新しい募集を公開した際にメールで通知します",
     },
     {
       key: "marketing" as const,

@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { hash } from "bcryptjs";
+import { createSeedClient } from "./seed-target";
 
-const adapter = new PrismaLibSql({ url: "file:prisma/dev.db" });
-const prisma = new PrismaClient({ adapter });
+const prisma = createSeedClient();
 
 // --- helpers ---
 const pick = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];

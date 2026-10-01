@@ -319,6 +319,7 @@ async function main() {
       "generatorNoiseDb" INTEGER,
       "usesFire" BOOLEAN NOT NULL DEFAULT false,
       "fireType" TEXT,
+      "fireApplianceCount" INTEGER,
       "waterTankLiter" INTEGER,
       "minSpaceWidthM" REAL,
       "minSpaceDepthM" REAL,
@@ -403,9 +404,193 @@ async function main() {
       "count" INTEGER NOT NULL DEFAULT 1,
       "expiresAt" DATETIME NOT NULL
     )`,
+    // ---- イベント出店募集 ----
+    `CREATE TABLE IF NOT EXISTS "OrganizerProfile" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "orgName" TEXT NOT NULL,
+      "contactName" TEXT,
+      "phone" TEXT,
+      "website" TEXT,
+      "intro" TEXT,
+      "status" TEXT NOT NULL DEFAULT 'pending',
+      "note" TEXT,
+      "reviewedAt" DATETIME,
+      "reviewedBy" TEXT,
+      "stripeAccountId" TEXT,
+      "stripeChargesEnabled" BOOLEAN NOT NULL DEFAULT false,
+      "stripePayoutsEnabled" BOOLEAN NOT NULL DEFAULT false,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "OrganizerProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "Event" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "organizerId" TEXT NOT NULL,
+      "title" TEXT NOT NULL,
+      "description" TEXT,
+      "venueName" TEXT NOT NULL,
+      "address" TEXT,
+      "area" TEXT NOT NULL,
+      "startAt" DATETIME NOT NULL,
+      "endAt" DATETIME NOT NULL,
+      "applicationOpenAt" DATETIME,
+      "applicationCloseAt" DATETIME,
+      "slots" INTEGER,
+      "exhibitFee" INTEGER NOT NULL,
+      "exhibitFeeMax" INTEGER,
+      "feeNote" TEXT,
+      "spaceWidthM" REAL,
+      "spaceDepthM" REAL,
+      "powerAvailable" BOOLEAN NOT NULL DEFAULT false,
+      "powerWatt" INTEGER,
+      "waterAvailable" BOOLEAN NOT NULL DEFAULT false,
+      "fireAllowed" BOOLEAN NOT NULL DEFAULT false,
+      "categories" TEXT,
+      "requiredDocuments" TEXT,
+      "expectedVisitors" INTEGER,
+      "note" TEXT,
+      "rainPolicy" TEXT,
+      "weatherDecisionDaysBefore" INTEGER,
+      "weatherDecisionHour" INTEGER,
+      "weatherRefundPercent" INTEGER,
+      "weatherRemindedAt" DATETIME,
+      "status" TEXT NOT NULL DEFAULT 'draft',
+      "publishedAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "Event_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "OrganizerProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventFeeOption" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "eventId" TEXT NOT NULL,
+      "label" TEXT NOT NULL,
+      "fee" INTEGER NOT NULL,
+      "note" TEXT,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT "EventFeeOption_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventImage" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "eventId" TEXT NOT NULL,
+      "url" TEXT NOT NULL,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT "EventImage_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventFavorite" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "eventId" TEXT NOT NULL,
+      "remindedAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventFavorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "EventFavorite_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "OrganizerFollow" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "userId" TEXT NOT NULL,
+      "organizerId" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "OrganizerFollow_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "OrganizerFollow_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "OrganizerProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventFeeTier" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "eventId" TEXT NOT NULL,
+      "label" TEXT,
+      "fee" INTEGER NOT NULL,
+      "note" TEXT,
+      "slots" INTEGER,
+      "widthM" REAL,
+      "depthM" REAL,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      CONSTRAINT "EventFeeTier_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventApplication" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "eventId" TEXT NOT NULL,
+      "storeId" TEXT NOT NULL,
+      "kind" TEXT NOT NULL DEFAULT 'application',
+      "status" TEXT NOT NULL DEFAULT 'open',
+      "snapshot" TEXT,
+      "message" TEXT,
+      "documentRequestedAt" DATETIME,
+      "confirmedAt" DATETIME,
+      "closedAt" DATETIME,
+      "policyVersion" TEXT,
+      "vendorPolicyAgreedAt" DATETIME,
+      "organizerPolicyAgreedAt" DATETIME,
+      "lastMessageAt" DATETIME,
+      "vendorLastReadAt" DATETIME,
+      "organizerLastReadAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventApplication_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "EventApplication_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventApplicationMessage" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "applicationId" TEXT NOT NULL,
+      "senderId" TEXT,
+      "kind" TEXT NOT NULL DEFAULT 'text',
+      "body" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventApplicationMessage_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "EventApplicationMessage_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "EventApplicationDocument" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "applicationId" TEXT NOT NULL,
+      "documentId" TEXT NOT NULL,
+      "disclosedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "revokedAt" DATETIME,
+      CONSTRAINT "EventApplicationDocument_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "EventApplicationDocument_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "ApplicationDocument" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
+    // ---- 出展料のオンライン決済 ----
+    `CREATE TABLE IF NOT EXISTS "EventPayment" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "applicationId" TEXT NOT NULL,
+      "description" TEXT NOT NULL,
+      "amount" INTEGER NOT NULL,
+      "platformFee" INTEGER NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'requested',
+      "refundedAmount" INTEGER NOT NULL DEFAULT 0,
+      "stripeCheckoutSessionId" TEXT,
+      "stripePaymentIntentId" TEXT,
+      "requestedById" TEXT NOT NULL,
+      "paidAt" DATETIME,
+      "canceledAt" DATETIME,
+      "stripePayoutId" TEXT,
+      "paidOutAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventPayment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
   ];
 
+  // Execute creates
+  for (const sql of createStatements) {
+    try {
+      await client.execute(sql);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes("already exists")) {
+        console.error("Error:", msg);
+      }
+    }
+  }
+
   // Add missing columns to existing tables
+  //
+  // 列の追加判定は CREATE のあとに行う。冒頭で取得した existingTables のままだと、
+  // まっさらなデータベースでは「テーブルが無い」と判定されて ALTER が丸ごと
+  // 飛ばされ、totalPoints のような後付けの列が作られないため。
+  const tablesAfterCreate = await client.execute(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_%'"
+  );
+  for (const row of tablesAfterCreate.rows) existingTables.add(row.name as string);
+
   const alterStatements: string[] = [];
 
   // Check User table for missing columns
@@ -441,23 +626,64 @@ async function main() {
     if (!colNames.has("claimedAt")) alterStatements.push('ALTER TABLE "Store" ADD COLUMN "claimedAt" DATETIME');
   }
 
+  // Check Event table for missing columns
+  if (existingTables.has("Event")) {
+    const eventCols = await client.execute("PRAGMA table_info('Event')");
+    const colNames = new Set(eventCols.rows.map(r => r.name as string));
+    if (!colNames.has("exhibitFeeMax")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "exhibitFeeMax" INTEGER');
+    if (!colNames.has("rainPolicy")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "rainPolicy" TEXT');
+    if (!colNames.has("weatherDecisionDaysBefore")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionDaysBefore" INTEGER');
+    if (!colNames.has("weatherDecisionHour")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionHour" INTEGER');
+    if (!colNames.has("weatherRefundPercent")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRefundPercent" INTEGER');
+    if (!colNames.has("weatherRemindedAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRemindedAt" DATETIME');
+    if (!colNames.has("followersNotifiedAt")) {
+      alterStatements.push('ALTER TABLE "Event" ADD COLUMN "followersNotifiedAt" DATETIME');
+      // 列を足した時点で公開済みの募集は「新着」ではない。印を付けて、既存の募集を
+      // 編集しただけでフォロワーに通知が飛ぶのを防ぐ。列追加時の1回だけ走る。
+      alterStatements.push(
+        `UPDATE "Event" SET "followersNotifiedAt" = COALESCE("publishedAt", CURRENT_TIMESTAMP) WHERE "status" = 'published'`
+      );
+    }
+  }
+
+  // Check OrganizerProfile table for missing columns
+  if (existingTables.has("OrganizerProfile")) {
+    const organizerCols = await client.execute("PRAGMA table_info('OrganizerProfile')");
+    const colNames = new Set(organizerCols.rows.map(r => r.name as string));
+    if (!colNames.has("stripeAccountId")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeAccountId" TEXT');
+    if (!colNames.has("stripeChargesEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripeChargesEnabled" BOOLEAN NOT NULL DEFAULT false');
+    if (!colNames.has("stripePayoutsEnabled")) alterStatements.push('ALTER TABLE "OrganizerProfile" ADD COLUMN "stripePayoutsEnabled" BOOLEAN NOT NULL DEFAULT false');
+  }
+
+  // Check EventApplication table for missing columns
+  if (existingTables.has("EventApplication")) {
+    const appCols = await client.execute("PRAGMA table_info('EventApplication')");
+    const colNames = new Set(appCols.rows.map(r => r.name as string));
+    if (!colNames.has("policyVersion")) alterStatements.push('ALTER TABLE "EventApplication" ADD COLUMN "policyVersion" TEXT');
+    if (!colNames.has("vendorPolicyAgreedAt")) alterStatements.push('ALTER TABLE "EventApplication" ADD COLUMN "vendorPolicyAgreedAt" DATETIME');
+    if (!colNames.has("organizerPolicyAgreedAt")) alterStatements.push('ALTER TABLE "EventApplication" ADD COLUMN "organizerPolicyAgreedAt" DATETIME');
+  }
+
+  // Check EventPayment table for missing columns
+  if (existingTables.has("EventPayment")) {
+    const paymentCols = await client.execute("PRAGMA table_info('EventPayment')");
+    const colNames = new Set(paymentCols.rows.map(r => r.name as string));
+    if (!colNames.has("stripePayoutId")) alterStatements.push('ALTER TABLE "EventPayment" ADD COLUMN "stripePayoutId" TEXT');
+    if (!colNames.has("paidOutAt")) alterStatements.push('ALTER TABLE "EventPayment" ADD COLUMN "paidOutAt" DATETIME');
+  }
+
+  // Check StoreApplicationProfile table for missing columns
+  if (existingTables.has("StoreApplicationProfile")) {
+    const profileCols = await client.execute("PRAGMA table_info('StoreApplicationProfile')");
+    const colNames = new Set(profileCols.rows.map(r => r.name as string));
+    if (!colNames.has("fireApplianceCount")) alterStatements.push('ALTER TABLE "StoreApplicationProfile" ADD COLUMN "fireApplianceCount" INTEGER');
+  }
+
   // Check StoreImage table for missing columns
   if (existingTables.has("StoreImage")) {
     const storeImageCols = await client.execute("PRAGMA table_info('StoreImage')");
     const colNames = new Set(storeImageCols.rows.map(r => r.name as string));
     if (!colNames.has("isDraft")) alterStatements.push('ALTER TABLE "StoreImage" ADD COLUMN "isDraft" BOOLEAN NOT NULL DEFAULT false');
-  }
-
-  // Execute creates
-  for (const sql of createStatements) {
-    try {
-      await client.execute(sql);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.includes("already exists")) {
-        console.error("Error:", msg);
-      }
-    }
   }
 
   // Execute alters
@@ -554,6 +780,32 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "SpaceLead_shareLinkId_idx" ON "SpaceLead"("shareLinkId")',
     'CREATE INDEX IF NOT EXISTS "SpaceLead_storeId_idx" ON "SpaceLead"("storeId")',
     'CREATE INDEX IF NOT EXISTS "RateLimitCounter_expiresAt_idx" ON "RateLimitCounter"("expiresAt")',
+    // ---- イベント出店募集 ----
+    'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerProfile_userId_key" ON "OrganizerProfile"("userId")',
+    'CREATE INDEX IF NOT EXISTS "OrganizerProfile_status_idx" ON "OrganizerProfile"("status")',
+    'CREATE INDEX IF NOT EXISTS "Event_status_startAt_idx" ON "Event"("status", "startAt")',
+    'CREATE INDEX IF NOT EXISTS "Event_area_idx" ON "Event"("area")',
+    'CREATE INDEX IF NOT EXISTS "Event_organizerId_idx" ON "Event"("organizerId")',
+    'CREATE INDEX IF NOT EXISTS "EventImage_eventId_idx" ON "EventImage"("eventId")',
+    'CREATE INDEX IF NOT EXISTS "EventFeeTier_eventId_idx" ON "EventFeeTier"("eventId")',
+    'CREATE INDEX IF NOT EXISTS "EventFeeOption_eventId_idx" ON "EventFeeOption"("eventId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventFavorite_userId_eventId_key" ON "EventFavorite"("userId", "eventId")',
+    'CREATE INDEX IF NOT EXISTS "EventFavorite_eventId_idx" ON "EventFavorite"("eventId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerFollow_userId_organizerId_key" ON "OrganizerFollow"("userId", "organizerId")',
+    'CREATE INDEX IF NOT EXISTS "OrganizerFollow_organizerId_idx" ON "OrganizerFollow"("organizerId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventApplication_eventId_storeId_key" ON "EventApplication"("eventId", "storeId")',
+    'CREATE INDEX IF NOT EXISTS "EventApplication_eventId_status_idx" ON "EventApplication"("eventId", "status")',
+    'CREATE INDEX IF NOT EXISTS "EventApplication_storeId_idx" ON "EventApplication"("storeId")',
+    'CREATE INDEX IF NOT EXISTS "EventApplicationMessage_applicationId_createdAt_idx" ON "EventApplicationMessage"("applicationId", "createdAt")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventApplicationDocument_applicationId_documentId_key" ON "EventApplicationDocument"("applicationId", "documentId")',
+    'CREATE INDEX IF NOT EXISTS "EventApplicationDocument_applicationId_idx" ON "EventApplicationDocument"("applicationId")',
+    // ---- 出展料のオンライン決済 ----
+    'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerProfile_stripeAccountId_key" ON "OrganizerProfile"("stripeAccountId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripeCheckoutSessionId_key" ON "EventPayment"("stripeCheckoutSessionId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripePaymentIntentId_key" ON "EventPayment"("stripePaymentIntentId")',
+    'CREATE INDEX IF NOT EXISTS "EventPayment_applicationId_idx" ON "EventPayment"("applicationId")',
+    'CREATE INDEX IF NOT EXISTS "EventPayment_status_idx" ON "EventPayment"("status")',
+    'CREATE INDEX IF NOT EXISTS "EventPayment_stripePayoutId_idx" ON "EventPayment"("stripePayoutId")',
   ];
 
   for (const sql of indexes) {

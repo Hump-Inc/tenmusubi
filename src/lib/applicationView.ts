@@ -111,6 +111,7 @@ export async function buildApplicationView(storeId: string, token: string) {
           generatorNoiseDb: profile.generatorNoiseDb,
           usesFire: profile.usesFire,
           fireType: profile.fireType,
+          fireApplianceCount: profile.fireApplianceCount,
           waterTankLiter: profile.waterTankLiter,
           minSpaceWidthM: profile.minSpaceWidthM,
           minSpaceDepthM: profile.minSpaceDepthM,

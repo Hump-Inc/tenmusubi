@@ -56,6 +56,7 @@ export function buildSpecRows(profile: {
   generatorNoiseDb: number | null;
   usesFire: boolean;
   fireType: string | null;
+  fireApplianceCount: number | null;
   waterTankLiter: number | null;
   minSpaceWidthM: number | null;
   minSpaceDepthM: number | null;
@@ -79,7 +80,12 @@ export function buildSpecRows(profile: {
   rows.push({
     label: "火気使用",
     value: profile.usesFire
-      ? `あり（${fireTypeLabel(profile.fireType) ?? "種類未登録"}）`
+      ? `あり（${[
+          fireTypeLabel(profile.fireType) ?? "種類未登録",
+          profile.fireApplianceCount ? `${profile.fireApplianceCount}台` : null,
+        ]
+          .filter(Boolean)
+          .join(" / ")}）`
       : "なし",
   });
 

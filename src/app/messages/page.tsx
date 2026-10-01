@@ -2,7 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { Search, Send, MoreVertical, ChevronLeft, Loader2, MessageCircle } from "lucide-react";
+import Link from "next/link";
+import {
+  Search,
+  Send,
+  MoreVertical,
+  ChevronLeft,
+  Loader2,
+  MessageCircle,
+  CalendarDays,
+  ChevronRight,
+} from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +30,22 @@ interface Conversation {
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
+}
+
+/** 出店募集の応募スレッド。DMとは別の仕組みだが、届く場所は一つにまとめる。 */
+interface EventThread {
+  id: string;
+  role: "vendor" | "organizer";
+  kind: string;
+  status: string;
+  eventId: string;
+  eventTitle: string;
+  eventStartAt: string;
+  counterpartName: string;
+  counterpartImage: string | null;
+  lastMessage: string | null;
+  lastMessageAt: string;
+  unread: boolean;
 }
 
 interface Message {
@@ -43,6 +69,7 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
   const [showChat, setShowChat] = useState(false);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [eventThreads, setEventThreads] = useState<EventThread[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -80,6 +107,25 @@ export default function MessagesPage() {
     }
     return null;
   }, []);
+
+  // 出店募集のやり取り。DMと同じ間隔で取り直す。
+  const fetchEventThreads = useCallback(async () => {
+    try {
+      const res = await fetch("/api/messages/threads");
+      if (res.ok) {
+        const data = await res.json();
+        setEventThreads(data.threads || []);
+      }
+    } catch {
+      // 一覧が出ないだけなので黙って諦める
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEventThreads();
+    const interval = setInterval(fetchEventThreads, CONVERSATION_POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchEventThreads]);
 
   // 初回ロード
   useEffect(() => {
@@ -257,6 +303,89 @@ export default function MessagesPage() {
                 </div>
               </div>
               <ScrollArea className="h-[calc(100%-120px)]">
+                {/* 出店募集のやり取り。応募スレッドは募集ページの下にしか無く、
+                    どこに届いているのか分からなかったのでここにも出す。 */}
+                {eventThreads.length > 0 && (
+                  <div className="border-b border-border">
+                    <div className="flex items-center justify-between px-4 py-2 bg-muted/40">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        出店募集のやり取り
+                      </span>
+                      {eventThreads.some((t) => t.unread) && (
+                        <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] text-primary-foreground">
+                          未読 {eventThreads.filter((t) => t.unread).length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="divide-y divide-border">
+                      {eventThreads.map((thread) => (
+                        <Link
+                          key={thread.id}
+                          href={`/events/applications/${thread.id}`}
+                          className="flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="relative">
+                            <Avatar className="h-12 w-12 rounded-xl">
+                              <AvatarImage src={thread.counterpartImage || ""} />
+                              <AvatarFallback className="rounded-xl bg-muted text-muted-foreground">
+                                <CalendarDays className="h-5 w-5" />
+                              </AvatarFallback>
+                            </Avatar>
+                            {thread.unread && (
+                              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p
+                                className={cn(
+                                  "truncate text-sm",
+                                  thread.unread ? "font-semibold" : "font-medium"
+                                )}
+                              >
+                                {thread.counterpartName}
+                              </p>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {formatDate(thread.lastMessageAt)}
+                              </span>
+                            </div>
+                            <p className="truncate text-xs text-muted-foreground mt-0.5">
+                              {thread.role === "organizer"
+                                ? thread.kind === "scout"
+                                  ? "送ったスカウト"
+                                  : "受け取った応募"
+                                : thread.kind === "scout"
+                                  ? "届いたスカウト"
+                                  : "応募した募集"}{" "}
+                              ・{" "}
+                              {thread.eventTitle}
+                            </p>
+                            {thread.lastMessage && (
+                              <p
+                                className={cn(
+                                  "truncate text-sm mt-1",
+                                  thread.unread ? "text-foreground" : "text-muted-foreground"
+                                )}
+                              >
+                                {thread.lastMessage}
+                              </p>
+                            )}
+                          </div>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 mt-3" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {eventThreads.length > 0 && (
+                  <div className="px-4 py-2 bg-muted/40">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      ダイレクトメッセージ
+                    </span>
+                  </div>
+                )}
+
                 {isLoadingConversations ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -264,7 +393,11 @@ export default function MessagesPage() {
                 ) : conversations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                     <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                    <p className="text-muted-foreground">メッセージはまだありません</p>
+                    <p className="text-muted-foreground">
+                      {eventThreads.length > 0
+                        ? "ダイレクトメッセージはまだありません"
+                        : "メッセージはまだありません"}
+                    </p>
                     <p className="text-sm text-muted-foreground mt-1">
                       スペースオーナーにメッセージを送ってみましょう
                     </p>

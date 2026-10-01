@@ -44,6 +44,8 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   favorites       Favorite[]
   storeFavorites  StoreFavorite[]
+  organizerFollows OrganizerFollow[]
+  eventFavorites  EventFavorite[]
   reviewsGiven    Review[]  @relation("ReviewsGiven")
   reviewsReceived Review[] @relation("ReviewsReceived")
   notifications Notification[]
@@ -52,6 +54,10 @@ model User {
   pointTransactions PointTransaction[]
   blogPosts         BlogPost[]
   claimRequests     StoreClaimRequest[]
+
+  // イベント出店募集
+  organizerProfile     OrganizerProfile?
+  eventAppMessages     EventApplicationMessage[]
 }
 
 model Account {
@@ -185,6 +191,9 @@ model Store {
   applicationMenuItems ApplicationMenuItem[]
   shareLinks           ShareLink[]
   spaceLeads           SpaceLead[]
+
+  // イベント出店募集
+  eventApplications    EventApplication[]
 }
 
 // 店舗の引き継ぎ（クレーム）申請
@@ -478,6 +487,9 @@ model StoreApplicationProfile {
   generatorNoiseDb Int?
   usesFire         Boolean @default(false)
   fireType         String? // "lpg" | "cassette" | "electric_only"
+  // 主催者が消防署に出す書類で台数を書くので、有無だけでは足りない（2026-08-27 MTG）。
+  // ここは平常時の台数。イベントごとの実数は応募時に上書きしてスナップショットへ残す。
+  fireApplianceCount Int?
   waterTankLiter   Int?
   minSpaceWidthM   Float? // 間口(m)
   minSpaceDepthM   Float? // 奥行(m)
@@ -514,6 +526,9 @@ model ApplicationDocument {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // やり取りの中でこの書類を開示した相手
+  disclosures EventApplicationDocument[]
 
   @@index([storeId])
 }
@@ -610,4 +625,317 @@ model RateLimitCounter {
   expiresAt DateTime
 
   @@index([expiresAt])
+}
+
+// ============================================
+// イベント出店募集
+// 主催者が募集を出し、出店者が応募する。応募（およびスカウト）は1件ごとに
+// やり取りの場を持ち、その中で出店者が書類を開示し、主催者が確認して成立を決める。
+// 書類そのものは出店申込パックの ApplicationDocument を使い回すので、
+// 出店者が再アップロードすることはない。
+// ============================================
+
+// 主催者プロフィール。運営が承認するまで募集を公開できない。
+// 架空のイベントで出店者を集める事故を防ぐため、初期は人が見る。
+model OrganizerProfile {
+  id String @id @default(cuid())
+
+  // 1アカウント = 1主催者名義。同じ人が複数の団体で主催する場合は
+  // アカウントを分けてもらう。名義を複数持てるようにすると、募集の作成時に
+  // 名義を選ばせることになり、画面が一段複雑になるため（2026-08-18 決定）。
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orgName     String // 団体名・主催者名
+  contactName String?
+  phone       String?
+  website     String?
+  intro       String? // 主催実績など
+
+  status     String    @default("pending") // "pending" | "approved" | "rejected"
+  note       String? // 運営メモ・却下理由
+  reviewedAt DateTime?
+  reviewedBy String? // 対応した管理者のUserId
+
+  // 出展料のオンライン受け取り（Stripe Connect Express）。出店者が払った出展料は
+  // このアカウントへ送金される。口座登録や本人確認は Stripe の画面で行い、
+  // こちらには結果だけを持つ。状態は account.updated と、登録画面から戻った時の
+  // 取り直しで更新する。
+  stripeAccountId      String?  @unique
+  stripeChargesEnabled Boolean  @default(false) // 決済を受けられる
+  stripePayoutsEnabled Boolean  @default(false) // 口座へ入金できる
+
+  events    Event[]
+  followers OrganizerFollow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// 出店者が主催者をフォローする。次の募集が公開されたときに知らせるためのもの。
+// 募集は期間が短く、見逃すと終わりなので、主催者を起点に取りこぼしを防ぐ
+// （2026-08-27 先方フィードバック）。誰がフォローしているかは主催者に見える。
+model OrganizerFollow {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizerId String
+  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, organizerId])
+  @@index([organizerId])
+}
+
+model Event {
+  id          String           @id @default(cuid())
+  organizerId String
+  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  // 会場
+  venueName String
+  address   String?
+  area      String // 都道府県
+
+  // 開催日時
+  startAt DateTime
+  endAt   DateTime
+
+  // 募集期間（開催の2ヶ月前から募集を始めるのが一般的）
+  applicationOpenAt  DateTime?
+  applicationCloseAt DateTime?
+  slots              Int? // 募集枠数
+
+  // 出展料は必須。「応相談」は許さず、出店者が金額で絞り込めることを優先する（無料は0円）。
+  // 区画ごとの実額は EventFeeTier に持ち、この2列はそこから算出した最安値・最高値。
+  // 一覧カード・検索の絞り込み・OGP は必ずこの2列を見る（区画の行を読ませない）。
+  // 単一料金なら exhibitFeeMax は null。
+  exhibitFee    Int
+  exhibitFeeMax Int?
+  feeNote       String? // 「+売上の10%」など、募集全体にかかる補足
+
+  // 出店条件（出店者が応募前に知りたい項目）
+  spaceWidthM       Float?
+  spaceDepthM       Float?
+  powerAvailable    Boolean @default(false)
+  powerWatt         Int? // 1区画あたり提供できる電源
+  waterAvailable    Boolean @default(false)
+  fireAllowed       Boolean @default(false)
+  categories        String? // JSON配列: 募集する業種
+  requiredDocuments String? // JSON配列: 成立時に提出を求める書類の種類
+  expectedVisitors  Int?
+  note              String?
+
+  // 雨天時の扱い（src/lib/eventWeather.ts）。この機能より前の募集は null。
+  // 新規作成・編集の保存時には必須にしている。
+  rainPolicy                String? // "go"（雨天決行） | "storm_cancel"（荒天中止） | "rain_cancel"（雨天中止）
+  weatherDecisionDaysBefore Int? // 中止を判断する期限: 開催の何日前か（0 = 当日）
+  weatherDecisionHour       Int? // 同: 何時までか（0〜23）
+  weatherRefundPercent      Int? // 天候で中止になったときに出店者へ返す割合（100 / 50）
+  // 中止判断の期限が近いことを主催者へ知らせた時刻。1募集1回だけ送るための印。
+  weatherRemindedAt         DateTime?
+
+  status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
+  publishedAt DateTime?
+  // フォロワーへ新着を知らせた時刻。下書きに戻して再公開しても二重に送らないための印。
+  followersNotifiedAt DateTime?
+
+  images       EventImage[]
+  feeTiers     EventFeeTier[]
+  feeOptions   EventFeeOption[]
+  favorites    EventFavorite[]
+  applications EventApplication[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, startAt])
+  @@index([area])
+  @@index([organizerId])
+}
+
+// 出店者が「気になる」と印を付けた募集。応募するか迷っている間に締切を過ぎる、
+// という取りこぼしを防ぐためのもの（2026-08-28 先方要望）。締切が近づいたら知らせる。
+model EventFavorite {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // 締切リマインドを送った時刻。1つの募集につき1回だけ送るための印。
+  remindedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+}
+
+// 区画・エリアごとの出展料。「Aエリア 8,000円 / 角地 15,000円」のように実額を
+// 並べて出せるようにする。概算より細かく書かれている方が出店者は判断しやすい
+// （2026-08-27 MTG）。行は何本でも持てる。
+model EventFeeTier {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  label  String? // 「Aエリア 3m×3m」「角地」。単一料金なら未設定でよい
+  fee    Int
+  note   String? // この区画だけにかかる補足
+  slots  Int? // この区画の枠数
+  widthM Float?
+  depthM Float?
+  order  Int     @default(0)
+
+  @@index([eventId])
+}
+
+// 区画に足せるオプション料金。「電源 +500円」「テント貸出 +1,000円」など。
+// 区画をまたいで同じものを選べるので、区画ではなく募集に持つ（2026-09-10 MTG）。
+// 一覧・検索の出展料には含めない（選ぶかどうかは出店者次第なので）。
+model EventFeeOption {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  label String // 「電源（1500Wまで）」
+  fee   Int
+  note  String?
+  order Int     @default(0)
+
+  @@index([eventId])
+}
+
+model EventImage {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  url     String
+  order   Int    @default(0)
+
+  @@index([eventId])
+}
+
+// 応募とスカウトの両方がここに入る。1店舗1イベントにつき1スレッド。
+model EventApplication {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  kind   String @default("application") // "application"（出店者から） | "scout"（主催者から）
+  status String @default("open") // "open" | "confirmed" | "rejected" | "withdrawn"
+
+  // 応募時点の車両・設備・営業条件。あとで出店者が申込情報を書き換えても、
+  // 主催者が見て判断した内容が残るようにする。
+  snapshot String?
+  message  String? // 最初のひとこと
+
+  // 主催者から「書類を見せてほしい」と依頼した時刻
+  documentRequestedAt DateTime?
+
+  confirmedAt DateTime?
+  closedAt    DateTime?
+
+  // キャンセル規定（src/lib/cancellationPolicy.ts）への同意。出店者は応募時、主催者は
+  // 出店の決定時に同意する。「聞いていない」を避けるため、どの版にいつ同意したかを残す。
+  // 出展料の決済が有効なときだけ求めるので、それ以外の応募では null。
+  policyVersion           String?
+  vendorPolicyAgreedAt    DateTime?
+  organizerPolicyAgreedAt DateTime?
+
+  lastMessageAt      DateTime?
+  vendorLastReadAt   DateTime?
+  organizerLastReadAt DateTime?
+
+  messages    EventApplicationMessage[]
+  disclosures EventApplicationDocument[]
+  payments    EventPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, storeId])
+  @@index([eventId, status])
+  @@index([storeId])
+}
+
+model EventApplicationMessage {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  senderId String? // system の場合は null
+  sender   User?   @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  // "text" は人が書いたもの。"system" は開示・成立などの経過記録。
+  kind String @default("text")
+  body String
+
+  createdAt DateTime @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+// やり取りの中で開示された書類。開示は相手ごと・書類ごとで、いつでも取り消せる。
+// 見送りになった応募では自動的に失効させる。
+model EventApplicationDocument {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  documentId String
+  document   ApplicationDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  disclosedAt DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@unique([applicationId, documentId])
+  @@index([applicationId])
+}
+
+// 出展料の請求と支払い。出店が決まったあと、主催者が金額を決めて請求する。
+// 成立と同時に自動で請求しないのは、区画の変更や「+売上の10%」のような補足で
+// 金額が応募時から変わることが多く、現金で受け取る主催者もいるため。
+// 1つの応募に複数の請求を持てる（電源代の追加など）。
+model EventPayment {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  description String // 「出展料（Aエリア）」など。明細と Checkout の品名に出る
+  amount      Int // 出店者が払う額（円・税込）
+  platformFee Int // 運営の手数料。請求した時点の料率で確定させ、あとで料率を変えても動かさない
+
+  status         String @default("requested") // "requested" | "paid" | "canceled" | "refunded"
+  refundedAmount Int    @default(0) // 一部返金もあるので額で持つ。全額戻ったら status を refunded に
+
+  // 支払い画面を開き直したときに同じセッションを返し、二重に払わせないために持つ
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String? @unique
+
+  requestedById String // 請求した主催者の UserId
+  paidAt        DateTime?
+  canceledAt    DateTime?
+
+  // 主催者の口座への入金。お金は主催者の Stripe 残高にプールしておき、開催が
+  // 終わってから入金する（2026-09-10 MTG）。1回の入金で複数の支払いをまとめるので、
+  // 同じ payoutId が複数の行に入る。
+  stripePayoutId String?
+  paidOutAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicationId])
+  @@index([status])
+  @@index([stripePayoutId])
 }

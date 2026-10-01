@@ -31,6 +31,8 @@ import {
   ExternalLink,
   ClipboardList,
   Share2,
+  CalendarDays,
+  Send,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -39,6 +41,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MyEventCard, isFinished, type MyEventData } from "@/components/events/MyEventCard";
 import { Separator } from "@/components/ui/separator";
 
 interface Profile {
@@ -120,6 +123,32 @@ const menuItems = [
 ];
 
 
+interface FavoriteEvent {
+  id: string;
+  title: string;
+  area: string;
+  venueName: string;
+  startAt: string;
+  applicationCloseAt: string | null;
+}
+
+interface FollowedOrganizer {
+  id: string;
+  orgName: string;
+  openEvent: { id: string; title: string; startAt: string; area: string } | null;
+}
+
+interface EventThreadSummary {
+  id: string;
+  role: "vendor" | "organizer";
+  kind: string;
+  eventTitle: string;
+  counterpartName: string;
+  lastMessage: string | null;
+  lastMessageAt: string;
+  unread: boolean;
+}
+
 export default function MyPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("favorites");
@@ -131,6 +160,17 @@ export default function MyPage() {
   const [myStores, setMyStores] = useState<StoreData[]>([]);
   const [checkIns, setCheckIns] = useState<CheckInData[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
+  // 主催者かどうかは userType とは別軸（OrganizerProfile）。
+  // スペースオーナーでも出店者でも申請でき、運営の承認で募集を公開できる。
+  const [organizerStatus, setOrganizerStatus] = useState<string | null>(null);
+  const [myEvents, setMyEvents] = useState<MyEventData[]>([]);
+  // 出店募集のやり取り。応募スレッドが募集ページの下にしか無く、どこに届くのか
+  // 分からないという声があったので、マイページにも未読を出す（2026-08-27 MTG）。
+  const [eventThreads, setEventThreads] = useState<EventThreadSummary[]>([]);
+  // フォロー中の主催者。次の募集が公開されたら通知が届く。
+  const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
+  // 気になる募集。締切が近い順に返ってくる。
+  const [favoriteEvents, setFavoriteEvents] = useState<FavoriteEvent[]>([]);
   const [stats, setStats] = useState({ favorites: 0, messages: 0, bookings: 0, reviews: 0, spaces: 0, stores: 0, checkIns: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
@@ -230,6 +270,51 @@ export default function MyPage() {
           setStats(prev => ({ ...prev, checkIns: checkInsData.total || 0 }));
         }
 
+        // 主催者プロフィールと自分の募集。主催者でなければ organizer が null で返る。
+        try {
+          const eventsRes = await fetch("/api/events/my");
+          if (eventsRes.ok) {
+            const eventsData = await eventsRes.json();
+            setOrganizerStatus(eventsData.organizer?.status ?? null);
+            setMyEvents(eventsData.events ?? []);
+          }
+        } catch {
+          // silent
+        }
+
+        // 出店募集のやり取り。出店者としての応募も、主催者として受けた応募も入る。
+        try {
+          const threadsRes = await fetch("/api/messages/threads");
+          if (threadsRes.ok) {
+            const threadsData = await threadsRes.json();
+            setEventThreads(threadsData.threads ?? []);
+          }
+        } catch {
+          // silent
+        }
+
+        // 気になる募集
+        try {
+          const favEventsRes = await fetch("/api/events/favorites");
+          if (favEventsRes.ok) {
+            const favEventsData = await favEventsRes.json();
+            setFavoriteEvents(favEventsData.events ?? []);
+          }
+        } catch {
+          // silent
+        }
+
+        // フォロー中の主催者
+        try {
+          const followRes = await fetch("/api/organizers/following");
+          if (followRes.ok) {
+            const followData = await followRes.json();
+            setFollowedOrganizers(followData.organizers ?? []);
+          }
+        } catch {
+          // silent
+        }
+
         // ポイント情報を取得（profileのtotalPoints）
         try {
           const userRes = await fetch("/api/profile/points");
@@ -264,6 +349,13 @@ export default function MyPage() {
     if (isOwner) return "スペースオーナー";
     return "出店者";
   };
+
+  // 主催者は役割とは別に持つので、バッジも導線も分けて出す
+  const isOrganizer = organizerStatus === "approved";
+  const unreadThreadCount = eventThreads.filter((t) => t.unread).length;
+  // 開催が終わったものを下に送る。下書きや中止もカードのバッジで状態が分かる。
+  const openEvents = myEvents.filter((e) => !isFinished(e));
+  const pastEvents = myEvents.filter((e) => isFinished(e));
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -336,6 +428,17 @@ export default function MyPage() {
                           プレミアム
                         </Badge>
                       )}
+                      {isOrganizer && (
+                        <Badge className="rounded-full bg-gray-900 text-white hover:bg-gray-900">
+                          <CalendarDays className="h-3 w-3 mr-1" />
+                          主催者
+                        </Badge>
+                      )}
+                      {organizerStatus === "pending" && (
+                        <Badge variant="outline" className="rounded-full text-gray-600">
+                          主催者申請 審査中
+                        </Badge>
+                      )}
                       {!userProfile.isVerified && (
                         <Badge variant="outline" className="rounded-full text-yellow-600 border-yellow-300">
                           未認証
@@ -391,13 +494,28 @@ export default function MyPage() {
                         <span className="text-xs text-gray-500">お気に入り</span>
                       </Link>
                     )}
+                    {isOrganizer && (
+                      <Link
+                        href="/events/my"
+                        className="flex flex-col items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <CalendarDays className="h-5 w-5 text-primary mb-1" />
+                        <span className="text-lg font-bold text-gray-900">{myEvents.length}</span>
+                        <span className="text-xs text-gray-500">主催イベント</span>
+                      </Link>
+                    )}
                     <Link
                       href="/messages"
-                      className="flex flex-col items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                      className="relative flex flex-col items-center p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
                       <MessageCircle className="h-5 w-5 text-primary mb-1" />
                       <span className="text-lg font-bold text-gray-900">{stats.messages}</span>
                       <span className="text-xs text-gray-500">メッセージ</span>
+                      {unreadThreadCount > 0 && (
+                        <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+                          {unreadThreadCount > 9 ? "9+" : unreadThreadCount}
+                        </span>
+                      )}
                     </Link>
                     <Link
                       href="#"
@@ -429,7 +547,7 @@ export default function MyPage() {
                   </div>
 
                   {/* 登録ボタン */}
-                  {(isVendor || isOwner) && (
+                  {(isVendor || isOwner || isOrganizer) && (
                     <>
                       <Separator className="my-4" />
                       <div className="space-y-2">
@@ -446,6 +564,14 @@ export default function MyPage() {
                             <Link href="/spaces/new">
                               <Building2 className="h-4 w-4 mr-2" />
                               スペースを登録する
+                            </Link>
+                          </Button>
+                        )}
+                        {isOrganizer && (
+                          <Button asChild variant="outline" className="w-full rounded-full" size="sm">
+                            <Link href="/events/new">
+                              <CalendarDays className="h-4 w-4 mr-2" />
+                              出店者を募集する
                             </Link>
                           </Button>
                         )}
@@ -479,6 +605,53 @@ export default function MyPage() {
                         </div>
                       </Link>
                     ))}
+                    <Separator className="my-2" />
+                    {/* イベント出店募集。応募は出店者、主催は承認された主催者だけの導線。
+                        まだ主催者でない人には「はじめる」入口だけを見せる。 */}
+                    {isVendor && (
+                      <Link
+                        href="/events/applications"
+                        className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Send className="h-5 w-5 text-gray-900" />
+                          <span className="text-sm font-medium text-gray-900">応募した募集</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      </Link>
+                    )}
+                    {isOrganizer && (
+                      <Link
+                        href="/events/my"
+                        className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <CalendarDays className="h-5 w-5 text-gray-900" />
+                          <span className="text-sm font-medium text-gray-900">主催イベント</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      </Link>
+                    )}
+                    <Link
+                      href="/organizer"
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Building2 className="h-5 w-5 text-gray-900" />
+                        <span className="text-sm font-medium text-gray-900">
+                          {organizerStatus === null ? "イベントを主催する" : "主催者情報"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {organizerStatus === "pending" && (
+                          <Badge variant="secondary" className="text-xs">審査中</Badge>
+                        )}
+                        {organizerStatus === "rejected" && (
+                          <Badge variant="secondary" className="text-xs">要修正</Badge>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      </div>
+                    </Link>
                     {session?.user?.isAdmin && (
                       <>
                         <Separator className="my-2" />
@@ -509,6 +682,115 @@ export default function MyPage() {
 
             {/* Main Content */}
             <div className="lg:col-span-3">
+              {/* 出店募集のやり取り。応募スレッドは募集ページの下にしか無いので、
+                  ログイン後に真っ先に目に入る場所へ未読を出す（2026-08-27 MTG）。 */}
+              {eventThreads.length > 0 && (
+                <Card className="border-0 shadow-sm rounded-2xl bg-white mb-6">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                        <MessageCircle className="h-5 w-5 text-primary" />
+                        出店募集のやり取り
+                        {unreadThreadCount > 0 && (
+                          <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">
+                            未読 {unreadThreadCount}
+                          </span>
+                        )}
+                      </h2>
+                      <Link href="/messages" className="text-sm text-gray-500 hover:text-gray-900">
+                        すべて見る
+                      </Link>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {eventThreads.slice(0, 3).map((thread) => (
+                        <Link
+                          key={thread.id}
+                          href={`/events/applications/${thread.id}`}
+                          className="flex items-center gap-3 py-3 hover:bg-gray-50 transition-colors rounded-lg px-2 -mx-2"
+                        >
+                          {thread.unread ? (
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                          ) : (
+                            <span className="h-2 w-2 shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={`truncate text-sm ${
+                                thread.unread ? "font-semibold text-gray-900" : "text-gray-900"
+                              }`}
+                            >
+                              {thread.counterpartName}
+                              <span className="ml-2 text-xs font-normal text-gray-500">
+                                {thread.role === "organizer"
+                                ? thread.kind === "scout"
+                                  ? "送ったスカウト"
+                                  : "受け取った応募"
+                                : thread.kind === "scout"
+                                  ? "届いたスカウト"
+                                  : "応募した募集"}{" "}
+                              ・{" "}
+                                {thread.eventTitle}
+                              </span>
+                            </p>
+                            {thread.lastMessage && (
+                              <p className="truncate text-xs text-gray-500 mt-0.5">
+                                {thread.lastMessage}
+                              </p>
+                            )}
+                          </div>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                        </Link>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* フォロー中の主催者。主催者の単独ページは無いので、募集中があれば
+                  その募集へ、無ければその旨だけを出す（2026-08-27 決定）。 */}
+              {followedOrganizers.length > 0 && (
+                <Card className="border-0 shadow-sm rounded-2xl bg-white mb-6">
+                  <CardContent className="p-4 sm:p-6">
+                    <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900">
+                      <Bell className="h-5 w-5 text-primary" />
+                      フォロー中の主催者
+                      <span className="text-sm font-normal text-gray-500">
+                        {followedOrganizers.length}件
+                      </span>
+                    </h2>
+                    <div className="divide-y divide-gray-100">
+                      {followedOrganizers.map((o) => (
+                        <div key={o.id} className="flex items-center gap-3 py-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-gray-900">
+                              {o.orgName}
+                            </p>
+                            {o.openEvent ? (
+                              <Link
+                                href={`/events/${o.openEvent.id}`}
+                                className="mt-0.5 block truncate text-xs text-primary hover:underline"
+                              >
+                                直近の募集: {o.openEvent.title}
+                              </Link>
+                            ) : (
+                              <p className="mt-0.5 text-xs text-gray-500">
+                                今後の募集はまだありません
+                              </p>
+                            )}
+                          </div>
+                          {o.openEvent && (
+                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      新しい募集が公開されると通知でお知らせします
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="bg-white border border-gray-200 rounded-full p-1 mb-6 flex-wrap h-auto gap-1">
                   {/* 両方の役割を持つ場合はすべてのタブを表示 */}
@@ -781,6 +1063,55 @@ export default function MyPage() {
                 {/* Favorites Tab */}
                 {isVendor && (
                   <TabsContent value="favorites" className="space-y-6">
+                    {/* 気になる募集。締切が近い順。迷ったまま期限が来るのを防ぐのが目的なので、
+                        残り日数を目立たせる。 */}
+                    {favoriteEvents.length > 0 && (
+                      <div>
+                        <h2 className="mb-3 text-xl font-bold text-gray-900">気になる募集</h2>
+                        <div className="divide-y divide-gray-100 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+                          {favoriteEvents.map((e) => {
+                            const left = e.applicationCloseAt
+                              ? Math.ceil(
+                                  (new Date(e.applicationCloseAt).getTime() - Date.now()) /
+                                    (24 * 60 * 60 * 1000)
+                                )
+                              : null;
+                            return (
+                              <Link
+                                key={e.id}
+                                href={`/events/${e.id}`}
+                                className="flex items-center gap-3 py-3 transition-colors hover:bg-gray-50"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-gray-900">
+                                    {e.title}
+                                  </p>
+                                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                                    {e.area} ・ {e.venueName}
+                                  </p>
+                                </div>
+                                {left !== null && left >= 0 && (
+                                  <span
+                                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                      left <= 7
+                                        ? "bg-orange-100 text-orange-700"
+                                        : "bg-gray-100 text-gray-600"
+                                    }`}
+                                  >
+                                    締切まで{left === 0 ? "本日" : `${left}日`}
+                                  </span>
+                                )}
+                                <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                              </Link>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">
+                          締切の3日前にお知らせします
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold text-gray-900">お気に入り一覧</h2>
                     </div>
@@ -1064,6 +1395,72 @@ export default function MyPage() {
                   )}
                 </TabsContent>
               </Tabs>
+
+              {/* 主催イベント。マイスペース／マイ店舗の下に、募集中と過去実施を分けて並べる。 */}
+              {isOrganizer && (
+                <div className="mt-8 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">主催イベント</h2>
+                    <Button className="rounded-full" asChild>
+                      <Link href="/events/new">
+                        <Plus className="h-4 w-4 mr-2" />
+                        募集をつくる
+                      </Link>
+                    </Button>
+                  </div>
+
+                  {myEvents.length === 0 ? (
+                    <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+                      <CalendarDays className="h-12 w-12 mx-auto text-gray-300" />
+                      <p className="mt-4 text-gray-500">まだ募集がありません</p>
+                      <Button asChild className="mt-4 rounded-full">
+                        <Link href="/events/new">
+                          <Plus className="h-4 w-4 mr-2" />
+                          募集をつくる
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-bold text-gray-900">
+                          募集中のイベント
+                          <span className="ml-2 font-normal text-gray-500">{openEvents.length}件</span>
+                        </h3>
+                        {openEvents.length === 0 ? (
+                          <p className="text-sm text-gray-500 bg-white rounded-2xl shadow-sm p-6">
+                            開催予定のイベントはありません
+                          </p>
+                        ) : (
+                          <ul className="space-y-3">
+                            {openEvents.map((e) => (
+                              <li key={e.id}>
+                                <MyEventCard event={e} />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      {pastEvents.length > 0 && (
+                        <div className="space-y-3">
+                          <h3 className="text-sm font-bold text-gray-900">
+                            過去に実施したイベント
+                            <span className="ml-2 font-normal text-gray-500">{pastEvents.length}件</span>
+                          </h3>
+                          <ul className="space-y-3">
+                            {pastEvents.map((e) => (
+                              <li key={e.id}>
+                                <MyEventCard event={e} />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
