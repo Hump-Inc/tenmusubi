@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Menu, User, MessageCircle, Search, ArrowRight, Bell, LayoutDashboard, Trophy } from "lucide-react";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { EventsTestingNotice } from "@/components/events/EventsTestingNotice";
 
 // 業種で並べるより「何を探しに来たか」で分けた方が迷わない、という
 // 出店者側からの指摘で目的別にした（2026-08-27 MTG）。
@@ -29,6 +31,9 @@ const navigation = [
 export function Header() {
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // 出店募集まわり（募集・応募・主催者登録）のページでは、テスト運用中の案内を出す
+  const isEventsArea = pathname.startsWith("/events") || pathname.startsWith("/organizer");
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
@@ -283,6 +288,7 @@ export function Header() {
           </Sheet>
         </div>
       </div>
+      {isEventsArea && <EventsTestingNotice variant="strip" />}
     </header>
   );
 }

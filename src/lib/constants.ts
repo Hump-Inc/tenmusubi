@@ -166,3 +166,12 @@ export const SHOW_ORGANIZER_PAST_EVENTS =
  * 使い始めるときは、環境変数 ENABLE_EVENT_PAYMENTS=true を立てる。
  */
 export const EVENT_PAYMENTS_ENABLED = process.env.ENABLE_EVENT_PAYMENTS === "true";
+
+/**
+ * 出店募集の機能をテスト運用中として見せるか。
+ *
+ * 募集は本番で公開されているが、主催者・出店者を交えた通しの確認がまだ
+ * （2026-10-01 MTG「テスト中であることを示すアラート」）。立てている間は、
+ * 募集まわりの画面にテスト運用中の案内を出す。正式に始めるときに false にする。
+ */
+export const EVENTS_IN_TESTING = true;
