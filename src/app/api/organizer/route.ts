@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendOrganizerApplicationAdminEmail } from "@/lib/email";
 
 /**
  * 主催者プロフィールの取得と申請。
@@ -87,6 +88,21 @@ export async function PUT(request: Request) {
       },
       select: { id: true, orgName: true, status: true },
     });
+
+    // 新しい申請と、却下後の出し直しだけ運営へ知らせる。審査待ちのまま直した分や、
+    // 承認済みの主催者が情報を直した分は知らせない（審査の状態が変わらないため）。
+    if (!existing || existing.status === "rejected") {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true },
+      });
+      await sendOrganizerApplicationAdminEmail({
+        ...data,
+        userName: user?.name ?? null,
+        userEmail: user?.email ?? null,
+        resubmitted: !!existing,
+      }).catch((e) => console.error("Organizer admin email error:", e));
+    }
 
     return NextResponse.json({ organizer });
   } catch (error) {
