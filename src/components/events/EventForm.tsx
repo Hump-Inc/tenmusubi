@@ -241,6 +241,10 @@ export function EventForm({
   }, [form.startAt, form.applicationOpenAt]);
 
   const save = async (mode: "draft" | "published") => {
+    if (isSaving) return;
+    // 保存に成功したら、ページが切り替わるまでボタンを押せないままにする。
+    // 本番では切り替わりに数秒かかり、その間に押し直されて募集が2件できていた。
+    let saved = false;
     setIsSaving(true);
     setSavingMode(mode);
     setError("");
@@ -268,12 +272,13 @@ export function EventForm({
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
+      saved = true;
       router.push(`/events/${data.event.id}`);
       router.refresh();
     } catch {
       setError("保存に失敗しました");
     } finally {
-      setIsSaving(false);
+      if (!saved) setIsSaving(false);
     }
   };
 
