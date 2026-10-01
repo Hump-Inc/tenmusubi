@@ -69,3 +69,63 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     `,
   });
 }
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * 主催者の申請が届いたことを運営へ知らせる。承認しないと募集を公開できないので、
+ * 管理画面を見に行かなくても気づけるようにする。
+ * 却下後の出し直しも審査待ちに戻るので、同じように知らせる。
+ */
+export async function sendOrganizerApplicationAdminEmail(params: {
+  orgName: string;
+  contactName: string | null;
+  phone: string | null;
+  website: string | null;
+  intro: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  resubmitted: boolean;
+}) {
+  const adminEmails = getAdminEmails();
+  if (adminEmails.length === 0 || !process.env.RESEND_API_KEY) return;
+
+  const row = (label: string, value: string | null) => `
+    <tr>
+      <td style="padding: 10px; border: 1px solid #e5e7eb; background: #f9fafb; width: 140px;"><strong>${label}</strong></td>
+      <td style="padding: 10px; border: 1px solid #e5e7eb;">${value ? escapeHtml(value).replace(/\n/g, "<br />") : "（なし）"}</td>
+    </tr>`;
+  const kind = params.resubmitted ? "主催者の再申請" : "主催者の申請";
+
+  await resend.emails.send({
+    from: FROM,
+    to: adminEmails,
+    subject: `【てんむすび】${kind}がありました（${params.orgName}）`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">${kind}</h2>
+        <p>主催者の${params.resubmitted ? "再申請（却下後の出し直し）" : "申請"}がありました。承認するまで募集は公開できません。内容をご確認ください。</p>
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          ${row("団体名・主催者名", params.orgName)}
+          ${row("担当者", params.contactName)}
+          ${row("電話番号", params.phone)}
+          ${row("Webサイト", params.website)}
+          ${row("紹介・実績", params.intro)}
+          ${row("アカウント", `${params.userName ?? "（名前未設定）"}（${params.userEmail ?? "-"}）`)}
+        </table>
+        <p>
+          <a href="${BASE_URL}/admin/organizers" style="color: #3b82f6;">
+            管理画面で確認する →
+          </a>
+        </p>
+      </div>
+    `,
+  });
+}
