@@ -17,6 +17,7 @@ import {
   Globe,
   Pencil,
   CheckCircle2,
+  CloudRain,
 } from "lucide-react";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -33,7 +34,13 @@ import {
   parseJsonArray,
 } from "@/lib/eventFormat";
 import { feeTierLabel } from "@/lib/eventFeeTiers";
-import { SHOW_ORGANIZER_PAST_EVENTS } from "@/lib/constants";
+import {
+  rainPolicyLabel,
+  decisionDeadlineLabel,
+  weatherRefundLabel,
+} from "@/lib/eventWeather";
+import { SHOW_ORGANIZER_PAST_EVENTS, EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { CancelEventButton } from "@/components/events/CancelEventButton";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
 
@@ -48,6 +55,7 @@ async function getEvent(id: string) {
       },
       images: { orderBy: { order: "asc" } },
       feeTiers: { orderBy: { order: "asc" } },
+      feeOptions: { orderBy: { order: "asc" } },
       _count: { select: { applications: true } },
     },
   });
@@ -173,6 +181,26 @@ export default async function EventDetailPage({
       : [],
   ]);
 
+  // 中止したときに知らせが届く出店者の数。確認ダイアログで主催者に見せる。
+  const canCancel =
+    isOwner &&
+    (event.status === "published" || event.status === "closed") &&
+    event.endAt > now;
+  const [cancelRecipients, cancelPaid] = canCancel
+    ? await Promise.all([
+        prisma.eventApplication.count({
+          where: { eventId: event.id, status: { in: ["open", "confirmed"] } },
+        }),
+        prisma.eventApplication.count({
+          where: {
+            eventId: event.id,
+            status: { in: ["open", "confirmed"] },
+            payments: { some: { status: "paid" } },
+          },
+        }),
+      ])
+    : [0, 0];
+
   const myFavorite = viewerId
     ? await prisma.eventFavorite.findUnique({
         where: { userId_eventId: { userId: viewerId, eventId: event.id } },
@@ -197,12 +225,15 @@ export default async function EventDetailPage({
                   ? "この募集は下書きです。まだ出店者には表示されていません。"
                   : "この募集は中止になっています。"}
               </p>
-              <Button size="sm" variant="outline" className="rounded-full" asChild>
-                <Link href={`/events/${event.id}/edit`}>
-                  <Pencil className="h-4 w-4 mr-1" />
-                  編集
-                </Link>
-              </Button>
+              {/* 中止した募集は編集フォームから「公開」に戻せないようにしている */}
+              {(event.status !== "cancelled" || !isOwner) && (
+                <Button size="sm" variant="outline" className="rounded-full" asChild>
+                  <Link href={`/events/${event.id}/edit`}>
+                    <Pencil className="h-4 w-4 mr-1" />
+                    編集
+                  </Link>
+                </Button>
+              )}
             </div>
           )}
 
@@ -315,6 +346,22 @@ export default async function EventDetailPage({
                     )}
                   </>
                 )}
+                {event.feeOptions.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2">
+                    <p className="text-xs font-normal text-gray-500">オプション（希望する場合のみ）</p>
+                    <ul className="mt-1 space-y-1">
+                      {event.feeOptions.map((o) => (
+                        <li key={o.id} className="flex flex-wrap items-baseline gap-x-3 text-sm">
+                          <span className="min-w-0 flex-1 font-normal text-gray-700">{o.label}</span>
+                          <span className="tabular-nums">+{o.fee.toLocaleString()}円</span>
+                          {o.note && (
+                            <span className="w-full text-xs font-normal text-gray-500">{o.note}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </Row>
               {event.slots !== null && (
                 <Row icon={<Users className="h-5 w-5" />} label="募集枠">
@@ -341,6 +388,20 @@ export default async function EventDetailPage({
               </Row>
               <Row icon={<Flame className="h-5 w-5" />} label="火気の使用">
                 {event.fireAllowed ? "可能" : "不可"}
+              </Row>
+              <Row icon={<CloudRain className="h-5 w-5" />} label="雨天時">
+                {rainPolicyLabel(event.rainPolicy) ? (
+                  <>
+                    {rainPolicyLabel(event.rainPolicy)}
+                    <span className="block text-xs font-normal text-gray-600 mt-0.5">
+                      中止の判断: {decisionDeadlineLabel(event.weatherDecisionDaysBefore, event.weatherDecisionHour)}
+                      {weatherRefundLabel(event.weatherRefundPercent) &&
+                        ` ・ 天候で中止の場合は出展料を${weatherRefundLabel(event.weatherRefundPercent)}`}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-normal text-gray-600">記載なし（主催者にご確認ください）</span>
+                )}
               </Row>
               {event.expectedVisitors !== null && (
                 <Row icon={<Users className="h-5 w-5" />} label="想定来場者数">
@@ -381,6 +442,24 @@ export default async function EventDetailPage({
               <p className="mt-3 text-xs text-gray-500">
                 応募の時点では提出不要です。主催者とのやり取りの中で、必要に応じて開示します。
               </p>
+            </section>
+          )}
+
+          {/* 応募する前にキャンセルの扱いを読めるようにする。決済を使う間だけ。 */}
+          {EVENT_PAYMENTS_ENABLED && (
+            <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-4">
+              <h2 className="mb-3 font-bold text-gray-900">キャンセルについて</h2>
+              <p className="text-sm leading-relaxed text-gray-700">
+                出店が決まったあとの取りやめは、開催15日前まで無料です。それ以降は時期に応じてキャンセル料がかかります。
+                天候などで中止になった場合は、出展料を
+                {weatherRefundLabel(event.weatherRefundPercent) ?? "募集の条件に沿って返金"}します。
+              </p>
+              <Link
+                href="/cancel-policy"
+                className="mt-2 inline-block text-sm text-orange-600 hover:underline"
+              >
+                出展料のキャンセル規定を読む
+              </Link>
             </section>
           )}
 
@@ -464,6 +543,20 @@ export default async function EventDetailPage({
               </div>
             )}
           </section>
+
+          {canCancel && (
+            <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-6">
+              <h2 className="mb-2 font-bold text-gray-900">募集の中止</h2>
+              <p className="mb-4 text-sm text-gray-600">
+                天候などで中止を決めたら、ここから出店者全員へ一斉にお知らせできます。
+              </p>
+              <CancelEventButton
+                eventId={event.id}
+                recipientCount={cancelRecipients}
+                paidCount={cancelPaid}
+              />
+            </section>
+          )}
 
           {/* 応募 */}
           <div className="sticky bottom-4">

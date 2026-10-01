@@ -17,6 +17,7 @@ import {
   Coins,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { PolicyAgreement } from "@/components/events/PolicyAgreement";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FIRE_TYPES } from "@/lib/constants";
+import { sumSelectedFees } from "@/lib/eventFeeTiers";
 
 interface StoreOption {
   id: string;
@@ -91,6 +93,13 @@ interface FeeTier {
   depthM: number | null;
 }
 
+interface FeeOption {
+  id: string;
+  label: string;
+  fee: number;
+  note: string | null;
+}
+
 interface EventInfo {
   id: string;
   title: string;
@@ -98,6 +107,8 @@ interface EventInfo {
   area: string;
   exhibitFee: number;
   feeTiers: FeeTier[];
+  feeOptions: FeeOption[];
+  weatherRefundPercent: number | null;
   organizer: { orgName: string };
 }
 
@@ -118,6 +129,11 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   // 区画ごとに金額が違う募集では、どれを希望するかを選んでもらう
   const [feeTierId, setFeeTierId] = useState("");
+  // 希望するオプション（電源 +500円 など）
+  const [feeOptionIds, setFeeOptionIds] = useState<string[]>([]);
+  // 出展料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -132,6 +148,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
         return;
       }
       setEvent(eventData.event);
+      setPaymentsEnabled(eventData.paymentsEnabled === true);
       const tiers: FeeTier[] = eventData.event?.feeTiers ?? [];
       if (tiers.length === 1) setFeeTierId(tiers[0].id);
 
@@ -219,6 +236,10 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
       setError("応募する店舗を選んでください");
       return;
     }
+    if (paymentsEnabled && !policyAgreed) {
+      setError("キャンセル規定を確認し、同意してください");
+      return;
+    }
     setIsSubmitting(true);
     setError("");
     try {
@@ -229,6 +250,8 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
           storeId: selectedStoreId,
           message,
           feeTierId,
+          feeOptionIds,
+          policyAgreed,
           overrides: {
             usesFire: plan.usesFire,
             fireType: plan.usesFire ? plan.fireType : null,
@@ -464,6 +487,66 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
                         </span>
                       </button>
                     ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* オプション料金。募集がオプションを持つときだけ聞く。 */}
+              {(event?.feeOptions?.length ?? 0) > 0 && (
+                <Card className="rounded-2xl border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Coins className="h-5 w-5 text-orange-500" />
+                      オプション
+                    </CardTitle>
+                    <CardDescription>
+                      必要なものを選んでください。出展料に追加されます。
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {event!.feeOptions.map((option) => {
+                      const checked = feeOptionIds.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() =>
+                            setFeeOptionIds((prev) =>
+                              checked ? prev.filter((v) => v !== option.id) : [...prev, option.id]
+                            )
+                          }
+                          className={`flex w-full items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-colors ${
+                            checked
+                              ? "border-orange-500 bg-orange-50"
+                              : "border-gray-200 bg-white hover:border-gray-300"
+                          }`}
+                          aria-pressed={checked}
+                        >
+                          <span className="min-w-0">
+                            <span className="block font-medium text-gray-900">{option.label}</span>
+                            {option.note && (
+                              <span className="mt-0.5 block text-xs text-gray-600">{option.note}</span>
+                            )}
+                          </span>
+                          <span className="shrink-0 font-medium text-gray-900 tabular-nums">
+                            +{option.fee.toLocaleString()}円
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {(() => {
+                      const tier = event!.feeTiers.find((t) => t.id === feeTierId);
+                      const options = event!.feeOptions.filter((o) => feeOptionIds.includes(o.id));
+                      if (!tier || options.length === 0) return null;
+                      return (
+                        <p className="pt-1 text-right text-sm text-gray-700">
+                          合計{" "}
+                          <span className="font-bold tabular-nums">
+                            {sumSelectedFees(tier.fee, options).toLocaleString()}円
+                          </span>
+                        </p>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               )}
@@ -713,11 +796,20 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
                 </CardContent>
               </Card>
 
+              {paymentsEnabled && (
+                <PolicyAgreement
+                  role="vendor"
+                  weatherRefundPercent={event?.weatherRefundPercent}
+                  agreed={policyAgreed}
+                  onChange={setPolicyAgreed}
+                />
+              )}
+
               <Button
                 type="submit"
                 size="lg"
                 className="w-full rounded-full"
-                disabled={isSubmitting || !selectedStoreId}
+                disabled={isSubmitting || !selectedStoreId || (paymentsEnabled && !policyAgreed)}
               >
                 {isSubmitting ? (
                   <>

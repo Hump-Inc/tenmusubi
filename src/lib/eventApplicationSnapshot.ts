@@ -45,6 +45,8 @@ export interface ApplicationSnapshot {
   menuItems: { name: string; price: number | null; description: string | null }[];
   // 希望する区画。区画ごとに金額が違う募集で、どれを見て応募したのかを残す。
   desiredFeeTier: { label: string | null; fee: number } | null;
+  // 希望するオプション（電源 +500円 など）。この項目より前の応募には無い。
+  desiredFeeOptions?: { label: string; fee: number }[];
   // 参考情報（書類の中身ではなく、提出できる書類の種類と有効期限だけ）
   documentSummary: { type: string; expiresOn: string | null }[];
   // 登録内容から今回だけ変えた項目のラベル。主催者が「この募集向けに直したもの」と
@@ -73,6 +75,8 @@ export interface ApplicationOverrides {
   menuItemIds?: string[];
   /** 希望する区画。募集側の行と突き合わせた結果をAPIが入れる。 */
   desiredFeeTier?: { label: string | null; fee: number } | null;
+  /** 希望するオプション。募集側の行と突き合わせた結果をAPIが入れる。 */
+  desiredFeeOptions?: { label: string; fee: number }[];
 }
 
 function parseJsonArray(value: string | null): string[] {
@@ -186,6 +190,7 @@ export async function buildApplicationSnapshot(
     prepKitchenNote: profile?.prepKitchenNote ?? null,
 
     desiredFeeTier: overrides?.desiredFeeTier ?? null,
+    desiredFeeOptions: overrides?.desiredFeeOptions ?? [],
     menuItems: selectedMenu.map((m) => ({
       name: m.name,
       price: m.price,

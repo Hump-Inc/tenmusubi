@@ -116,7 +116,7 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 rounded-xl p-0" align="end" forceMount>
+      <DropdownMenuContent className="w-[min(20rem,calc(100vw-2rem))] rounded-xl p-0" align="end" forceMount>
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="font-semibold text-sm">通知</h3>
           {unreadCount > 0 && (

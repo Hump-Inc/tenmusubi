@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { onEventCancelled } from "@/lib/eventCancel";
+import { parseJstInput } from "@/lib/eventFormat";
+import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
+import { parseFeeTiers, parseFeeOptions, deriveFeeRange } from "@/lib/eventFeeTiers";
 import { notifyFollowersOfNewEvent } from "@/lib/organizerFollowers";
 
 /**
@@ -56,6 +60,7 @@ export async function GET(
         },
         images: { orderBy: { order: "asc" } },
         feeTiers: { orderBy: { order: "asc" } },
+        feeOptions: { orderBy: { order: "asc" } },
         _count: { select: { applications: true } },
       },
     });
@@ -75,7 +80,8 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ event });
+    // 応募画面で、キャンセル規定への同意を求めるかどうかに使う
+    return NextResponse.json({ event, paymentsEnabled: EVENT_PAYMENTS_ENABLED });
   } catch (error) {
     console.error("Event GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
@@ -97,18 +103,31 @@ export async function PUT(
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
+    // 中止した募集を編集フォームから保存すると「公開」に戻ってしまい、中止を
+    // 知らされた出店者との話が食い違う。戻せるのは運営だけにする。
+    if (
+      result.event.status === "cancelled" &&
+      result.event.organizer.userId === session.user.id
+    ) {
+      return NextResponse.json(
+        { error: "中止した募集は編集できません。取り消したい場合は運営にお問い合わせください" },
+        { status: 400 }
+      );
+    }
 
     const body = await request.json();
 
     const title = toStr(body.title, 120);
     const venueName = toStr(body.venueName, 120);
     const area = toStr(body.area, 20);
-    const startAt = body.startAt ? new Date(body.startAt) : null;
-    const endAt = body.endAt ? new Date(body.endAt) : null;
+    const startAt = parseJstInput(body.startAt);
+    const endAt = parseJstInput(body.endAt);
     // 区画ごとの金額。送られていれば、そこから最安値・最高値を出して保存する。
     const feeTiers = parseFeeTiers(body.feeTiers);
     const hasTiers = !!feeTiers && feeTiers.length > 0;
     const derived = hasTiers ? deriveFeeRange(feeTiers!) : null;
+    // オプション料金（電源 +500円 など）。送られていなければ触らない。
+    const feeOptions = parseFeeOptions(body.feeOptions);
 
     const exhibitFee = derived ? derived.fee : toInt(body.exhibitFee);
     const exhibitFeeMax = derived ? derived.feeMax : toInt(body.exhibitFeeMax);
@@ -127,6 +146,11 @@ export async function PUT(
         { error: "終了日時は開始日時より後にしてください" },
         { status: 400 }
       );
+    }
+    // 雨天時の扱いと中止判断の期限は必須。ここが曖昧だと雨のたびに揉める。
+    const weather = parseWeatherPolicy(body, startAt);
+    if ("error" in weather) {
+      return NextResponse.json({ error: weather.error }, { status: 400 });
     }
     if (exhibitFee === null || exhibitFee < 0) {
       return NextResponse.json(
@@ -169,6 +193,14 @@ export async function PUT(
         ...(feeTiers
           ? { feeTiers: { deleteMany: {}, ...(hasTiers ? { create: feeTiers } : {}) } }
           : {}),
+        ...(feeOptions
+          ? {
+              feeOptions: {
+                deleteMany: {},
+                ...(feeOptions.length > 0 ? { create: feeOptions } : {}),
+              },
+            }
+          : {}),
         title,
         description: toStr(body.description, 5000),
         venueName,
@@ -176,13 +208,14 @@ export async function PUT(
         area,
         startAt,
         endAt,
-        applicationOpenAt: body.applicationOpenAt ? new Date(body.applicationOpenAt) : null,
-        applicationCloseAt: body.applicationCloseAt ? new Date(body.applicationCloseAt) : null,
+        applicationOpenAt: parseJstInput(body.applicationOpenAt),
+        applicationCloseAt: parseJstInput(body.applicationCloseAt),
         slots: toInt(body.slots),
         exhibitFee,
         exhibitFeeMax:
           exhibitFeeMax !== null && exhibitFeeMax > exhibitFee ? exhibitFeeMax : null,
         feeNote: toStr(body.feeNote, 200),
+        ...weather.value,
         spaceWidthM: toFloat(body.spaceWidthM),
         spaceDepthM: toFloat(body.spaceDepthM),
         powerAvailable: body.powerAvailable === true,
@@ -200,6 +233,13 @@ export async function PUT(
             : result.event.publishedAt,
       },
     });
+
+    // 中止になったら、やり取り中・出店決定済みの出店者へ知らせる
+    if (event.status === "cancelled" && result.event.status !== "cancelled") {
+      await onEventCancelled(event.id).catch((e) =>
+        console.error("Event cancel notify error:", e)
+      );
+    }
 
     // 公開になったらフォロワーへ知らせる。1募集1回かどうかは呼び先が見る。
     if (event.status === "published") {
@@ -235,6 +275,9 @@ export async function DELETE(
     const applications = await prisma.eventApplication.count({ where: { eventId: id } });
     if (applications > 0) {
       await prisma.event.update({ where: { id }, data: { status: "cancelled" } });
+      if (result.event.status !== "cancelled") {
+        await onEventCancelled(id).catch((e) => console.error("Event cancel notify error:", e));
+      }
       return NextResponse.json({ message: "募集を中止しました", cancelled: true });
     }
 

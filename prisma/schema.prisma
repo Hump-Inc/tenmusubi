@@ -657,6 +657,14 @@ model OrganizerProfile {
   reviewedAt DateTime?
   reviewedBy String? // 対応した管理者のUserId
 
+  // 出展料のオンライン受け取り（Stripe Connect Express）。出店者が払った出展料は
+  // このアカウントへ送金される。口座登録や本人確認は Stripe の画面で行い、
+  // こちらには結果だけを持つ。状態は account.updated と、登録画面から戻った時の
+  // 取り直しで更新する。
+  stripeAccountId      String?  @unique
+  stripeChargesEnabled Boolean  @default(false) // 決済を受けられる
+  stripePayoutsEnabled Boolean  @default(false) // 口座へ入金できる
+
   events    Event[]
   followers OrganizerFollow[]
 
@@ -724,6 +732,15 @@ model Event {
   expectedVisitors  Int?
   note              String?
 
+  // 雨天時の扱い（src/lib/eventWeather.ts）。この機能より前の募集は null。
+  // 新規作成・編集の保存時には必須にしている。
+  rainPolicy                String? // "go"（雨天決行） | "storm_cancel"（荒天中止） | "rain_cancel"（雨天中止）
+  weatherDecisionDaysBefore Int? // 中止を判断する期限: 開催の何日前か（0 = 当日）
+  weatherDecisionHour       Int? // 同: 何時までか（0〜23）
+  weatherRefundPercent      Int? // 天候で中止になったときに出店者へ返す割合（100 / 50）
+  // 中止判断の期限が近いことを主催者へ知らせた時刻。1募集1回だけ送るための印。
+  weatherRemindedAt         DateTime?
+
   status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
   publishedAt DateTime?
   // フォロワーへ新着を知らせた時刻。下書きに戻して再公開しても二重に送らないための印。
@@ -731,6 +748,7 @@ model Event {
 
   images       EventImage[]
   feeTiers     EventFeeTier[]
+  feeOptions   EventFeeOption[]
   favorites    EventFavorite[]
   applications EventApplication[]
 
@@ -779,6 +797,22 @@ model EventFeeTier {
   @@index([eventId])
 }
 
+// 区画に足せるオプション料金。「電源 +500円」「テント貸出 +1,000円」など。
+// 区画をまたいで同じものを選べるので、区画ではなく募集に持つ（2026-09-10 MTG）。
+// 一覧・検索の出展料には含めない（選ぶかどうかは出店者次第なので）。
+model EventFeeOption {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  label String // 「電源（1500Wまで）」
+  fee   Int
+  note  String?
+  order Int     @default(0)
+
+  @@index([eventId])
+}
+
 model EventImage {
   id      String @id @default(cuid())
   eventId String
@@ -811,12 +845,20 @@ model EventApplication {
   confirmedAt DateTime?
   closedAt    DateTime?
 
+  // キャンセル規定（src/lib/cancellationPolicy.ts）への同意。出店者は応募時、主催者は
+  // 出店の決定時に同意する。「聞いていない」を避けるため、どの版にいつ同意したかを残す。
+  // 出展料の決済が有効なときだけ求めるので、それ以外の応募では null。
+  policyVersion           String?
+  vendorPolicyAgreedAt    DateTime?
+  organizerPolicyAgreedAt DateTime?
+
   lastMessageAt      DateTime?
   vendorLastReadAt   DateTime?
   organizerLastReadAt DateTime?
 
   messages    EventApplicationMessage[]
   disclosures EventApplicationDocument[]
+  payments    EventPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -858,4 +900,42 @@ model EventApplicationDocument {
 
   @@unique([applicationId, documentId])
   @@index([applicationId])
+}
+
+// 出展料の請求と支払い。出店が決まったあと、主催者が金額を決めて請求する。
+// 成立と同時に自動で請求しないのは、区画の変更や「+売上の10%」のような補足で
+// 金額が応募時から変わることが多く、現金で受け取る主催者もいるため。
+// 1つの応募に複数の請求を持てる（電源代の追加など）。
+model EventPayment {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  description String // 「出展料（Aエリア）」など。明細と Checkout の品名に出る
+  amount      Int // 出店者が払う額（円・税込）
+  platformFee Int // 運営の手数料。請求した時点の料率で確定させ、あとで料率を変えても動かさない
+
+  status         String @default("requested") // "requested" | "paid" | "canceled" | "refunded"
+  refundedAmount Int    @default(0) // 一部返金もあるので額で持つ。全額戻ったら status を refunded に
+
+  // 支払い画面を開き直したときに同じセッションを返し、二重に払わせないために持つ
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String? @unique
+
+  requestedById String // 請求した主催者の UserId
+  paidAt        DateTime?
+  canceledAt    DateTime?
+
+  // 主催者の口座への入金。お金は主催者の Stripe 残高にプールしておき、開催が
+  // 終わってから入金する（2026-09-10 MTG）。1回の入金で複数の支払いをまとめるので、
+  // 同じ payoutId が複数の行に入る。
+  stripePayoutId String?
+  paidOutAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicationId])
+  @@index([status])
+  @@index([stripePayoutId])
 }

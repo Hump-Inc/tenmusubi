@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   Plus,
   Trash2,
+  CloudRain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,12 @@ import {
   VENDOR_CATEGORY_LABELS,
   DOCUMENT_TYPES,
 } from "@/lib/constants";
+import { jst } from "@/lib/eventFormat";
+import {
+  RAIN_POLICIES,
+  DECISION_DAY_OPTIONS,
+  WEATHER_REFUND_OPTIONS,
+} from "@/lib/eventWeather";
 
 export interface FeeTierRow {
   label: string;
@@ -53,6 +60,15 @@ export const EMPTY_FEE_TIER: FeeTierRow = {
   depthM: "",
 };
 
+// 区画に足せるオプション料金（電源 +500円 など）
+export interface FeeOptionRow {
+  label: string;
+  fee: string;
+  note: string;
+}
+
+export const EMPTY_FEE_OPTION: FeeOptionRow = { label: "", fee: "", note: "" };
+
 export interface EventFormValues {
   id?: string;
   title: string;
@@ -68,6 +84,7 @@ export interface EventFormValues {
   // 区画ごとの出展料。最低1行。単一料金なら区画名を空のまま1行だけ入れる。
   // Event.exhibitFee / exhibitFeeMax はここから算出されるので、フォームでは持たない。
   feeTiers: FeeTierRow[];
+  feeOptions: FeeOptionRow[];
   feeNote: string;
   spaceWidthM: string;
   spaceDepthM: string;
@@ -75,6 +92,11 @@ export interface EventFormValues {
   powerWatt: string;
   waterAvailable: boolean;
   fireAllowed: boolean;
+  // 雨天時の扱い。主催者に意識して選んでもらうため、初期値は入れない。
+  rainPolicy: string;
+  weatherDecisionDaysBefore: string;
+  weatherDecisionHour: string;
+  weatherRefundPercent: string;
   categories: string[];
   requiredDocuments: string[];
   expectedVisitors: string;
@@ -94,6 +116,7 @@ export const EMPTY_EVENT: EventFormValues = {
   applicationCloseAt: "",
   slots: "",
   feeTiers: [{ ...EMPTY_FEE_TIER }],
+  feeOptions: [],
   feeNote: "",
   spaceWidthM: "",
   spaceDepthM: "",
@@ -101,6 +124,10 @@ export const EMPTY_EVENT: EventFormValues = {
   powerWatt: "",
   waterAvailable: false,
   fireAllowed: false,
+  rainPolicy: "",
+  weatherDecisionDaysBefore: "",
+  weatherDecisionHour: "",
+  weatherRefundPercent: "",
   categories: [],
   requiredDocuments: [],
   expectedVisitors: "",
@@ -113,9 +140,11 @@ export function toLocalInput(value: string | Date | null | undefined, kind: "dat
   if (!value) return "";
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";
+  // 入力欄は日本時間で出す。保存側（parseJstInput）と揃える。
+  const j = jst(d);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const base = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  return kind === "date" ? base : `${base}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const base = `${j.year}-${pad(j.month)}-${pad(j.day)}`;
+  return kind === "date" ? base : `${base}T${pad(j.hour)}:${pad(j.minute)}`;
 }
 
 function Chips({
@@ -178,6 +207,21 @@ export function EventForm({
       feeTiers: prev.feeTiers.filter((_, i) => i !== index),
     }));
 
+  const setOption = (index: number, key: keyof FeeOptionRow, value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      feeOptions: prev.feeOptions.map((o, i) => (i === index ? { ...o, [key]: value } : o)),
+    }));
+
+  const addOption = () =>
+    setForm((prev) => ({ ...prev, feeOptions: [...prev.feeOptions, { ...EMPTY_FEE_OPTION }] }));
+
+  const removeOption = (index: number) =>
+    setForm((prev) => ({
+      ...prev,
+      feeOptions: prev.feeOptions.filter((_, i) => i !== index),
+    }));
+
   const toggle = (key: "categories" | "requiredDocuments", value: string) =>
     setForm((prev) => ({
       ...prev,
@@ -208,7 +252,11 @@ export function EventForm({
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
-      const payload = { ...form, feeTiers, status: mode };
+      // オプションは名前と金額の両方がある行だけ送る
+      const feeOptions = form.feeOptions.filter(
+        (o) => o.label.trim() !== "" && o.fee.trim() !== ""
+      );
+      const payload = { ...form, feeTiers, feeOptions, status: mode };
       const res = await fetch(eventId ? `/api/events/${eventId}` : "/api/events", {
         method: eventId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -507,6 +555,86 @@ export function EventForm({
             </p>
           </div>
 
+          <div className="space-y-3">
+            <div>
+              <Label>オプション料金</Label>
+              <p className="mt-1 text-xs text-gray-500">
+                電源やテントの貸し出しなど、希望した出店者にだけかかる料金です。出店者は応募時に選べます。
+              </p>
+            </div>
+            {form.feeOptions.map((option, i) => (
+              <div key={i} className="rounded-xl bg-gray-50 p-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[180px] flex-1 space-y-1.5">
+                    <Label htmlFor={`optionLabel-${i}`} className="text-xs text-gray-600">
+                      名前
+                    </Label>
+                    <Input
+                      id={`optionLabel-${i}`}
+                      value={option.label}
+                      onChange={(e) => setOption(i, "label", e.target.value)}
+                      placeholder="例: 電源（1500Wまで）"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="w-[140px] space-y-1.5">
+                    <Label htmlFor={`optionFee-${i}`} className="text-xs text-gray-600">
+                      追加料金
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id={`optionFee-${i}`}
+                        type="number"
+                        min={0}
+                        value={option.fee}
+                        onChange={(e) => setOption(i, "fee", e.target.value)}
+                        placeholder="500"
+                        className="bg-white pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                        円
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-red-600"
+                    onClick={() => removeOption(i)}
+                    aria-label={`オプション${i + 1}を削除`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  <Label htmlFor={`optionNote-${i}`} className="text-xs text-gray-600">
+                    補足
+                  </Label>
+                  <Input
+                    id={`optionNote-${i}`}
+                    value={option.note}
+                    onChange={(e) => setOption(i, "note", e.target.value)}
+                    placeholder="例: 数に限りがあります"
+                    className="bg-white"
+                  />
+                </div>
+              </div>
+            ))}
+            {form.feeOptions.length < 10 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={addOption}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                オプションを追加
+              </Button>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="feeNote">出展料の補足（募集全体）</Label>
             <Input
@@ -657,6 +785,107 @@ export function EventForm({
           <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50 p-4">
             <p className="text-sm font-medium text-gray-900">火気の使用が可能</p>
             <Switch checked={form.fireAllowed} onCheckedChange={(v) => set("fireAllowed", v)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 雨天時の扱い */}
+      <Card className="rounded-2xl border-0 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CloudRain className="h-5 w-5 text-orange-500" />
+            雨天時の扱い
+          </CardTitle>
+          <CardDescription>
+            出店者は数日前には仕入れを済ませます。中止をいつまでに決めるかを、募集の時点で約束してください
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label>
+              雨の場合 <span className="text-red-500">*</span>
+            </Label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {RAIN_POLICIES.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => set("rainPolicy", p.value)}
+                  className={`rounded-xl border p-3 text-left transition-colors ${
+                    form.rainPolicy === p.value
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-900">{p.label}</p>
+                  <p className="mt-1 text-xs text-gray-500">{p.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              中止を判断する期限 <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={form.weatherDecisionDaysBefore}
+                onValueChange={(v) => set("weatherDecisionDaysBefore", v)}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="いつ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DECISION_DAY_OPTIONS.map((d) => (
+                    <SelectItem key={d.value} value={String(d.value)}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={form.weatherDecisionHour}
+                onValueChange={(v) => set("weatherDecisionHour", v)}
+              >
+                <SelectTrigger className="w-[110px]">
+                  <SelectValue placeholder="何時" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <SelectItem key={h} value={String(h)}>
+                      {h}時
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-sm text-gray-600">までに出店者へ知らせる</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              天候で中止になった場合の出展料 <span className="text-red-500">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {WEATHER_REFUND_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => set("weatherRefundPercent", String(o.value))}
+                  className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                    form.weatherRefundPercent === String(o.value)
+                      ? "border-orange-500 bg-orange-50 text-orange-700"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              会場を借りている場合などは半額返金を選べます。出店者が天候を理由に自分で出店を見送った場合は、この対象になりません。
+            </p>
           </div>
         </CardContent>
       </Card>

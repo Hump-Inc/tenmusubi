@@ -32,21 +32,16 @@ interface SubscriptionData {
   } | null;
 }
 
+// 実際に提供しているものだけを載せる。検索上位・アクセス解析などは未実装のため
+// 載せていない（作ったら足す）。
 const premiumFeatures = [
-  "スペース登録数 無制限",
-  "優先表示・検索上位",
-  "詳細なアクセス解析",
   "プレミアムバッジ表示",
-  "優先サポート",
 ];
 
 const freeFeatures = [
-  { name: "スペース登録数 3件まで", included: true },
+  { name: "スペース登録", included: true },
   { name: "基本的な検索表示", included: true },
-  { name: "優先表示・検索上位", included: false },
-  { name: "詳細なアクセス解析", included: false },
   { name: "プレミアムバッジ表示", included: false },
-  { name: "優先サポート", included: false },
 ];
 
 export default function PaymentSettingsPage() {

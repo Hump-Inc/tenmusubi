@@ -73,6 +73,37 @@ npm run migrate:prod
 拡張子やクライアント申告のMIMEではなくマジックナンバーで判定し、画像は sharp で
 再エンコードして EXIF（GPS情報）を落とす。
 
+## 出展料のオンライン決済（Stripe Connect）
+
+出店が決まった応募に、主催者が出展料を請求し、出店者がカードで払う機能。
+主催者ごとに Stripe Connect Express のアカウントを持ち、destination charge
+（`on_behalf_of` = 主催者）で送金、運営の手数料を `application_fee_amount` で差し引く。
+ロジックは `src/lib/eventPayments.ts` に集約。
+
+- **既定では無効**。`ENABLE_EVENT_PAYMENTS=true` で有効になる（`src/lib/constants.ts` の `EVENT_PAYMENTS_ENABLED`）。
+  無効の間は口座設定・請求・支払いの入口と API を閉じるが、Webhook は止めない
+
+- **支払いの確定は Webhook だけで行う**（`checkout.session.completed`）。支払い画面から戻ったことは根拠にしない
+- Webhook はすべて `/api/stripe/webhook` で受ける。Stripe 側に2つのエンドポイントを設定すること
+  - プラットフォーム用: `checkout.session.completed` / `charge.refunded`（＋既存のサブスク系） → `STRIPE_WEBHOOK_SECRET`
+  - Connect 用（「連結アカウント」のイベント）: `account.updated` / `payout.failed` → `STRIPE_CONNECT_WEBHOOK_SECRET`
+- **主催者への入金は開催後**（2026-09-10 MTG「Stripe 側でプール」）。主催者の Stripe アカウントは手動入金にしてあり、
+  `/api/cron/event-payouts`（毎日 10:00 JST）が開催終了の2日後以降にまとめて入金する
+  - この cron は本番で `CRON_SECRET` が無いと動かない（お金を動かすため、他の cron と違い素通しにしない）
+  - 残高（available）が足りなければ翌日に回す。`payout.failed` が来たら印を外して翌日やり直す
+  - Stripe は残高を原則90日以内に入金する必要があるため、入金予定が85日より先の募集には請求できない
+- 返金は当面 Stripe ダッシュボードから運営が行う（destination charge なので「送金の取り消し」も選ぶ）。結果は `charge.refunded` で反映される
+- 手数料率: `EVENT_PAYMENT_FEE_PERCENT`（未設定なら 10%・税込。2026-09-22 決定）。請求時点の額を `EventPayment.platformFee` に確定させる
+
+### キャンセル規定
+
+- 本文は `src/lib/cancellationPolicy.ts`、ページは `/cancel-policy`。弁護士の確認前の**草案**なので、
+  決済と同じく `ENABLE_EVENT_PAYMENTS` を立てるまで出さない（404）
+- 出店者は応募時、主催者は「出店を決定する」時に同意する。どの版にいつ同意したかを
+  `EventApplication.policyVersion` / `vendorPolicyAgreedAt` / `organizerPolicyAgreedAt` に残す
+- **文面を変えたら `CANCELLATION_POLICY_VERSION` を上げ、同意欄の要点（`PolicyAgreement.tsx`）も直す**
+- 確認が済んだら `CANCELLATION_POLICY_IS_DRAFT` を false にする
+
 ## 業種カテゴリ
 
 - 業種カテゴリは `src/lib/constants.ts` の `VENDOR_CATEGORIES` / `VENDOR_CATEGORY_LABELS` に一元化。新規登録・編集・検索・トップは全てこの定数を参照する（ハードコードしない）。

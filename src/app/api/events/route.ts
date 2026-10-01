@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { parseJstInput, jstMonthStart } from "@/lib/eventFormat";
+import { parseWeatherPolicy } from "@/lib/eventWeather";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parseFeeTiers, deriveFeeRange } from "@/lib/eventFeeTiers";
+import { parseFeeTiers, parseFeeOptions, deriveFeeRange } from "@/lib/eventFeeTiers";
 import { notifyFollowersOfNewEvent } from "@/lib/organizerFollowers";
 
 /**
@@ -68,12 +70,12 @@ export async function GET(request: Request) {
     if (month) {
       const [y, m] = month.split("-").map(Number);
       if (y && m) {
-        where.startAt = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+        where.startAt = { gte: jstMonthStart(y, m), lt: jstMonthStart(y, m + 1) };
       }
     } else if (monthFrom) {
       // 「◯年◯月以降」。半年より先の募集に届かないと選べない月ができるため。
       const [y, m] = monthFrom.split("-").map(Number);
-      if (y && m) where.startAt = { gte: new Date(y, m - 1, 1) };
+      if (y && m) where.startAt = { gte: jstMonthStart(y, m) };
     }
     // 締切済みは既定で除外する。応募できない募集が並ぶと探しづらいため。
     // 「開催日を過ぎたもの」と「募集を締め切ったもの」の両方を落とす。
@@ -138,12 +140,14 @@ export async function POST(request: Request) {
     const title = toStr(body.title, 120);
     const venueName = toStr(body.venueName, 120);
     const area = toStr(body.area, 20);
-    const startAt = body.startAt ? new Date(body.startAt) : null;
-    const endAt = body.endAt ? new Date(body.endAt) : null;
+    const startAt = parseJstInput(body.startAt);
+    const endAt = parseJstInput(body.endAt);
     // 区画ごとの金額。送られていれば、そこから最安値・最高値を出して保存する。
     const feeTiers = parseFeeTiers(body.feeTiers);
     const hasTiers = !!feeTiers && feeTiers.length > 0;
     const derived = hasTiers ? deriveFeeRange(feeTiers!) : null;
+    // オプション料金（電源 +500円 など）。送られていなければ触らない。
+    const feeOptions = parseFeeOptions(body.feeOptions);
 
     const exhibitFee = derived ? derived.fee : toInt(body.exhibitFee);
     const exhibitFeeMax = derived ? derived.feeMax : toInt(body.exhibitFeeMax);
@@ -162,6 +166,11 @@ export async function POST(request: Request) {
         { error: "終了日時は開始日時より後にしてください" },
         { status: 400 }
       );
+    }
+    // 雨天時の扱いと中止判断の期限は必須。ここが曖昧だと雨のたびに揉める。
+    const weather = parseWeatherPolicy(body, startAt);
+    if ("error" in weather) {
+      return NextResponse.json({ error: weather.error }, { status: 400 });
     }
     // 出展料は必須。「応相談」を許さず、出店者が金額で絞り込めることを優先する。
     if (exhibitFee === null || exhibitFee < 0) {
@@ -195,13 +204,14 @@ export async function POST(request: Request) {
         area,
         startAt,
         endAt,
-        applicationOpenAt: body.applicationOpenAt ? new Date(body.applicationOpenAt) : null,
-        applicationCloseAt: body.applicationCloseAt ? new Date(body.applicationCloseAt) : null,
+        applicationOpenAt: parseJstInput(body.applicationOpenAt),
+        applicationCloseAt: parseJstInput(body.applicationCloseAt),
         slots: toInt(body.slots),
         exhibitFee,
         exhibitFeeMax:
           exhibitFeeMax !== null && exhibitFeeMax > exhibitFee ? exhibitFeeMax : null,
         feeNote: toStr(body.feeNote, 200),
+        ...weather.value,
         spaceWidthM: toFloat(body.spaceWidthM),
         spaceDepthM: toFloat(body.spaceDepthM),
         powerAvailable: body.powerAvailable === true,
@@ -215,6 +225,7 @@ export async function POST(request: Request) {
         status: body.status === "published" ? "published" : "draft",
         publishedAt: body.status === "published" ? new Date() : null,
         ...(hasTiers ? { feeTiers: { create: feeTiers! } } : {}),
+        ...(feeOptions && feeOptions.length > 0 ? { feeOptions: { create: feeOptions } } : {}),
       },
     });
 

@@ -14,6 +14,7 @@ import {
   FileCheck2,
   CheckCircle2,
   XCircle,
+  CloudRain,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -30,8 +31,12 @@ import {
   type Disclosure,
   type DocumentSummary,
 } from "@/components/events/DisclosurePanel";
+import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
+import { PolicyAgreement } from "@/components/events/PolicyAgreement";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
+import { sumSelectedFees } from "@/lib/eventFeeTiers";
+import { rainPolicyLabel, decisionDeadlineLabel, weatherRefundLabel } from "@/lib/eventWeather";
 
 interface ThreadData {
   role: "vendor" | "organizer" | "admin";
@@ -52,6 +57,10 @@ interface ThreadData {
       exhibitFee: number;
       exhibitFeeMax: number | null;
       feeNote: string | null;
+      rainPolicy: string | null;
+      weatherDecisionDaysBefore: number | null;
+      weatherDecisionHour: number | null;
+      weatherRefundPercent: number | null;
       organizer: { orgName: string };
     };
   };
@@ -60,6 +69,9 @@ interface ThreadData {
   messages: ThreadMessage[];
   disclosures: Disclosure[];
   myDocuments: DocumentSummary[];
+  payments: PaymentSummary[];
+  payouts: { ready: boolean; feePercent: number; payoutDueAt: string } | null;
+  paymentsEnabled: boolean;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -89,6 +101,9 @@ export default function ApplicationThreadPage({
   const [isWorking, setIsWorking] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  // Stripe の支払い画面から戻ってきた直後。支払いの確定は Webhook なので、少し遅れて反映される。
+  const [returnedFromCheckout, setReturnedFromCheckout] = useState(false);
+  const [policyAgreed, setPolicyAgreed] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -115,6 +130,14 @@ export default function ApplicationThreadPage({
     if (status === "authenticated") load();
   }, [status, router, id, load]);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("payment") !== "success") return;
+    setReturnedFromCheckout(true);
+    // たいていは数秒で Webhook が届くので、一度だけ自動で取り直す
+    const timer = setTimeout(() => load(), 4000);
+    return () => clearTimeout(timer);
+  }, [load]);
+
   const changeStatus = async (next: string) => {
     setIsWorking(true);
     setPending(next);
@@ -123,7 +146,7 @@ export default function ApplicationThreadPage({
       const res = await fetch(`/api/applications/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: next }),
+        body: JSON.stringify({ status: next, policyAgreed: next === "confirmed" && policyAgreed }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -240,6 +263,19 @@ export default function ApplicationThreadPage({
                     application.event.exhibitFeeMax
                   )}
                 </span>
+                {rainPolicyLabel(application.event.rainPolicy) && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <CloudRain className="h-4 w-4 text-gray-400" />
+                    {rainPolicyLabel(application.event.rainPolicy)}（中止の判断は
+                    {decisionDeadlineLabel(
+                      application.event.weatherDecisionDaysBefore,
+                      application.event.weatherDecisionHour
+                    )}
+                    {weatherRefundLabel(application.event.weatherRefundPercent) &&
+                      `・中止時は${weatherRefundLabel(application.event.weatherRefundPercent)}`}
+                    ）
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -268,11 +304,19 @@ export default function ApplicationThreadPage({
                       必要な書類があれば、開示を依頼してから判断できます。
                       見送りにすると、開示されていた書類は表示されなくなります。
                     </p>
+                    {data.paymentsEnabled && (
+                      <PolicyAgreement
+                        role="organizer"
+                        weatherRefundPercent={application.event.weatherRefundPercent}
+                        agreed={policyAgreed}
+                        onChange={setPolicyAgreed}
+                      />
+                    )}
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Button
                         className="rounded-full"
                         onClick={() => changeStatus("confirmed")}
-                        disabled={isWorking}
+                        disabled={isWorking || (data.paymentsEnabled && !policyAgreed)}
                       >
                         {isWorking && pending === "confirmed" ? (
                           <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -347,6 +391,34 @@ export default function ApplicationThreadPage({
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* 出展料のお支払い */}
+          {data.paymentsEnabled &&
+            (application.status === "confirmed" || (data.payments ?? []).length > 0) && (
+            <div className="mb-4">
+              <PaymentPanel
+                applicationId={application.id}
+                role={role}
+                payments={data.payments ?? []}
+                payouts={data.payouts}
+                // 請求額の初期値は、希望した区画にオプションを足した額
+                defaultAmount={
+                  sumSelectedFees(
+                    snapshot?.desiredFeeTier?.fee ?? application.event.exhibitFee,
+                    snapshot?.desiredFeeOptions
+                  ) || null
+                }
+                defaultDescription={[
+                  snapshot?.desiredFeeTier?.label
+                    ? `出展料（${snapshot.desiredFeeTier.label}）`
+                    : "出展料",
+                  ...(snapshot?.desiredFeeOptions ?? []).map((o) => o.label),
+                ].join("＋")}
+                returnedFromCheckout={returnedFromCheckout}
+                onChanged={load}
+              />
+            </div>
           )}
 
           {/* やり取り */}
