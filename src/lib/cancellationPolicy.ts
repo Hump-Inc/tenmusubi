@@ -1,20 +1,20 @@
 /**
  * 出展料のキャンセル規定。
  *
- * 叩き台（2026-08-28）をもとに、2026-09-10 MTG で決まった点を反映した草案。
+ * 叩き台（2026-08-28）をもとに、2026-09-10 MTG で決まった点を反映したもの。
  * - キャンセル料は主催者が受け取る（叩き台 5章(1) A案）
  * - 無断欠席: 初回は応募停止、繰り返した場合は以降の出店を認めない（同 (4)）
- * 弁護士の確認前なので、ページには草案と明記し、決済機能と同じく
- * ENABLE_EVENT_PAYMENTS を立てるまで出さない。
+ * 2026-10-06 にクライアントの了承が出たので正式版にした。決済機能と一体なので、
+ * ENABLE_EVENT_PAYMENTS を立てるまではページを出さない。
  *
  * 文面を変えたら VERSION を上げること。応募ごとに同意した版を残している
  * （EventApplication.policyVersion）。
  */
 
-export const CANCELLATION_POLICY_VERSION = "2026-09-22-draft";
+export const CANCELLATION_POLICY_VERSION = "2026-10-06";
 
-// 弁護士の確認が済んだら false にする。ページと同意欄に「草案」と出す。
-export const CANCELLATION_POLICY_IS_DRAFT = true;
+// true の間は、ページと同意欄に「草案」と出す。
+export const CANCELLATION_POLICY_IS_DRAFT = false;
 
 export interface PolicyArticle {
   title: string;
@@ -80,7 +80,8 @@ export const CANCELLATION_POLICY: PolicyArticle[] = [
   {
     title: "第7条（キャンセルの手続き）",
     body: [
-      "キャンセルはてんむすび上の操作により行い、口頭・個別の連絡のみでは成立しません。キャンセルの実行時刻をもって、第2条の時期を判定します。",
+      "キャンセルは、てんむすびのお問い合わせ窓口への連絡により受け付けます。主催者と出店者の間の口頭・個別の連絡のみでは成立しません。",
+      "てんむすびが連絡を受け付けた時刻をもって、第2条の時期を判定します。",
     ],
   },
   {
@@ -93,8 +94,5 @@ export const CANCELLATION_POLICY: PolicyArticle[] = [
 ];
 
 // 草案のうち、まだ決まっていない・準備中のもの。ページの冒頭に出す。
-export const CANCELLATION_POLICY_OPEN_ITEMS = [
-  "天候で中止になった場合の返金の割合を、募集ごとに主催者が選べる形にするか（第4条）",
-  "キャンセル料の段階と割合（第2条）",
-  "キャンセル操作の画面（第7条）は準備中です",
-];
+// キャンセルの操作画面ができたら、第7条を「てんむすび上の操作」に戻して VERSION を上げる。
+export const CANCELLATION_POLICY_OPEN_ITEMS: string[] = [];

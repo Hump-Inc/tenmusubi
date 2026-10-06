@@ -1,8 +1,10 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent } from "@/components/ui/card";
+import { PAYOUT_GRACE_DAYS, platformFeePercent } from "@/lib/eventPayments";
 
 export default function TosPage() {
+  const feePercent = platformFeePercent();
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -118,14 +120,25 @@ export default function TosPage() {
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">第9条（サービス内容の変更等）</h2>
+                <h2 className="text-xl font-bold mb-4">第9条（出展料の決済）</h2>
+                <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                  <li>本サービスでは、イベントへの出店が決定した出店者が主催者に支払う出展料を、本サービス上でクレジットカード等により決済することができます。決済には Stripe, Inc. およびその関連会社（以下「Stripe」）が提供する決済サービスを利用し、主催者は Stripe の定める規約に同意の上、出展料の受取口座を設定するものとします。</li>
+                  <li>出店に関する契約の当事者は主催者と出店者であり、当社は主催者の委託を受けて出展料を代理受領します。出店者が本サービス上で出展料の決済を完了した時点で、出店者の主催者に対する出展料の支払いは完了したものとします。</li>
+                  <li>当社は、出展料から当社所定の手数料（出展料の{feePercent}%・税込。決済手数料を含みます）を差し引いた額を主催者に支払います。手数料の額は、主催者が出展料を請求した時点で確定します。</li>
+                  <li>主催者への支払いは、イベントの開催終了日の{PAYOUT_GRACE_DAYS}日後以降に行います。</li>
+                  <li>出展料のキャンセルおよび返金は、当社が別に定める「<a href="/cancel-policy" className="text-orange-600 hover:underline">出展料のキャンセル規定</a>」によるものとします。同規定は第1条の個別規定にあたります。</li>
+                </ol>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-xl font-bold mb-4">第10条（サービス内容の変更等）</h2>
                 <p className="text-muted-foreground">
                   当社は、ユーザーへの事前の告知をもって、本サービスの内容を変更、追加または廃止することがあり、ユーザーはこれを承諾するものとします。
                 </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">第10条（利用規約の変更）</h2>
+                <h2 className="text-xl font-bold mb-4">第11条（利用規約の変更）</h2>
                 <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                   <li>当社は以下の場合には、ユーザーの個別の同意を要せず、本規約を変更することができるものとします。
                     <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
@@ -138,28 +151,28 @@ export default function TosPage() {
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">第11条（個人情報の取扱い）</h2>
+                <h2 className="text-xl font-bold mb-4">第12条（個人情報の取扱い）</h2>
                 <p className="text-muted-foreground">
                   当社は、本サービスの利用によって取得する個人情報については、当社「プライバシーポリシー」に従い適切に取り扱うものとします。
                 </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">第12条（通知または連絡）</h2>
+                <h2 className="text-xl font-bold mb-4">第13条（通知または連絡）</h2>
                 <p className="text-muted-foreground">
                   ユーザーと当社との間の通知または連絡は、当社の定める方法によって行うものとします。当社は、ユーザーから、当社が別途定める方式に従った変更届け出がない限り、現在登録されている連絡先が有効なものとみなして当該連絡先へ通知または連絡を行い、これらは、発信時にユーザーへ到達したものとみなします。
                 </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">第13条（権利義務の譲渡の禁止）</h2>
+                <h2 className="text-xl font-bold mb-4">第14条（権利義務の譲渡の禁止）</h2>
                 <p className="text-muted-foreground">
                   ユーザーは、当社の書面による事前の承諾なく、利用契約上の地位または本規約に基づく権利もしくは義務を第三者に譲渡し、または担保に供することはできません。
                 </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">第14条（準拠法・裁判管轄）</h2>
+                <h2 className="text-xl font-bold mb-4">第15条（準拠法・裁判管轄）</h2>
                 <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                   <li>本規約の解釈にあたっては、日本法を準拠法とします。</li>
                   <li>本サービスに関して紛争が生じた場合には、当社の本店所在地を管轄する裁判所を専属的合意管轄とします。</li>
