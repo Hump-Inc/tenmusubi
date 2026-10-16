@@ -74,12 +74,13 @@ async function main() {
       data: { applicationId: app.id, description: "出店料", amount: s.fee, platformFee: s.fee / 10, status: "paid", paidAt: new Date(now - 19 * DAY), requestedById: org.id, stripePaymentIntentId: `pi_demo_${app.id}`, refundedAmount: s.key.startsWith("5") ? s.fee * 0.7 : 0 },
     });
     if ("c" in s) {
-      const requestedAt = new Date(now - 1 * DAY);
+      // 承認待ちは「前日に申し出た」形にしてキャンセル料100%・返金0円にする（Stripe を呼ばずに承認まで押せる）
+      const requestedAt = s.c === "accepted" ? new Date(now - 3600000) : new Date(now - 1 * DAY);
       const p = policyFeeFor(s.fee, { requestedAt, startAt, confirmedAt: new Date(now - 20 * DAY) });
       await prisma.eventCancellation.create({
         data: {
           applicationId: app.id, kind: "vendor", status: s.c, requestedAt, requestedById: ven.id, paidAmount: s.fee, policyFee: p.fee,
-          ...(s.c === "accepted" ? { refundAmount: p.refund, acceptedAt: new Date(now - 0.5 * DAY) } : {}),
+          ...(s.c === "accepted" ? { refundAmount: p.refund, acceptedAt: new Date(now - 1800000) } : {}),
           ...(s.c === "disputed" ? { disputedAt: new Date(now - 0.2 * DAY), disputedById: ven.id } : {}),
           ...(s.c === "confirmed" ? { refundAmount: s.fee * 0.7, confirmedAt: new Date(now - 0.3 * DAY), confirmedBy: "vendor", acceptedAt: new Date(now - 0.5 * DAY) } : {}),
         },
