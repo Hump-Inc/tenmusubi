@@ -13,10 +13,10 @@ import {
 } from "@/lib/cancellationPolicy";
 
 export const metadata: Metadata = {
-  title: "出展料のキャンセル規定 | てんむすび",
+  title: "出店料のキャンセル規定 | てんむすび",
 };
 
-// 出展料の決済と一体の規定なので、決済を切っている間は出さない
+// 出店料の決済と一体の規定なので、決済を切っている間は出さない
 export default function CancelPolicyPage() {
   if (!EVENT_PAYMENTS_ENABLED) notFound();
 
@@ -27,9 +27,9 @@ export default function CancelPolicyPage() {
       <main className="flex-1 py-12">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold">出展料のキャンセル規定</h1>
+            <h1 className="text-3xl font-bold">出店料のキャンセル規定</h1>
             <p className="mt-3 text-sm text-muted-foreground">
-              イベントの出店が決まり、出展料をてんむすびで支払った場合のキャンセルと返金のルールです。
+              イベントの出店が決まり、出店料をてんむすびで支払った場合のキャンセルと返金のルールです。
               主催者・出店者のどちらにも適用されます。
             </p>
           </div>

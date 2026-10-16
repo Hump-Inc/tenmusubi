@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { runEventPayouts } from "@/lib/eventPayments";
 
 /**
- * 開催が終わった募集の出展料を、主催者の口座へ入金する。1日1回、Vercel Cron から叩かれる。
+ * 開催が終わった募集の出店料を、主催者の口座へ入金する。1日1回、Vercel Cron から叩かれる。
  *
  * 他の cron と違い、本番では CRON_SECRET が無ければ動かさない。お金を動かす処理を
  * 誰でも叩ける状態にはしない（入金先は正しい主催者でも、タイミングは運営が握る）。

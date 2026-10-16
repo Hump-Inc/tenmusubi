@@ -177,8 +177,8 @@ export default function AdminDashboardPage() {
     },
     {
       icon: Wallet,
-      label: "出展料の決済",
-      description: "出展料の請求・支払い・返金の状況",
+      label: "出店料の決済",
+      description: "出店料の請求・支払い・返金の状況",
       href: "/admin/payments",
       stat: stats.unpaidPayments,
       statLabel: "件の未払い請求",

@@ -181,7 +181,7 @@ export default function AdminEventsPage() {
                     <TableHead>イベント</TableHead>
                     <TableHead>主催者</TableHead>
                     <TableHead>開催日</TableHead>
-                    <TableHead className="text-right">出展料</TableHead>
+                    <TableHead className="text-right">出店料</TableHead>
                     <TableHead className="text-right">応募</TableHead>
                     <TableHead>状態</TableHead>
                   </TableRow>

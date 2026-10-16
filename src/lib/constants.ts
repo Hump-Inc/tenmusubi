@@ -157,9 +157,9 @@ export const SHOW_ORGANIZER_PAST_EVENTS =
   process.env.SHOW_ORGANIZER_PAST_EVENTS === "true";
 
 /**
- * 出展料のオンライン決済を使えるようにするか。
+ * 出店料のオンライン決済を使えるようにするか。
  *
- * 手数料率・利用規約（出展料の代理受領と返金）・本番の Stripe Connect の設定が
+ * 手数料率・利用規約（出店料の代理受領と返金）・本番の Stripe Connect の設定が
  * 揃うまでは切っておく。切っている間は、受け取り口座の設定と請求・支払いの入口を
  * 出さず、API も受け付けない。Webhook は切らない（すでに始まった支払いや返金の
  * 反映が止まるとお金と表示が食い違うため）。

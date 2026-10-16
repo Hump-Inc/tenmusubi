@@ -25,7 +25,7 @@ export function PolicyAgreement({
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
       <p className="text-sm font-medium text-gray-900">
-        出展料のキャンセル規定
+        出店料のキャンセル規定
         {CANCELLATION_POLICY_IS_DRAFT && (
           <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-normal text-amber-800">
             草案
@@ -34,9 +34,9 @@ export function PolicyAgreement({
       </p>
       <ul className="list-disc space-y-1 pl-5 text-xs text-gray-600">
         <li>出店者都合の取りやめは、開催15日前まで無料。14日前から30%、7日前から50%、前日・当日は100%</li>
-        <li>主催者都合の取り消し・募集の中止は、出展料を全額返金</li>
+        <li>主催者都合の取り消し・募集の中止は、出店料を全額返金</li>
         <li>
-          天候などで中止になった場合、この募集では出展料を
+          天候などで中止になった場合、この募集では出店料を
           {weather ?? "（募集ページに記載の割合で）"}
           {weather ? "します" : "返金します"}
         </li>

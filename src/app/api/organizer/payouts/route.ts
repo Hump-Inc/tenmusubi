@@ -6,7 +6,7 @@ import { stripe } from "@/lib/stripe";
 import { platformFeePercent, syncOrganizerAccount } from "@/lib/eventPayments";
 
 /**
- * 出展料の受け取り口座（Stripe Connect Express）。
+ * 出店料の受け取り口座（Stripe Connect Express）。
  *
  * 口座情報や本人確認書類はこちらで一切預からない。Stripe の登録画面へ送り出し、
  * 結果（決済を受けられるか・入金できるか）だけを持つ。

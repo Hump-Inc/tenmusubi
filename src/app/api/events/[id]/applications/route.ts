@@ -207,7 +207,7 @@ export async function POST(
           }
         : overrides;
 
-    // 出展料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
+    // 出店料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
     if (EVENT_PAYMENTS_ENABLED && body.policyAgreed !== true) {
       return NextResponse.json(
         { error: "キャンセル規定を確認し、同意してください" },

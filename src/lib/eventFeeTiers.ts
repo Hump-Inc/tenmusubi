@@ -1,5 +1,5 @@
 /**
- * 区画・エリアごとの出展料。
+ * 区画・エリアごとの出店料。
  *
  * 一律の金額ではなく「Aエリア 8,000円 / 角地 15,000円」と実額を並べたい、という
  * 出店者側の要望から入れたもの（2026-08-27 MTG）。行は何本でも持てる。
@@ -72,7 +72,7 @@ export function deriveFeeRange(tiers: FeeTierInput[]): { fee: number; feeMax: nu
 
 /** 表示用のラベル。単一料金なら区画名を付けずに書けるようにしてある。 */
 export function feeTierLabel(label: string | null | undefined): string {
-  return label && label.trim() ? label : "出展料";
+  return label && label.trim() ? label : "出店料";
 }
 
 /**

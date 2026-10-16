@@ -61,7 +61,7 @@ export async function PATCH(
       );
     }
 
-    // 出店の決定で出展料が確定する。主催者にもキャンセル規定へ同意してもらう。
+    // 出店の決定で出店料が確定する。主催者にもキャンセル規定へ同意してもらう。
     if (next === "confirmed" && EVENT_PAYMENTS_ENABLED && body.policyAgreed !== true) {
       return NextResponse.json(
         { error: "キャンセル規定を確認し、同意してください" },

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET: 出展料の請求・支払いの一覧。返金は Stripe ダッシュボードで行うので、そこへの経路も返す。
+// GET: 出店料の請求・支払いの一覧。返金は Stripe ダッシュボードで行うので、そこへの経路も返す。
 export async function GET() {
   try {
     const session = await auth();

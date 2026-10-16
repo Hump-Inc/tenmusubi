@@ -325,7 +325,7 @@ function SearchContent() {
                               </div>
                             </div>
                             <div className="space-y-3">
-                              <label className="text-sm font-medium">出展料</label>
+                              <label className="text-sm font-medium">出店料</label>
                               <div className="flex flex-wrap gap-2">
                                 {FEE_OPTIONS.map((f) => (
                                   <Badge
@@ -401,12 +401,12 @@ function SearchContent() {
                       </Select>
                       <Select value={selectedFee} onValueChange={setSelectedFee}>
                         <SelectTrigger className="w-[140px] rounded-full border-border/50">
-                          <SelectValue placeholder="出展料" />
+                          <SelectValue placeholder="出店料" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
                           {FEE_OPTIONS.map((f) => (
                             <SelectItem key={f.value} value={f.value}>
-                              {f.value === "すべて" ? "出展料" : f.label}
+                              {f.value === "すべて" ? "出店料" : f.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
