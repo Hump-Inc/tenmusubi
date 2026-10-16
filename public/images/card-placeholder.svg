@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!-- 画像が未登録・読み込めない出店者／スペースのカードに出す既定の画像 -->
+  <rect width="800" height="600" fill="#FBF3EA"/>
+  <g transform="translate(400 300)" fill="none" stroke="#E9A46D" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+    <!-- 日よけ -->
+    <path d="M-120 -70 L120 -70 L140 -20 L-140 -20 Z" fill="#F6D9BF"/>
+    <path d="M-140 -20 Q-112 10 -84 -20 Q-56 10 -28 -20 Q0 10 28 -20 Q56 10 84 -20 Q112 10 140 -20"/>
+    <!-- お店 -->
+    <path d="M-110 0 L-110 110 L110 110 L110 0"/>
+    <path d="M-60 110 L-60 40 L-10 40 L-10 110"/>
+    <rect x="25" y="40" width="50" height="40" rx="4"/>
+  </g>
+</svg>
