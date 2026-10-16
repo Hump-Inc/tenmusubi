@@ -350,3 +350,135 @@ export async function handleEventPayoutFailed(payout: Stripe.Payout) {
     `Event payout ${payout.id} failed (${payout.failure_code ?? "unknown"}); reset ${updated.count} payments`
   );
 }
+
+export interface OrganizerBankAccount {
+  bankName: string | null;
+  branchCode: string | null; // 日本の口座は routing_number = 銀行コード4桁 + 支店コード3桁
+  last4: string;
+  holderName: string | null;
+}
+
+/**
+ * 主催者の受け取り口座（表示用）。口座番号は下4桁しか Stripe から返らないので、
+ * それ以上はこちらにも出ない。変更は Stripe の画面で行う。
+ */
+export async function organizerBankAccount(stripeAccountId: string): Promise<OrganizerBankAccount | null> {
+  const list = await stripe.accounts.listExternalAccounts(stripeAccountId, { object: "bank_account", limit: 10 });
+  const banks = list.data.filter((a): a is Stripe.BankAccount => a.object === "bank_account");
+  const bank = banks.find((b) => b.default_for_currency && b.currency === "jpy") ?? banks.at(0);
+  if (!bank) return null;
+  return {
+    bankName: bank.bank_name ?? null,
+    branchCode: bank.routing_number && bank.routing_number.length >= 7 ? bank.routing_number.slice(4, 7) : null,
+    last4: bank.last4,
+    holderName: bank.account_holder_name ?? null,
+  };
+}
+
+export type EventPayoutStatus =
+  | "scheduled" // 開催後に入金する（入金予定日まで待つ）
+  | "waiting" // 入金予定日を過ぎたが、残高の確定待ちなどで翌日以降に回っている
+  | "in_transit" // 入金の手続き済み、銀行へ送金中
+  | "paid" // 着金済み
+  | "nothing"; // 全額返金などで入金する額が無い
+
+export interface EventPayoutSummary {
+  eventId: string;
+  title: string;
+  startAt: Date;
+  gross: number; // 払われた出店料（返金分を除く）
+  fee: number; // てんむすびの手数料
+  payout: number; // 主催者に入金する額
+  status: EventPayoutStatus;
+  date: Date | null; // 入金予定日、または着金（予定）日
+}
+
+/**
+ * 主催者の入金状況を、募集ごとにまとめる。Stripe の残高の画面は「保留中」「利用可能」
+ * といった Stripe の言葉で見せるので、主催者が知りたい「どの募集の分が、いつ、いくら
+ * 入るか」に直して出す。着金の状態だけ Stripe の入金（payout）から取る。
+ */
+export async function organizerPayoutSummary(
+  organizerId: string,
+  stripeAccountId: string | null,
+  now = new Date()
+): Promise<{ events: EventPayoutSummary[]; lastPayoutFailed: boolean }> {
+  const payments = await prisma.eventPayment.findMany({
+    where: { status: { in: ["paid", "refunded"] }, application: { event: { organizerId } } },
+    select: {
+      amount: true,
+      platformFee: true,
+      refundedAmount: true,
+      paidOutAt: true,
+      stripePayoutId: true,
+      application: {
+        select: {
+          event: { select: { id: true, title: true, startAt: true, endAt: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 500,
+  });
+
+  // 入金（payout）の着金状況。1回の入金に複数の募集が入るので、id ごとに1回だけ聞く
+  const payoutIds = [...new Set(payments.map((p) => p.stripePayoutId).filter((id): id is string => !!id))];
+  const payouts = new Map<string, Stripe.Payout>();
+  if (stripeAccountId) {
+    for (const id of payoutIds.slice(0, 30)) {
+      const po = await stripe.payouts.retrieve(id, { stripeAccount: stripeAccountId }).catch(() => null);
+      if (po) payouts.set(id, po);
+    }
+  }
+
+  const byEvent = new Map<string, EventPayoutSummary & { pendingDue: boolean; payoutIds: Set<string> }>();
+  for (const p of payments) {
+    const e = p.application.event;
+    const row =
+      byEvent.get(e.id) ??
+      { eventId: e.id, title: e.title, startAt: e.startAt, gross: 0, fee: 0, payout: 0, status: "nothing" as EventPayoutStatus, date: null, pendingDue: false, payoutIds: new Set<string>() };
+    const gross = p.amount - p.refundedAmount;
+    const payout = payoutAmountFor(p);
+    row.gross += gross;
+    row.payout += payout;
+    row.fee += gross - payout;
+    if (payout > 0 && !p.paidOutAt) row.pendingDue = true;
+    if (p.stripePayoutId) row.payoutIds.add(p.stripePayoutId);
+    byEvent.set(e.id, row);
+    // 入金予定日は開催の終わりから決まる
+    if (!row.date) row.date = payoutDueAt(e.endAt);
+  }
+
+  const events: EventPayoutSummary[] = [...byEvent.values()].map((row) => {
+    const due = row.date ?? now;
+    let status: EventPayoutStatus;
+    let date: Date | null = due;
+    if (row.payout === 0) {
+      status = "nothing";
+      date = null;
+    } else if (row.pendingDue) {
+      status = due.getTime() > now.getTime() ? "scheduled" : "waiting";
+    } else {
+      // 入金済み。着金の状態は Stripe の入金から（取れなければ送金中として出す）
+      const pos = [...row.payoutIds].map((id) => payouts.get(id)).filter((po): po is Stripe.Payout => !!po);
+      const allPaid = pos.length > 0 && pos.every((po) => po.status === "paid");
+      status = allPaid ? "paid" : "in_transit";
+      const arrival = Math.max(0, ...pos.map((po) => po.arrival_date));
+      date = arrival > 0 ? new Date(arrival * 1000) : null;
+    }
+    return { eventId: row.eventId, title: row.title, startAt: row.startAt, gross: row.gross, fee: row.fee, payout: row.payout, status, date };
+  });
+  events.sort((a, b) => b.startAt.getTime() - a.startAt.getTime());
+
+  // 口座の誤りなどで入金が失敗すると、印を外して翌日やり直す（handleEventPayoutFailed）。
+  // 主催者が口座を直すまで失敗し続けるので、直近の失敗を知らせる
+  let lastPayoutFailed = false;
+  if (stripeAccountId) {
+    const recent = await stripe.payouts
+      .list({ limit: 1 }, { stripeAccount: stripeAccountId })
+      .catch(() => null);
+    lastPayoutFailed = recent?.data.at(0)?.status === "failed";
+  }
+
+  return { events, lastPayoutFailed };
+}
