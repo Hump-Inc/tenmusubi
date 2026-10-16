@@ -554,6 +554,7 @@ export default async function EventDetailPage({
                 eventId={event.id}
                 recipientCount={cancelRecipients}
                 paidCount={cancelPaid}
+                weatherRefundPercent={event.weatherRefundPercent}
               />
             </section>
           )}

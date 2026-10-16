@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { runEventPayouts } from "@/lib/eventPayments";
+import { runCancellationAutoConfirm } from "@/lib/eventCancellation";
 
 /**
  * 開催が終わった募集の出店料を、主催者の口座へ入金する。1日1回、Vercel Cron から叩かれる。
+ * あわせて、期限（3日）を過ぎたキャンセルの手続きを確定して返金する。
+ *
+ * 入金を先にする。確定した返金の額は charge.refunded の Webhook で支払いに写るので、
+ * 同じ回で入金まで進めると、返金前の額で入金額を計算してしまう。確定した分は翌日の入金に回る。
  *
  * 他の cron と違い、本番では CRON_SECRET が無ければ動かさない。お金を動かす処理を
  * 誰でも叩ける状態にはしない（入金先は正しい主催者でも、タイミングは運営が握る）。
@@ -18,7 +23,8 @@ export async function GET(request: Request) {
 
   try {
     const results = await runEventPayouts();
-    return NextResponse.json({ results });
+    const cancellations = await runCancellationAutoConfirm();
+    return NextResponse.json({ results, cancellations });
   } catch (error) {
     console.error("Event payouts cron error:", error);
     return NextResponse.json({ error: "入金処理に失敗しました" }, { status: 500 });

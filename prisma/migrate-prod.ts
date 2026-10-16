@@ -567,6 +567,27 @@ async function main() {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "EventPayment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    // ---- 出店料を払ったあとのキャンセル ----
+    `CREATE TABLE IF NOT EXISTS "EventCancellation" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "applicationId" TEXT NOT NULL,
+      "kind" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'requested',
+      "requestedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "requestedById" TEXT NOT NULL,
+      "paidAmount" INTEGER NOT NULL,
+      "policyFee" INTEGER NOT NULL,
+      "refundAmount" INTEGER,
+      "refundedTotal" INTEGER NOT NULL DEFAULT 0,
+      "acceptedAt" DATETIME,
+      "disputedAt" DATETIME,
+      "disputedById" TEXT,
+      "confirmedAt" DATETIME,
+      "confirmedBy" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventCancellation_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
   ];
 
   // Execute creates
@@ -806,6 +827,8 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "EventPayment_applicationId_idx" ON "EventPayment"("applicationId")',
     'CREATE INDEX IF NOT EXISTS "EventPayment_status_idx" ON "EventPayment"("status")',
     'CREATE INDEX IF NOT EXISTS "EventPayment_stripePayoutId_idx" ON "EventPayment"("stripePayoutId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventCancellation_applicationId_key" ON "EventCancellation"("applicationId")',
+    'CREATE INDEX IF NOT EXISTS "EventCancellation_status_idx" ON "EventCancellation"("status")',
   ];
 
   for (const sql of indexes) {

@@ -856,9 +856,10 @@ model EventApplication {
   vendorLastReadAt   DateTime?
   organizerLastReadAt DateTime?
 
-  messages    EventApplicationMessage[]
-  disclosures EventApplicationDocument[]
-  payments    EventPayment[]
+  messages     EventApplicationMessage[]
+  disclosures  EventApplicationDocument[]
+  payments     EventPayment[]
+  cancellation EventCancellation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -938,4 +939,45 @@ model EventPayment {
   @@index([applicationId])
   @@index([status])
   @@index([stripePayoutId])
+}
+
+// 出店料を払ったあとのキャンセル（キャンセル規定 第7条）。1つの応募に1件。
+// 出店者が画面から申し出て、主催者が受け付け、出店者が承認したら返金する。
+// どちらかが3日動かなければ自動で確定する（cron）。合意できなければ運営が決める。
+// 主催者都合の取り消し（第3条）は、主催者の操作でその場で全額返金して確定する。
+// 募集の中止（第3条・第4条）でも、中止の操作に合わせて応募ごとに作って返金する。
+// 手続き中（requested / accepted / disputed）は主催者への入金を止める。
+model EventCancellation {
+  id            String           @id @default(cuid())
+  applicationId String           @unique
+  application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  kind   String // "vendor"（出店者都合） | "organizer"（主催者都合） | "event"（募集の中止）
+  // objectable: 天候による中止で一部を返金済み。出店者が申し立てられる3日間
+  status String @default("requested") // "requested" | "accepted" | "disputed" | "objectable" | "confirmed"
+
+  // キャンセル料の時期はこの時刻で決める（第2条）
+  requestedAt   DateTime @default(now())
+  requestedById String
+
+  // 申し出の時点で払われていた額（返金済みを除く）と、規定どおりのキャンセル料
+  paidAmount Int
+  policyFee  Int
+
+  // 返金額（合計）。出店者都合では主催者が受け付けた額（規定どおり以上）
+  refundAmount Int?
+  // そのうち実際に返した額。一部を先に返す（天候による中止）・あとから足す（運営）ため
+  refundedTotal Int @default(0)
+  acceptedAt   DateTime?
+
+  disputedAt   DateTime?
+  disputedById String?
+
+  confirmedAt DateTime?
+  confirmedBy String? // "vendor"（承認） | "auto"（期限切れ） | "organizer"（主催者都合） | "admin"（運営の判断） | "event"（募集の中止）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }

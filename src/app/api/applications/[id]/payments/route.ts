@@ -49,6 +49,18 @@ export async function POST(
       );
     }
 
+    // キャンセルの手続きがある出店には、追加で請求させない
+    const cancellation = await prisma.eventCancellation.findUnique({
+      where: { applicationId: id },
+      select: { id: true },
+    });
+    if (cancellation) {
+      return NextResponse.json(
+        { error: "キャンセルの手続きがあるため、請求できません" },
+        { status: 400 }
+      );
+    }
+
     // 入金は開催後。Stripe は残高を原則90日以内に入金する必要があるため、
     // 開催が遠い募集はまだ請求できない。
     if (!canRequestPaymentFor(new Date(application.event.endAt))) {
