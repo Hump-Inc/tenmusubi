@@ -4,7 +4,8 @@
  *   RESEND_API_KEY=re_dummy npx tsx prisma/seed-cancellation-demo.ts
  *
  * 主催者・出店者・運営のデモアカウント（下の DEMO_ACCOUNTS）と、申し出前 / 主催者の
- * 受け付け待ち / 出店者の承認待ち / 合意できない / 確定済み の5つの応募を作る。
+ * 受け付け待ち / 出店者の承認待ち / 合意できない / 確定済み / 天候で中止（申し立て期間）
+ * の6つの応募を作る。
  * 実行するたびに作り直す。決済は本物ではないので、返金を伴う確定は Stripe でエラーになる
  * （「出店者の承認待ち」は返金0円なので、承認まで押せる）。
  * 確認するときは ENABLE_EVENT_PAYMENTS=true で dev サーバーを起動すること。
@@ -54,6 +55,7 @@ async function main() {
     { key: "3_出店者の承認待ち", days: 0.6, fee: 3000, c: "accepted" },
     { key: "4_合意できない", days: 5, fee: 8000, c: "disputed" },
     { key: "5_確定済み", days: 9, fee: 6000, c: "confirmed" },
+    { key: "6_天候で中止（申し立て期間）", days: 4, fee: 8000, c: "objectable" },
   ] as const;
 
   const out: string[] = [];
@@ -62,8 +64,10 @@ async function main() {
     const ev = await prisma.event.create({
       data: {
         organizerId: op.id, title: `【キャンセルデモ】${s.key}`, venueName: "デモ会場", area: "東京都",
-        startAt, endAt: new Date(startAt.getTime() + 6 * 3600000), exhibitFee: s.fee, status: "published",
-        rainPolicy: "go", weatherDecisionDaysBefore: 1, weatherDecisionHour: 18, weatherRefundPercent: 100,
+        startAt, endAt: new Date(startAt.getTime() + 6 * 3600000), exhibitFee: s.fee,
+        status: s.key.startsWith("6") ? "cancelled" : "published",
+        rainPolicy: "rain_cancel", weatherDecisionDaysBefore: 1, weatherDecisionHour: 18,
+        weatherRefundPercent: s.key.startsWith("6") ? 50 : 100,
       },
     });
     const store = await prisma.store.create({ data: { name: `デモ店（${s.key}）`, ownerId: ven.id } });
@@ -73,7 +77,14 @@ async function main() {
     await prisma.eventPayment.create({
       data: { applicationId: app.id, description: "出店料", amount: s.fee, platformFee: s.fee / 10, status: "paid", paidAt: new Date(now - 19 * DAY), requestedById: org.id, stripePaymentIntentId: `pi_demo_${app.id}`, refundedAmount: s.key.startsWith("5") ? s.fee * 0.7 : 0 },
     });
-    if ("c" in s) {
+    if (s.key.startsWith("6")) {
+      await prisma.eventCancellation.create({
+        data: {
+          applicationId: app.id, kind: "event", status: "objectable", requestedAt: new Date(now - 3600000), requestedById: org.id,
+          paidAmount: s.fee, policyFee: s.fee / 2, refundAmount: s.fee / 2, refundedTotal: s.fee / 2, acceptedAt: new Date(now - 3600000),
+        },
+      });
+    } else if ("c" in s) {
       // 承認待ちは「前日に申し出た」形にしてキャンセル料100%・返金0円にする（Stripe を呼ばずに承認まで押せる）
       const requestedAt = s.c === "accepted" ? new Date(now - 3600000) : new Date(now - 1 * DAY);
       const p = policyFeeFor(s.fee, { requestedAt, startAt, confirmedAt: new Date(now - 20 * DAY) });
@@ -82,7 +93,7 @@ async function main() {
           applicationId: app.id, kind: "vendor", status: s.c, requestedAt, requestedById: ven.id, paidAmount: s.fee, policyFee: p.fee,
           ...(s.c === "accepted" ? { refundAmount: p.refund, acceptedAt: new Date(now - 1800000) } : {}),
           ...(s.c === "disputed" ? { disputedAt: new Date(now - 0.2 * DAY), disputedById: ven.id } : {}),
-          ...(s.c === "confirmed" ? { refundAmount: s.fee * 0.7, confirmedAt: new Date(now - 0.3 * DAY), confirmedBy: "vendor", acceptedAt: new Date(now - 0.5 * DAY) } : {}),
+          ...(s.c === "confirmed" ? { refundAmount: s.fee * 0.7, refundedTotal: s.fee * 0.7, confirmedAt: new Date(now - 0.3 * DAY), confirmedBy: "vendor", acceptedAt: new Date(now - 0.5 * DAY) } : {}),
         },
       });
     }

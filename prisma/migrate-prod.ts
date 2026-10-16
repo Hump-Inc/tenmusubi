@@ -578,6 +578,7 @@ async function main() {
       "paidAmount" INTEGER NOT NULL,
       "policyFee" INTEGER NOT NULL,
       "refundAmount" INTEGER,
+      "refundedTotal" INTEGER NOT NULL DEFAULT 0,
       "acceptedAt" DATETIME,
       "disputedAt" DATETIME,
       "disputedById" TEXT,

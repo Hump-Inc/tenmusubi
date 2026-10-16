@@ -12,12 +12,13 @@ import { formatDateShort } from "@/lib/eventFormat";
 export interface CancellationSummary {
   id: string;
   kind: "vendor" | "organizer" | "event";
-  status: "requested" | "accepted" | "disputed" | "confirmed";
+  status: "requested" | "accepted" | "disputed" | "objectable" | "confirmed";
   requestedAt: string;
   paidAmount: number;
   policyFee: number;
   policyRefund: number;
   refundAmount: number | null;
+  refundedTotal: number;
   acceptedAt: string | null;
   disputedAt: string | null;
   confirmedAt: string | null;
@@ -257,6 +258,23 @@ export function CancellationPanel({
         <p className="text-sm text-gray-900">返金の処理を運営が確認しています。それまで主催者への入金は行いません。</p>
       )}
 
+      {/* 天候による中止の一部返金。出店者は3日のあいだ申し立てられる */}
+      {cancellation?.status === "objectable" && cancellation.refundAmount !== null && role === "vendor" && (
+        <div className="rounded-xl border border-gray-100 p-4 space-y-3">
+          <p className="text-sm text-gray-900">
+            天候などによる中止として、{yen(cancellation.refundAmount)} を返金しました。
+            中止の理由に納得できない場合は{deadline ? `${deadline}までに` : ""}申し立ててください。申し立てがなければ、この内容で確定します。
+          </p>
+          {disputeButton}
+        </div>
+      )}
+      {cancellation?.status === "objectable" && cancellation.refundAmount !== null && role === "organizer" && (
+        <p className="text-sm text-gray-900">
+          天候などによる中止として {yen(cancellation.refundAmount)} を返金しました。
+          {deadline && <>{deadline}まで出店者が申し立てられるため、それまで残りの出店料の入金は止めています。</>}
+        </p>
+      )}
+
       {/* 出店者の承認待ち */}
       {cancellation?.status === "accepted" && cancellation.refundAmount !== null && role === "vendor" && (
         <div className="rounded-xl border border-gray-100 p-4 space-y-3">
@@ -306,21 +324,33 @@ export function CancellationPanel({
         </p>
       )}
 
-      {/* 運営: いつでも額を決めて確定できる */}
-      {cancellation && cancellation.status !== "confirmed" && role === "admin" && (
+      {/* 運営: いつでも額を決めて確定できる。確定後も、入金前なら追加で返金できる */}
+      {cancellation &&
+        role === "admin" &&
+        (cancellation.status !== "confirmed" || cancellation.refundedTotal < cancellation.paidAmount) && (
         <div className="rounded-xl border border-gray-100 p-4 space-y-3">
           <p className="text-sm font-medium text-gray-900">
-            {cancellation.status === "disputed"
+            {cancellation.status === "confirmed"
+              ? `確定済み（返金 ${yen(cancellation.refundedTotal)}）。偽りの申告などが分かった場合は、追加で返金できます`
+              : cancellation.status === "objectable"
+                ? `天候による中止として ${yen(cancellation.refundedTotal)} を返金済み。出店者の申し立て期間中です`
+                : cancellation.status === "disputed"
               ? `合意できないとして申し立てがあります（${formatDateShort(cancellation.disputedAt)}）`
               : cancellation.status === "accepted" && cancellation.refundAmount !== null
                 ? `主催者が返金額 ${yen(cancellation.refundAmount)} で受け付け、出店者の承認待ちです`
                 : "主催者の受け付け待ちです"}
-            {deadline && cancellation.status !== "disputed" && <>（{deadline}以降に自動で確定）</>}
+            {deadline && cancellation.status !== "disputed" && cancellation.status !== "confirmed" && (
+              <>（{deadline}以降に自動で確定）</>
+            )}
           </p>
-          <p className="text-sm text-gray-900">運営として返金額を決めて確定します（0円〜{yen(cancellation.paidAmount)}）。</p>
-          <Input type="number" inputMode="numeric" min={0} max={cancellation.paidAmount} value={refund} onChange={(e) => setRefund(e.target.value)} />
+          <p className="text-sm text-gray-900">
+            返金額の合計を決めて確定します（{yen(cancellation.refundedTotal)}〜{yen(cancellation.paidAmount)}
+            {cancellation.refundedTotal > 0 && "。返金済みの分との差額を返金します"}）。
+          </p>
+          <Input type="number" inputMode="numeric" min={cancellation.refundedTotal} max={cancellation.paidAmount} value={refund} onChange={(e) => setRefund(e.target.value)} />
           <Button size="sm" className="rounded-full" onClick={() => act("resolve", { refundAmount: Number(refund) })} disabled={working || refund === ""}>
-            {spinner}この金額で確定して返金する
+            {spinner}
+            {cancellation.status === "confirmed" ? "差額を追加で返金する" : "この金額で確定して返金する"}
           </Button>
         </div>
       )}
