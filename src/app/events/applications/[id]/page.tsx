@@ -216,7 +216,10 @@ export default function ApplicationThreadPage({
   const backHref = isOrganizer
     ? `/events/${application.event.id}/applications`
     : "/events/applications";
-  const canPost = role !== "admin" && application.status === "open";
+  // 出店が決まったあとも、当日の連絡に使う（「出店が決定しています」の案内どおり）。
+  // 見送り・取り下げで話が終わったら書けなくする（メッセージの API と同じ判定）
+  const canPost =
+    role !== "admin" && (application.status === "open" || application.status === "confirmed");
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -450,11 +453,7 @@ export default function ApplicationThreadPage({
               applicationId={application.id}
               messages={messages}
               canPost={canPost}
-              closedReason={
-                application.status === "confirmed"
-                  ? "出店が決定しています"
-                  : "このやり取りは終了しています"
-              }
+              closedReason="このやり取りは終了しています"
               onPosted={(m) => setData({ ...data, messages: [...messages, m] })}
             />
           </div>
