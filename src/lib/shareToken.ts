@@ -25,14 +25,7 @@ export function hashUserAgent(ua: string): string {
   return createHash("sha256").update(`${salt()}:ua:${ua}`).digest("hex");
 }
 
-/**
- * リクエスト元IPを取り出す。Vercel は x-forwarded-for を付与する。
- */
-export function getClientIp(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return headers.get("x-real-ip") || "unknown";
-}
+export { getClientIp } from "./clientIp";
 
 /**
  * 共有リンクの閲覧パスワード用クッキーの値。
