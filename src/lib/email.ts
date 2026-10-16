@@ -1,8 +1,9 @@
 import { Resend } from "resend";
+import { siteUrl } from "./siteUrl";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "てんむすび <noreply@tenmusubi.net>";
-const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
+const BASE_URL = siteUrl();
 
 /**
  * 運営宛ての通知先メールアドレスを取得する。

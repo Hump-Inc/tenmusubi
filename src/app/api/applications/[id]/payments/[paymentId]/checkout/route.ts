@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { stripe } from "@/lib/stripe";
 import { loadApplicationForViewer } from "@/lib/eventApplicationAccess";
+import { siteUrl } from "@/lib/siteUrl";
 
-const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
+const BASE_URL = siteUrl();
 
 /**
  * POST: 出店者が請求を支払う。Stripe の支払い画面のURLを返す。

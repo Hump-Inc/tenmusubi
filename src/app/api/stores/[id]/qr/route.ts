@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import QRCode from "qrcode";
 import crypto from "crypto";
+import { siteUrl } from "@/lib/siteUrl";
 
 // GET: QRコード画像を返す
 export async function GET(
@@ -41,7 +42,7 @@ export async function GET(
       });
     }
 
-    const baseUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "https://tenmusubi.net";
+    const baseUrl = siteUrl("https://tenmusubi.net");
     const checkinUrl = `${baseUrl}/checkin/${id}?token=${qrToken}`;
 
     const { searchParams } = new URL(request.url);

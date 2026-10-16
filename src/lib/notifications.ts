@@ -1,9 +1,10 @@
 import { prisma } from "./prisma";
 import { Resend } from "resend";
+import { siteUrl } from "./siteUrl";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "てんむすび <noreply@tenmusubi.net>";
-const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
+const BASE_URL = siteUrl();
 
 // 題名・本文には利用者の書いた文（募集名、中止の理由など）が入るので、
 // メールのHTMLに入れる前にエスケープする。本文の改行はそのまま見せる。
