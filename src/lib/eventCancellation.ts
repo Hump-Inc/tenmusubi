@@ -2,7 +2,7 @@ import type { EventCancellation } from "@prisma/client";
 import { prisma } from "./prisma";
 import { stripe } from "./stripe";
 import { createNotification } from "./notifications";
-import { cancelOpenRequests } from "./eventCancel";
+import { cancelOpenRequests, CANCEL_REASON_MAX } from "./eventCancel";
 import { CANCELLATION_RESPONSE_DAYS, cancellationFeePercent } from "./cancellationPolicy";
 
 /**
@@ -150,14 +150,29 @@ export function cancellationView(c: EventCancellation) {
   };
 }
 
+/** 理由の入力を整える。必須の操作で空なら投げる */
+export function normalizeReason(value: unknown, required: boolean): string {
+  const reason = typeof value === "string" ? value.trim().slice(0, CANCEL_REASON_MAX) : "";
+  if (required && !reason) throw new CancellationError("理由を入力してください");
+  return reason;
+}
+
 async function post(
   ctx: Context,
   body: string,
-  notify: { userId: string | null | undefined; title: string }[]
+  notify: { userId: string | null | undefined; title: string }[],
+  // 操作した人が書いた理由。経過記録の帯には収まらないので、その人のメッセージとして続けて載せる
+  reason?: { text: string; senderId: string }
 ) {
   await prisma.eventApplicationMessage.create({
     data: { applicationId: ctx.id, kind: "system", body },
   });
+  if (reason?.text) {
+    await prisma.eventApplicationMessage.create({
+      data: { applicationId: ctx.id, senderId: reason.senderId, body: reason.text },
+    });
+  }
+  const notifyBody = reason?.text ? `${body}\n\n理由:\n${reason.text}` : body;
   await prisma.eventApplication.update({
     where: { id: ctx.id },
     data: { lastMessageAt: new Date() },
@@ -168,17 +183,24 @@ async function post(
       userId: n.userId,
       type: "booking",
       title: n.title,
-      body,
+      body: notifyBody,
       link: `/events/applications/${ctx.id}`,
     }).catch((e) => console.error("Cancellation notification error:", e));
   }
 }
 
 /** 出店者: キャンセルを申し出る（第7条第1項） */
-export async function requestVendorCancellation(applicationId: string, userId: string, now = new Date()) {
+export async function requestVendorCancellation(
+  applicationId: string,
+  userId: string,
+  reasonInput?: unknown,
+  now = new Date()
+) {
+  // 理由は任意。体調や家庭の事情など書きたくないこともあり、キャンセル料も理由で変わらない
+  const reason = normalizeReason(reasonInput, false);
   const ctx = await loadContext(applicationId);
-  const reason = startableReason(ctx, now);
-  if (reason) throw new CancellationError(reason);
+  const blocked = startableReason(ctx, now);
+  if (blocked) throw new CancellationError(blocked);
 
   const paidAmount = paidRemaining(ctx.payments);
   const p = policyFeeFor(paidAmount, {
@@ -208,7 +230,8 @@ export async function requestVendorCancellation(applicationId: string, userId: s
     ctx,
     `出店者がキャンセルを申し出ました。規定のキャンセル料は${yen(p.fee)}（${p.percent}%）、返金額は${yen(p.refund)}です。` +
       `主催者は${CANCELLATION_RESPONSE_DAYS}日以内に受け付けてください。受け付けがない場合は、この金額で確定します。`,
-    [{ userId: ctx.event.organizer.userId, title: `キャンセルの申し出がありました: ${ctx.store.name}` }]
+    [{ userId: ctx.event.organizer.userId, title: `キャンセルの申し出がありました: ${ctx.store.name}` }],
+    { text: reason, senderId: userId }
   );
   return c;
 }
@@ -256,8 +279,11 @@ export async function disputeCancellation(
   applicationId: string,
   userId: string,
   role: "vendor" | "organizer",
+  reasonInput?: unknown,
   now = new Date()
 ) {
+  // 何に納得できないのかが無いと、運営が判断できない
+  const reason = normalizeReason(reasonInput, true);
   const ctx = await loadContext(applicationId);
   const c = ctx.cancellation;
   // 出店者は受け付け前後のどちらでも、主催者は受け付ける前だけ（受け付けたあとに覆さない）
@@ -281,7 +307,8 @@ export async function disputeCancellation(
       role === "vendor"
         ? { userId: ctx.event.organizer.userId, title: `キャンセルの内容が運営の判断になりました: ${ctx.store.name}` }
         : { userId: ctx.store.ownerId, title: `キャンセルの内容が運営の判断になりました: ${ctx.event.title}` },
-    ]
+    ],
+    { text: reason, senderId: userId }
   );
 
   const admins = await prisma.user.findMany({ where: { isAdmin: true }, select: { id: true } });
@@ -290,7 +317,7 @@ export async function disputeCancellation(
       userId: a.id,
       type: "booking",
       title: `キャンセルの判断が必要です: ${ctx.event.title} / ${ctx.store.name}`,
-      body: `${who}が合意できないとして申し立てました。`,
+      body: `${who}が合意できないとして申し立てました。\n\n理由:\n${reason}`,
       link: `/events/applications/${ctx.id}`,
     }).catch((e) => console.error("Dispute admin notification error:", e));
   }
@@ -308,10 +335,17 @@ export async function resolveCancellation(applicationId: string, refundAmount: n
 }
 
 /** 主催者: 主催者都合で取り消す。全額返金してその場で確定する（第3条） */
-export async function organizerCancel(applicationId: string, userId: string, now = new Date()) {
+export async function organizerCancel(
+  applicationId: string,
+  userId: string,
+  reasonInput?: unknown,
+  now = new Date()
+) {
+  // 出店者は取り消された理由を知る必要がある
+  const reason = normalizeReason(reasonInput, true);
   const ctx = await loadContext(applicationId);
-  const reason = startableReason(ctx, now);
-  if (reason) throw new CancellationError(reason);
+  const blocked = startableReason(ctx, now);
+  if (blocked) throw new CancellationError(blocked);
 
   const paidAmount = paidRemaining(ctx.payments);
   const c = await prisma.eventCancellation
@@ -329,7 +363,7 @@ export async function organizerCancel(applicationId: string, userId: string, now
     .catch(() => {
       throw new CancellationError("この出店はすでにキャンセルの手続きがあります");
     });
-  await confirmCancellation(ctx, c, paidAmount, "organizer", ["requested"]);
+  await confirmCancellation(ctx, c, paidAmount, "organizer", ["requested"], { text: reason, senderId: userId });
 }
 
 /**
@@ -341,7 +375,8 @@ async function confirmCancellation(
   c: EventCancellation,
   refundAmount: number,
   by: "vendor" | "auto" | "organizer" | "admin",
-  from: string[]
+  from: string[],
+  reason?: { text: string; senderId: string }
 ) {
   const now = new Date();
   const claimed = await prisma.eventCancellation.updateMany({
@@ -391,7 +426,7 @@ async function confirmCancellation(
   await post(ctx, `${head}${money}開示されていた書類は表示されなくなりました。`, [
     { userId: ctx.store.ownerId, title: `キャンセルが確定しました: ${ctx.event.title}` },
     { userId: ctx.event.organizer.userId, title: `キャンセルが確定しました: ${ctx.store.name}` },
-  ]);
+  ], reason);
 }
 
 /**

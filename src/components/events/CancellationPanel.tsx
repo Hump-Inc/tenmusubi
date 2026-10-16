@@ -6,6 +6,7 @@ import { CalendarX2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateShort } from "@/lib/eventFormat";
 
 export interface CancellationSummary {
@@ -57,6 +58,7 @@ export function CancellationPanel({
   const [refund, setRefund] = useState(
     String(cancellation?.refundAmount ?? cancellation?.policyRefund ?? "")
   );
+  const [reason, setReason] = useState("");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
 
@@ -77,6 +79,7 @@ export function CancellationPanel({
         return;
       }
       setConfirming(null);
+      setReason("");
       onChanged();
     } catch {
       setError("処理に失敗しました");
@@ -86,6 +89,27 @@ export function CancellationPanel({
   };
 
   const spinner = working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />;
+  // 理由は、やり取りの欄にその人のメッセージとして残る
+  const reasonField = (label: string, placeholder: string) => (
+    <div className="space-y-1.5">
+      <Label htmlFor="cancel-reason" className="text-xs">
+        {label}
+      </Label>
+      <Textarea
+        id="cancel-reason"
+        rows={3}
+        maxLength={1000}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder={placeholder}
+        className="bg-white"
+      />
+    </div>
+  );
+  const closeConfirm = () => {
+    setConfirming(null);
+    setReason("");
+  };
   const deadline = cancellation?.autoConfirmAt ? formatDateShort(cancellation.autoConfirmAt) : null;
   const disputeButton = (
     <Button
@@ -121,11 +145,12 @@ export function CancellationPanel({
               <p className="text-sm text-red-900">
                 キャンセルを申し出ます。申し出た時刻でキャンセル料が決まり、取り消すことはできません。
               </p>
+              {reasonField("主催者へのひとこと（任意）", "理由やお詫びなど。書かなくても申し出られます")}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="destructive" className="rounded-full" onClick={() => act("request")} disabled={working}>
+                <Button size="sm" variant="destructive" className="rounded-full" onClick={() => act("request", { reason })} disabled={working}>
                   {spinner}キャンセルを申し出る
                 </Button>
-                <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setConfirming(null)} disabled={working}>
+                <Button size="sm" variant="ghost" className="rounded-full" onClick={closeConfirm} disabled={working}>
                   やめる
                 </Button>
               </div>
@@ -149,11 +174,12 @@ export function CancellationPanel({
               <p className="text-sm text-red-900">
                 出店を取り消し、{yen(preview.paidAmount)} を全額返金します。取り消すことはできません。
               </p>
+              {reasonField("取り消す理由（必須・出店者に届きます）", "例: 会場の都合で区画数が減ったため")}
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="destructive" className="rounded-full" onClick={() => act("organizer_cancel")} disabled={working}>
+                <Button size="sm" variant="destructive" className="rounded-full" onClick={() => act("organizer_cancel", { reason })} disabled={working || !reason.trim()}>
                   {spinner}主催者都合で取り消す
                 </Button>
-                <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setConfirming(null)} disabled={working}>
+                <Button size="sm" variant="ghost" className="rounded-full" onClick={closeConfirm} disabled={working}>
                   やめる
                 </Button>
               </div>
@@ -249,11 +275,12 @@ export function CancellationPanel({
           <p className="text-sm text-amber-900">
             運営がやり取りの記録をもとに返金額を決めます。決まった内容には、主催者・出店者とも従っていただきます。
           </p>
+          {reasonField("合意できない理由（必須・相手と運営に届きます）", "例: 申し出の前日に電話で伝えていたので、その日で計算してほしい")}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" className="rounded-full" onClick={() => act("dispute")} disabled={working}>
+            <Button size="sm" className="rounded-full" onClick={() => act("dispute", { reason })} disabled={working || !reason.trim()}>
               {spinner}運営に判断を求める
             </Button>
-            <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setConfirming(null)} disabled={working}>
+            <Button size="sm" variant="ghost" className="rounded-full" onClick={closeConfirm} disabled={working}>
               やめる
             </Button>
           </div>
