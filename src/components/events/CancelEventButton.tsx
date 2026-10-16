@@ -89,7 +89,7 @@ export function CancelEventButton({
           />
           {paidCount > 0 && (
             <p className="text-xs text-gray-500">
-              出展料を支払い済みの出店者が {paidCount} 店います。返金は運営から各出店者へご連絡します。
+              出店料を支払い済みの出店者が {paidCount} 店います。返金は運営から各出店者へご連絡します。
               未払いの請求は自動で取り消されます。
             </p>
           )}

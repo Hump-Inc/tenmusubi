@@ -137,7 +137,7 @@ export default function AdminPaymentsPage() {
                 <Wallet className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">出展料の決済</h1>
+                <h1 className="text-xl font-bold text-gray-900">出店料の決済</h1>
                 <p className="text-sm text-gray-600">
                   返金は Stripe ダッシュボードから行ってください。結果はここに自動で反映されます。
                 </p>

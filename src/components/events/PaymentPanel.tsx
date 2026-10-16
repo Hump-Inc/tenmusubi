@@ -41,7 +41,7 @@ function yen(n: number) {
 }
 
 /**
- * 出展料の請求と支払い。出店が決まった応募にだけ出す。
+ * 出店料の請求と支払い。出店が決まった応募にだけ出す。
  * 主催者は金額を決めて請求し、出店者はここから Stripe の支払い画面へ進む。
  */
 export function PaymentPanel({
@@ -145,7 +145,7 @@ export function PaymentPanel({
     <div className="rounded-2xl bg-white p-5 shadow-sm space-y-4">
       <p className="flex items-center gap-1.5 text-sm font-bold text-gray-900">
         <CreditCard className="h-4 w-4 text-orange-500" />
-        出展料のお支払い
+        出店料のお支払い
       </p>
 
       {awaitingWebhook && (
@@ -162,7 +162,7 @@ export function PaymentPanel({
 
       {payments.length === 0 ? (
         <p className="text-sm text-gray-500">
-          まだ請求していません。出展料をオンラインで受け取る場合は、ここから請求できます。
+          まだ請求していません。出店料をオンラインで受け取る場合は、ここから請求できます。
           現金や振込で受け取る場合は、請求しなくてかまいません。
         </p>
       ) : (
@@ -258,7 +258,7 @@ export function PaymentPanel({
           onClick={() => setShowForm(true)}
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          出展料を請求する
+          出店料を請求する
         </Button>
       )}
 
@@ -270,7 +270,7 @@ export function PaymentPanel({
               id="pay-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value.slice(0, 60))}
-              placeholder="出展料"
+              placeholder="出店料"
             />
           </div>
           <div className="space-y-1.5">
@@ -317,7 +317,7 @@ export function PaymentPanel({
       <p className="text-xs text-gray-500">
         キャンセルと返金は
         <Link href="/cancel-policy" target="_blank" className="mx-0.5 text-orange-600 hover:underline">
-          出展料のキャンセル規定
+          出店料のキャンセル規定
         </Link>
         に沿って扱います。
       </p>

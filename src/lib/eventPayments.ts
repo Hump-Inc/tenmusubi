@@ -4,11 +4,11 @@ import { stripe } from "./stripe";
 import { createNotification } from "./notifications";
 
 /**
- * 出展料のオンライン決済。
+ * 出店料のオンライン決済。
  *
  * お金の流れ: 出店者 → (Stripe) → 主催者の Connect アカウント。運営の手数料は
  * application_fee_amount として送金時に差し引く（destination charge）。
- * on_behalf_of に主催者を指定し、出展料の売り手は主催者として扱う。
+ * on_behalf_of に主催者を指定し、出店料の売り手は主催者として扱う。
  *
  * 状態の確定は必ず Webhook で行う。支払い画面から戻ってきたことは「払った」の
  * 根拠にならない（戻るボタンや通信断で簡単に食い違う）。
@@ -20,10 +20,10 @@ import { createNotification } from "./notifications";
  */
 
 // 運営の手数料率（%・税込・決済手数料込み）。主催者の受取額から差し引く。
-// 2026-09-22 に 10% で決定。同業の水準（出展料の請求 約5%、チケット販売 5〜10%）の
+// 2026-09-22 に 10% で決定。同業の水準（出店料の請求 約5%、チケット販売 5〜10%）の
 // 上限寄りだが、募集・応募のやり取り・書類・規定まで一貫して提供する分を乗せている。
 // Stripe の費用（決済 3.6% ＋ 入金手数料など、実質 4〜5%）は destination charge では
-// 運営の残高から引かれるので、運営の取り分は出展料の 5〜6% 程度になる。
+// 運営の残高から引かれるので、運営の取り分は出店料の 5〜6% 程度になる。
 // 返金しても 3.6% は戻らないため、全額返金が続くとその分は運営の持ち出しになる。
 const DEFAULT_FEE_PERCENT = 10;
 
@@ -45,7 +45,7 @@ export const MAX_PAYMENT_AMOUNT = 1_000_000;
 export const PAYOUT_GRACE_DAYS = 2;
 
 // Stripe は日本では、残高を原則90日以内に入金する必要がある（手動入金でも同じ）。
-// 入金が開催後になる以上、開催が遠すぎる募集の出展料は先に受け取れない。
+// 入金が開催後になる以上、開催が遠すぎる募集の出店料は先に受け取れない。
 // 余裕を見て、入金予定日が今日から85日以内の募集だけ請求できるようにする。
 // 90日を超える募集の扱いは弁護士・Stripe への確認待ち。
 export const MAX_DAYS_UNTIL_PAYOUT = 85;
@@ -197,7 +197,7 @@ export async function handleEventCheckoutCompleted(session: Stripe.Checkout.Sess
   if (!p) return;
   const yen = p.amount.toLocaleString("ja-JP");
   await notifyThread(p.applicationId, `「${p.description}」${yen}円の支払いが完了しました。`, [
-    { userId: p.application.event.organizer.userId, title: `出展料が支払われました: ${p.application.store.name}` },
+    { userId: p.application.event.organizer.userId, title: `出店料が支払われました: ${p.application.store.name}` },
     { userId: p.application.store.ownerId, title: `お支払いが完了しました: ${p.application.event.title}` },
   ]);
 }
@@ -231,14 +231,14 @@ export async function handleEventChargeRefunded(charge: Stripe.Charge) {
       ? `「${p.description}」は全額（${yen}円）返金されました。`
       : `「${p.description}」のうち${yen}円が返金されました。`,
     [
-      { userId: p.application.event.organizer.userId, title: `出展料を返金しました: ${p.application.store.name}` },
-      { userId: p.application.store.ownerId, title: `出展料が返金されました: ${p.application.event.title}` },
+      { userId: p.application.event.organizer.userId, title: `出店料を返金しました: ${p.application.store.name}` },
+      { userId: p.application.store.ownerId, title: `出店料が返金されました: ${p.application.event.title}` },
     ]
   );
 }
 
 /**
- * 開催が終わった募集の出展料を、主催者の口座へ入金する。1日1回、cron から呼ぶ。
+ * 開催が終わった募集の出店料を、主催者の口座へ入金する。1日1回、cron から呼ぶ。
  *
  * 主催者ごとにまとめて1回の入金にする。残高（available）が足りなければ、その
  * 主催者は翌日に回す（カード売上が available になるまで数日かかるため）。
@@ -305,7 +305,7 @@ export async function runEventPayouts(now = new Date()) {
         {
           amount,
           currency: "jpy",
-          description: "てんむすび 出展料",
+          description: "てんむすび 出店料",
           metadata: { kind: "event_payout", organizerId },
         },
         {
@@ -324,8 +324,8 @@ export async function runEventPayouts(now = new Date()) {
       await createNotification({
         userId: organizer.userId,
         type: "booking",
-        title: `出展料 ${amount.toLocaleString("ja-JP")}円の入金手続きをしました`,
-        body: `${titles.join("、")} の出展料を、登録口座へ入金します。着金まで数営業日かかります。`,
+        title: `出店料 ${amount.toLocaleString("ja-JP")}円の入金手続きをしました`,
+        body: `${titles.join("、")} の出店料を、登録口座へ入金します。着金まで数営業日かかります。`,
         link: "/organizer",
       }).catch((e) => console.error("Payout notification error:", e));
 

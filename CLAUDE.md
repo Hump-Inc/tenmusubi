@@ -73,9 +73,9 @@ npm run migrate:prod
 拡張子やクライアント申告のMIMEではなくマジックナンバーで判定し、画像は sharp で
 再エンコードして EXIF（GPS情報）を落とす。
 
-## 出展料のオンライン決済（Stripe Connect）
+## 出店料のオンライン決済（Stripe Connect）
 
-出店が決まった応募に、主催者が出展料を請求し、出店者がカードで払う機能。
+出店が決まった応募に、主催者が出店料を請求し、出店者がカードで払う機能。
 主催者ごとに Stripe Connect Express のアカウントを持ち、destination charge
 （`on_behalf_of` = 主催者）で送金、運営の手数料を `application_fee_amount` で差し引く。
 ロジックは `src/lib/eventPayments.ts` に集約。

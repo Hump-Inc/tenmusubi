@@ -72,7 +72,7 @@ export async function generateMetadata({
   if (!event) return { title: "募集が見つかりません" };
 
   const title = `${event.title}｜出店者募集`;
-  const description = `${event.area}・${event.venueName}／${formatEventDate(event.startAt, event.endAt)}／出展料 ${formatFee(event.exhibitFee, null, event.exhibitFeeMax)}。キッチンカー・出店者を募集しています。`;
+  const description = `${event.area}・${event.venueName}／${formatEventDate(event.startAt, event.endAt)}／出店料 ${formatFee(event.exhibitFee, null, event.exhibitFeeMax)}。キッチンカー・出店者を募集しています。`;
 
   return {
     title,
@@ -287,7 +287,7 @@ export default async function EventDetailPage({
                   {event.address || event.area}
                 </span>
               </Row>
-              <Row icon={<Coins className="h-5 w-5" />} label="出展料">
+              <Row icon={<Coins className="h-5 w-5" />} label="出店料">
                 {event.feeTiers.length > 1 ? (
                   // 区画ごとの実額を並べる。幅だけ見せるより、どの区画がいくらか
                   // 分かる方が出店者は判断しやすい（2026-08-27 MTG）。
@@ -396,7 +396,7 @@ export default async function EventDetailPage({
                     <span className="block text-xs font-normal text-gray-600 mt-0.5">
                       中止の判断: {decisionDeadlineLabel(event.weatherDecisionDaysBefore, event.weatherDecisionHour)}
                       {weatherRefundLabel(event.weatherRefundPercent) &&
-                        ` ・ 天候で中止の場合は出展料を${weatherRefundLabel(event.weatherRefundPercent)}`}
+                        ` ・ 天候で中止の場合は出店料を${weatherRefundLabel(event.weatherRefundPercent)}`}
                     </span>
                   </>
                 ) : (
@@ -451,14 +451,14 @@ export default async function EventDetailPage({
               <h2 className="mb-3 font-bold text-gray-900">キャンセルについて</h2>
               <p className="text-sm leading-relaxed text-gray-700">
                 出店が決まったあとの取りやめは、開催15日前まで無料です。それ以降は時期に応じてキャンセル料がかかります。
-                天候などで中止になった場合は、出展料を
+                天候などで中止になった場合は、出店料を
                 {weatherRefundLabel(event.weatherRefundPercent) ?? "募集の条件に沿って返金"}します。
               </p>
               <Link
                 href="/cancel-policy"
                 className="mt-2 inline-block text-sm text-orange-600 hover:underline"
               >
-                出展料のキャンセル規定を読む
+                出店料のキャンセル規定を読む
               </Link>
             </section>
           )}

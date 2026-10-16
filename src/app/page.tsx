@@ -62,7 +62,7 @@ const vendorFeatures = [
   {
     icon: Search,
     title: "出店募集を探して応募する",
-    desc: "エリア・開催月・業種で募集を絞り込み。区画ごとの出展料まで見てから応募できます。",
+    desc: "エリア・開催月・業種で募集を絞り込み。区画ごとの出店料まで見てから応募できます。",
   },
   {
     icon: Send,
@@ -80,7 +80,7 @@ const organizerFeatures = [
   {
     icon: CalendarDays,
     title: "出店募集をつくる",
-    desc: "開催日・会場・区画ごとの出展料・必要な設備を登録して公開。募集ページがそのまま告知になります。",
+    desc: "開催日・会場・区画ごとの出店料・必要な設備を登録して公開。募集ページがそのまま告知になります。",
   },
   {
     icon: Users,
@@ -421,7 +421,7 @@ export default function HomePage() {
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-gray-700">
                     出店を待つだけでなく、自分でイベントを立てて出店者を集められます。
-                    仲間のキッチンカーに声をかけてマルシェを開けば、出店の売上とは別に出展料という収入源が生まれます。
+                    仲間のキッチンカーに声をかけてマルシェを開けば、出店の売上とは別に出店料という収入源が生まれます。
                     出店する側の勝手が分かっているからこそ、集まりやすい募集がつくれます。
                   </p>
                 </div>
@@ -591,9 +591,9 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="p-6">
-                  <h3 className="font-bold text-gray-900 mb-2">出展料のオンライン決済</h3>
+                  <h3 className="font-bold text-gray-900 mb-2">出店料のオンライン決済</h3>
                   <p className="text-sm leading-relaxed text-gray-600">
-                    出展料のやり取りをてんむすび上で完結できるようにします。
+                    出店料のやり取りをてんむすび上で完結できるようにします。
                     当日の現金の受け渡しや、支払いの行き違いをなくすための仕組みです。
                     キャンセル時の返金ルールと合わせて準備しています。
                   </p>

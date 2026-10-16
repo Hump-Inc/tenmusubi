@@ -131,7 +131,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
   const [feeTierId, setFeeTierId] = useState("");
   // 希望するオプション（電源 +500円 など）
   const [feeOptionIds, setFeeOptionIds] = useState<string[]>([]);
-  // 出展料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
+  // 出店料を決済で受け取る間は、応募の前にキャンセル規定へ同意してもらう
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [policyAgreed, setPolicyAgreed] = useState(false);
 
@@ -451,7 +451,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
                       希望する区画
                     </CardTitle>
                     <CardDescription>
-                      区画によって出展料が変わります。希望を選ぶと主催者に伝わります。
+                      区画によって出店料が変わります。希望を選ぶと主催者に伝わります。
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -468,7 +468,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
                       >
                         <span className="min-w-0">
                           <span className="block font-medium text-gray-900">
-                            {tier.label || "出展料"}
+                            {tier.label || "出店料"}
                           </span>
                           <span className="mt-0.5 block text-xs text-gray-600">
                             {[
@@ -500,7 +500,7 @@ export default function ApplyPage({ params }: { params: Promise<{ id: string }> 
                       オプション
                     </CardTitle>
                     <CardDescription>
-                      必要なものを選んでください。出展料に追加されます。
+                      必要なものを選んでください。出店料に追加されます。
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">

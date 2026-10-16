@@ -14,7 +14,7 @@ interface PayoutState {
 }
 
 /**
- * 出展料をオンラインで受け取るための口座設定。登録そのものは Stripe の画面で行う。
+ * 出店料をオンラインで受け取るための口座設定。登録そのものは Stripe の画面で行う。
  * 使わない主催者（現金・振込で受け取る）もいるので、任意の設定として出す。
  */
 export function PayoutSettingsCard() {
@@ -71,10 +71,10 @@ export function PayoutSettingsCard() {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Wallet className="h-5 w-5 text-orange-500" />
-          出展料のオンライン受け取り
+          出店料のオンライン受け取り
         </CardTitle>
         <CardDescription>
-          設定すると、出店が決まった出店者に出展料を請求し、カードで支払ってもらえます。
+          設定すると、出店が決まった出店者に出店料を請求し、カードで支払ってもらえます。
           現金や振込で受け取る場合は設定しなくてかまいません。
         </CardDescription>
       </CardHeader>
@@ -115,7 +115,7 @@ export function PayoutSettingsCard() {
                 Instagram などイベントの様子が分かる SNS の URL で大丈夫です。
               </li>
               <li>
-                受け取った出展料から手数料 {data.feePercent}%（税込）を差し引いた額が、登録した口座に入金されます。
+                受け取った出店料から手数料 {data.feePercent}%（税込）を差し引いた額が、登録した口座に入金されます。
                 入金はイベントの終了後です（開催前のキャンセルに返金で応じられるよう、それまでは Stripe でお預かりします）。
               </li>
             </ul>

@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import Line from "next-auth/providers/line";
@@ -7,6 +7,13 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { cookies } from "next/headers";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
+import { checkRateLimit, RATE_LIMITS } from "./rateLimit";
+import { getClientIp } from "./shareToken";
+
+// ログイン画面は result.code で見分けて、回数制限の案内を出す
+class LoginRateLimited extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 // カスタムアダプター: メールベースのアカウントリンクをサポート
 function CustomPrismaAdapter(): Adapter {
@@ -129,9 +136,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) {
           return null;
+        }
+
+        // パスワードの総当たり対策。1つのアカウントへの集中と、1つのIPからの
+        // 多数アカウントへの試行の両方を止める（Stripe のセキュリティ申告の対象）
+        const email = (credentials.email as string).trim().toLowerCase();
+        const ip = getClientIp(request.headers);
+        const [byEmail, byIp] = await Promise.all([
+          checkRateLimit("login-email", email, RATE_LIMITS.loginPerEmail.limit, RATE_LIMITS.loginPerEmail.windowSeconds),
+          checkRateLimit("login-ip", ip, RATE_LIMITS.loginPerIp.limit, RATE_LIMITS.loginPerIp.windowSeconds),
+        ]);
+        if (!byEmail.ok || !byIp.ok) {
+          throw new LoginRateLimited();
         }
 
         const user = await prisma.user.findUnique({

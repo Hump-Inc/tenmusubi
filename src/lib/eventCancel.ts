@@ -6,12 +6,12 @@ export const CANCEL_REASON_MAX = 1000;
 
 /**
  * 募集を中止にしたあとの後始末。やり取り中・出店決定済みの出店者へ知らせ、
- * まだ払われていない出展料の請求を取り消す。
+ * まだ払われていない出店料の請求を取り消す。
  *
  * 雨天中止のように直前に決まることが多く、知らせが届かないと出店者は仕入れを
  * 済ませたまま会場へ向かうことになる。主催者が一人ずつ連絡しなくて済むよう、
  * 主催者の書いた理由（「雨のため」「延期日は〜」など）をそのまま全員に届ける。
- * 出展料を払い済みの出店者には、返金は運営から連絡すると添える（返金は当面、
+ * 出店料を払い済みの出店者には、返金は運営から連絡すると添える（返金は当面、
  * 運営が Stripe で行うため）。
  */
 export async function onEventCancelled(
@@ -47,7 +47,7 @@ export async function onEventCancelled(
     const paid = app.payments.some((p) => p.status === "paid");
     const body =
       "主催者がこの募集を中止しました。" +
-      (paid ? "お支払いいただいた出展料の返金については、運営からご連絡します。" : "");
+      (paid ? "お支払いいただいた出店料の返金については、運営からご連絡します。" : "");
 
     await prisma.eventApplicationMessage.create({
       data: { applicationId: app.id, kind: "system", body },

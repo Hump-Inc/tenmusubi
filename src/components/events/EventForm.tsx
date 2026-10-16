@@ -81,7 +81,7 @@ export interface EventFormValues {
   applicationOpenAt: string;
   applicationCloseAt: string;
   slots: string;
-  // 区画ごとの出展料。最低1行。単一料金なら区画名を空のまま1行だけ入れる。
+  // 区画ごとの出店料。最低1行。単一料金なら区画名を空のまま1行だけ入れる。
   // Event.exhibitFee / exhibitFeeMax はここから算出されるので、フォームでは持たない。
   feeTiers: FeeTierRow[];
   feeOptions: FeeOptionRow[];
@@ -252,7 +252,7 @@ export function EventForm({
       // 金額の入っていない行は捨てる。入力途中の空行がそのまま送られるのを防ぐ。
       const feeTiers = form.feeTiers.filter((t) => t.fee.trim() !== "");
       if (feeTiers.length === 0) {
-        setError("出展料を入力してください（無料の場合は0）");
+        setError("出店料を入力してください（無料の場合は0）");
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
@@ -429,11 +429,11 @@ export function EventForm({
           <CardDescription>出店者が最初に確認する項目です</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 区画ごとの出展料。一律の金額より、区画・エリアごとの実額が並んでいる方が
+          {/* 区画ごとの出店料。一律の金額より、区画・エリアごとの実額が並んでいる方が
               出店者は判断しやすい（2026-08-27 MTG）。行は何本でも足せる。 */}
           <div className="space-y-3">
             <Label>
-              出展料 <span className="text-red-500">*</span>
+              出店料 <span className="text-red-500">*</span>
             </Label>
             <div className="space-y-3">
               {form.feeTiers.map((tier, i) => (
@@ -641,7 +641,7 @@ export function EventForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="feeNote">出展料の補足（募集全体）</Label>
+            <Label htmlFor="feeNote">出店料の補足（募集全体）</Label>
             <Input
               id="feeNote"
               value={form.feeNote}
@@ -870,7 +870,7 @@ export function EventForm({
 
           <div className="space-y-2">
             <Label>
-              天候で中止になった場合の出展料 <span className="text-red-500">*</span>
+              天候で中止になった場合の出店料 <span className="text-red-500">*</span>
             </Label>
             <div className="flex flex-wrap gap-2">
               {WEATHER_REFUND_OPTIONS.map((o) => (

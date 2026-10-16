@@ -58,7 +58,7 @@ export default function NewEventPage() {
 
           <h1 className="text-2xl font-bold text-gray-900 mb-2">出店募集をつくる</h1>
           <p className="text-sm text-gray-600 mb-6">
-            出店者は電源・区画サイズ・出展料を見て応募するかを決めます。ここを正確に書くほど、条件の合う出店者が集まります。
+            出店者は電源・区画サイズ・出店料を見て応募するかを決めます。ここを正確に書くほど、条件の合う出店者が集まります。
           </p>
 
           {organizerStatus !== "approved" ? (

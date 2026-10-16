@@ -111,7 +111,7 @@ export function ApplicantSpecList({
         <Section icon={<Coins className="h-4 w-4" />} title="希望する区画">
           {snapshot.desiredFeeTier && (
             <Row
-              label={snapshot.desiredFeeTier.label || "出展料"}
+              label={snapshot.desiredFeeTier.label || "出店料"}
               value={
                 snapshot.desiredFeeTier.fee === 0
                   ? "無料"

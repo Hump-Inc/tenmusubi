@@ -393,7 +393,7 @@ export default function ApplicationThreadPage({
             </Card>
           )}
 
-          {/* 出展料のお支払い */}
+          {/* 出店料のお支払い */}
           {data.paymentsEnabled &&
             (application.status === "confirmed" || (data.payments ?? []).length > 0) && (
             <div className="mb-4">
@@ -411,8 +411,8 @@ export default function ApplicationThreadPage({
                 }
                 defaultDescription={[
                   snapshot?.desiredFeeTier?.label
-                    ? `出展料（${snapshot.desiredFeeTier.label}）`
-                    : "出展料",
+                    ? `出店料（${snapshot.desiredFeeTier.label}）`
+                    : "出店料",
                   ...(snapshot?.desiredFeeOptions ?? []).map((o) => o.label),
                 ].join("＋")}
                 returnedFromCheckout={returnedFromCheckout}

@@ -547,7 +547,7 @@ async function main() {
       CONSTRAINT "EventApplicationDocument_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
       CONSTRAINT "EventApplicationDocument_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "ApplicationDocument" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
-    // ---- 出展料のオンライン決済 ----
+    // ---- 出店料のオンライン決済 ----
     `CREATE TABLE IF NOT EXISTS "EventPayment" (
       "id" TEXT NOT NULL PRIMARY KEY,
       "applicationId" TEXT NOT NULL,
@@ -799,7 +799,7 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "EventApplicationMessage_applicationId_createdAt_idx" ON "EventApplicationMessage"("applicationId", "createdAt")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventApplicationDocument_applicationId_documentId_key" ON "EventApplicationDocument"("applicationId", "documentId")',
     'CREATE INDEX IF NOT EXISTS "EventApplicationDocument_applicationId_idx" ON "EventApplicationDocument"("applicationId")',
-    // ---- 出展料のオンライン決済 ----
+    // ---- 出店料のオンライン決済 ----
     'CREATE UNIQUE INDEX IF NOT EXISTS "OrganizerProfile_stripeAccountId_key" ON "OrganizerProfile"("stripeAccountId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripeCheckoutSessionId_key" ON "EventPayment"("stripeCheckoutSessionId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventPayment_stripePaymentIntentId_key" ON "EventPayment"("stripePaymentIntentId")',

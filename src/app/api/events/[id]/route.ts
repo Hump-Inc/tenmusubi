@@ -154,7 +154,7 @@ export async function PUT(
     }
     if (exhibitFee === null || exhibitFee < 0) {
       return NextResponse.json(
-        { error: "出展料を入力してください（無料の場合は0）" },
+        { error: "出店料を入力してください（無料の場合は0）" },
         { status: 400 }
       );
     }
@@ -168,7 +168,7 @@ export async function PUT(
     // 上限は区画やエリアで金額が変わる募集のためのもの。下限を割る値は誤入力。
     if (exhibitFeeMax !== null && exhibitFeeMax < exhibitFee) {
       return NextResponse.json(
-        { error: "出展料の上限は、下限と同じかそれより高い金額にしてください" },
+        { error: "出店料の上限は、下限と同じかそれより高い金額にしてください" },
         { status: 400 }
       );
     }

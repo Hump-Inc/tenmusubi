@@ -35,5 +35,5 @@ export const HOME_ROLE_PHOTOS = {
 export const HOME_TRUST_PHOTOS = {
   documents: "/images/trust-documents.jpg", // 書類は出す相手を選べます
   verified: "/images/trust-verified.jpg", // 主催者は運営が確認します
-  payment: "/images/trust-payment.jpg", // 出展料のオンライン決済
+  payment: "/images/trust-payment.jpg", // 出店料のオンライン決済
 } as const;
