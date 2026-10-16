@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { siteUrl } from "@/lib/siteUrl";
 
 export async function POST() {
   try {
@@ -55,7 +56,7 @@ export async function POST() {
     }
 
     // Checkout Session作成
-    const baseUrl = process.env.AUTH_URL || "http://localhost:3000";
+    const baseUrl = siteUrl();
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: "subscription",

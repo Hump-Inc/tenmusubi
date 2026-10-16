@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { siteUrl } from "@/lib/siteUrl";
 
 export async function POST() {
   try {
@@ -22,7 +23,7 @@ export async function POST() {
       );
     }
 
-    const baseUrl = process.env.AUTH_URL || "http://localhost:3000";
+    const baseUrl = siteUrl();
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${baseUrl}/settings/payment`,

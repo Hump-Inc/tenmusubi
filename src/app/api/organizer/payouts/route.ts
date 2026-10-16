@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { stripe } from "@/lib/stripe";
 import { platformFeePercent, syncOrganizerAccount } from "@/lib/eventPayments";
+import { siteUrl } from "@/lib/siteUrl";
 
 /**
  * 出店料の受け取り口座（Stripe Connect Express）。
@@ -12,7 +13,7 @@ import { platformFeePercent, syncOrganizerAccount } from "@/lib/eventPayments";
  * 結果（決済を受けられるか・入金できるか）だけを持つ。
  */
 
-const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
+const BASE_URL = siteUrl();
 
 async function loadOrganizer(userId: string) {
   return prisma.organizerProfile.findUnique({

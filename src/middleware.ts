@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { siteUrl } from "@/lib/siteUrl";
 
 // Coming soon mode - disabled for now (検収中)
 const isComingSoonMode = false;
 
 // Base URL for redirects (use AUTH_URL or request origin)
 const getBaseUrl = (requestOrigin: string) => {
-  return process.env.AUTH_URL || requestOrigin;
+  return siteUrl(requestOrigin);
 };
 
 // Routes that require authentication

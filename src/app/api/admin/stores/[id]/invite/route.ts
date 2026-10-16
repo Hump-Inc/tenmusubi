@@ -3,8 +3,9 @@ import QRCode from "qrcode";
 import { auth, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createStoreClaimToken, deleteStoreClaimToken } from "@/lib/tokens";
+import { siteUrl } from "@/lib/siteUrl";
 
-const BASE_URL = process.env.AUTH_URL || "http://localhost:3000";
+const BASE_URL = siteUrl();
 
 // POST: クレーム招待リンクを発行（管理者が手渡しで営業者に渡す想定）
 export async function POST(
