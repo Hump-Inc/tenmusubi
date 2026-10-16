@@ -3,7 +3,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { stripe } from "@/lib/stripe";
-import { platformFeePercent, syncOrganizerAccount } from "@/lib/eventPayments";
+import {
+  organizerBankAccount,
+  organizerPayoutSummary,
+  platformFeePercent,
+  syncOrganizerAccount,
+} from "@/lib/eventPayments";
 import { siteUrl } from "@/lib/siteUrl";
 
 /**
@@ -47,13 +52,27 @@ export async function GET() {
     let chargesEnabled = organizer.stripeChargesEnabled;
     let payoutsEnabled = organizer.stripePayoutsEnabled;
     let detailsSubmitted = chargesEnabled;
+    let bankAccount = null;
     if (organizer.stripeAccountId) {
       const account = await stripe.accounts.retrieve(organizer.stripeAccountId);
       await syncOrganizerAccount(account);
       chargesEnabled = account.charges_enabled === true;
       payoutsEnabled = account.payouts_enabled === true;
       detailsSubmitted = account.details_submitted === true;
+      // 口座の表示は補助なので、取れなくても受け取りの状態は返す
+      if (detailsSubmitted) {
+        bankAccount = await organizerBankAccount(organizer.stripeAccountId).catch((e) => {
+          console.error("Organizer bank account error:", e);
+          return null;
+        });
+      }
     }
+    const summary = detailsSubmitted
+      ? await organizerPayoutSummary(organizer.id, organizer.stripeAccountId).catch((e) => {
+          console.error("Organizer payout summary error:", e);
+          return null;
+        })
+      : null;
 
     return NextResponse.json({
       enabled: true,
@@ -62,6 +81,9 @@ export async function GET() {
       payoutsEnabled,
       detailsSubmitted,
       feePercent: platformFeePercent(),
+      bankAccount,
+      payouts: summary?.events ?? [],
+      lastPayoutFailed: summary?.lastPayoutFailed ?? false,
     });
   } catch (error) {
     console.error("Organizer payouts GET error:", error);
