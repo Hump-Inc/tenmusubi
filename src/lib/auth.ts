@@ -63,13 +63,21 @@ function CustomPrismaAdapter(): Adapter {
         });
 
         if (existingUser) {
-          // 既存ユーザーを返す（新規作成しない）
+          // 既存ユーザーを返す（新規作成しない）。メール登録で未確認のままなら、
+          // OAuth プロバイダーが確認したメールなので確認済みにする
+          if (!existingUser.emailVerified) {
+            return (await prisma.user.update({
+              where: { id: existingUser.id },
+              data: { emailVerified: new Date() },
+            })) as AdapterUser;
+          }
           return existingUser as AdapterUser;
         }
       }
 
-      // 既存ユーザーがいない場合は新規作成
-      return baseAdapter.createUser!(data);
+      // 既存ユーザーがいない場合は新規作成。ここを通るのは OAuth だけ
+      // （メール登録は /api/auth/register で作る）なので確認済みで作る
+      return baseAdapter.createUser!({ ...data, emailVerified: data.emailVerified ?? new Date() });
     },
 
     // linkAccountをオーバーライドして、重複を避ける
@@ -239,18 +247,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async signIn({ user, account }) {
-      // OAuth認証時にemailVerifiedを自動設定
+      // OAuth認証時にemailVerifiedを自動設定。
+      // 初回の OAuth では、Auth.js はユーザーを作る前にここを呼び、user.id は
+      // まだ DB に無い仮の ID になる。update だと例外になり AccessDenied で
+      // 登録できなくなるので、updateMany で「あれば更新」にする
+      // （初回のユーザーは CustomPrismaAdapter.createUser で確認済みにする）
       if (account && account.provider !== "credentials" && user.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { emailVerified: true },
+        await prisma.user.updateMany({
+          where: { id: user.id, emailVerified: null },
+          data: { emailVerified: new Date() },
         });
-        if (!dbUser?.emailVerified) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { emailVerified: new Date() },
-          });
-        }
       }
 
       // アカウントリンクモードの確認
