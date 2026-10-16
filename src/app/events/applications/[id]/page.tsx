@@ -423,6 +423,7 @@ export default function ApplicationThreadPage({
                   ...(snapshot?.desiredFeeOptions ?? []).map((o) => o.label),
                 ].join("＋")}
                 returnedFromCheckout={returnedFromCheckout}
+                cancellationStatus={data.cancellation?.status ?? null}
                 onChanged={load}
               />
             </div>

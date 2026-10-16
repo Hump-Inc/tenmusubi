@@ -272,6 +272,14 @@ export function CancellationPanel({
       {/* 運営: いつでも額を決めて確定できる */}
       {cancellation && cancellation.status !== "confirmed" && role === "admin" && (
         <div className="rounded-xl border border-gray-100 p-4 space-y-3">
+          <p className="text-sm font-medium text-gray-900">
+            {cancellation.status === "disputed"
+              ? `合意できないとして申し立てがあります（${formatDateShort(cancellation.disputedAt)}）`
+              : cancellation.status === "accepted" && cancellation.refundAmount !== null
+                ? `主催者が返金額 ${yen(cancellation.refundAmount)} で受け付け、出店者の承認待ちです`
+                : "主催者の受け付け待ちです"}
+            {deadline && cancellation.status !== "disputed" && <>（{deadline}以降に自動で確定）</>}
+          </p>
           <p className="text-sm text-gray-900">運営として返金額を決めて確定します（0円〜{yen(cancellation.paidAmount)}）。</p>
           <Input type="number" inputMode="numeric" min={0} max={cancellation.paidAmount} value={refund} onChange={(e) => setRefund(e.target.value)} />
           <Button size="sm" className="rounded-full" onClick={() => act("resolve", { refundAmount: Number(refund) })} disabled={working || refund === ""}>
