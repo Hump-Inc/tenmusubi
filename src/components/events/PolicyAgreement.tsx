@@ -41,6 +41,9 @@ export function PolicyAgreement({
           {weather ? "します" : "返金します"}
         </li>
         <li>連絡のない不出店は100%。あわせて一定期間、応募を停止します</li>
+        <li>
+          キャンセルは、やり取りの画面の「キャンセルを申し出る」から。主催者が受け付け、出店者が承認すると返金します（どちらも3日たつと自動で確定）
+        </li>
       </ul>
       <Link
         href="/cancel-policy"

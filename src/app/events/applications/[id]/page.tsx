@@ -32,6 +32,11 @@ import {
   type DocumentSummary,
 } from "@/components/events/DisclosurePanel";
 import { PaymentPanel, type PaymentSummary } from "@/components/events/PaymentPanel";
+import {
+  CancellationPanel,
+  type CancellationSummary,
+  type CancelPreview,
+} from "@/components/events/CancellationPanel";
 import { PolicyAgreement } from "@/components/events/PolicyAgreement";
 import type { ApplicationSnapshot } from "@/lib/eventApplicationSnapshot";
 import { formatFee, formatEventDate } from "@/lib/eventFormat";
@@ -71,6 +76,8 @@ interface ThreadData {
   myDocuments: DocumentSummary[];
   payments: PaymentSummary[];
   payouts: { ready: boolean; feePercent: number; payoutDueAt: string } | null;
+  cancellation: CancellationSummary | null;
+  cancelPreview: CancelPreview | null;
   paymentsEnabled: boolean;
 }
 
@@ -416,6 +423,21 @@ export default function ApplicationThreadPage({
                   ...(snapshot?.desiredFeeOptions ?? []).map((o) => o.label),
                 ].join("＋")}
                 returnedFromCheckout={returnedFromCheckout}
+                onChanged={load}
+              />
+            </div>
+          )}
+
+          {/* 出店料を払ったあとのキャンセル */}
+          {data.paymentsEnabled && (data.cancellation || data.cancelPreview) && (
+            <div className="mb-4">
+              <CancellationPanel
+                // 段階が変わったら入力欄の初期値（返金額）を取り直す
+                key={data.cancellation?.status ?? "none"}
+                applicationId={application.id}
+                role={role}
+                cancellation={data.cancellation}
+                preview={data.cancelPreview}
                 onChanged={load}
               />
             </div>

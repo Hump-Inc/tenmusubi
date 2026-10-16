@@ -79,7 +79,7 @@ export async function onEventCancelled(
  * 閉じる前に払われてしまった分は Webhook で paid になり、管理画面の
  * 「中止した募集の支払い」に出るので、そこで運営が返金する。
  */
-async function cancelOpenRequests(
+export async function cancelOpenRequests(
   payments: { id: string; stripeCheckoutSessionId: string | null }[],
   now: Date
 ) {

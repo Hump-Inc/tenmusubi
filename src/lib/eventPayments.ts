@@ -250,6 +250,9 @@ export async function runEventPayouts(now = new Date()) {
       paidOutAt: null,
       application: {
         event: { endAt: { lte: new Date(now.getTime() - PAYOUT_GRACE_DAYS * DAY_MS) } },
+        // キャンセルの手続き中は入金しない（キャンセル規定 第7条第5項）。返金のお金を
+        // 主催者の口座へ出してしまうと、残高から戻せなくなる
+        OR: [{ cancellation: { is: null } }, { cancellation: { is: { status: "confirmed" } } }],
       },
     },
     include: {

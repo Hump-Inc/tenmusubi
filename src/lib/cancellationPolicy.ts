@@ -12,7 +12,9 @@
  */
 
 // 2026-10-16: 「出展料」を「出店料」に統一（同日のMTGで決定。内容の変更はなし）
-export const CANCELLATION_POLICY_VERSION = "2026-10-16";
+// 2026-10-16.2: キャンセルを画面の申し出で受け付け、主催者の受け付け・出店者の承認・
+//   期限切れの自動確定で返金する形に（第2条・第3条・第7条）。運営への連絡は合意できない場合だけ
+export const CANCELLATION_POLICY_VERSION = "2026-10-16.2";
 
 // true の間は、ページと同意欄に「草案」と出す。
 export const CANCELLATION_POLICY_IS_DRAFT = false;
@@ -34,6 +36,45 @@ export const CANCELLATION_FEE_TABLE = [
   { when: "連絡のない不出店（無断欠席）", fee: "出店料の100%" },
 ];
 
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// 日本時間の暦日の通し番号。「開催◯日前」は時刻ではなく暦日で数える
+function jstDayNumber(d: Date): number {
+  return Math.floor((d.getTime() + JST_OFFSET_MS) / DAY_MS);
+}
+
+/**
+ * 出店者都合のキャンセル料の割合（%）。CANCELLATION_FEE_TABLE をコードにしたもの。
+ * 表を変えたら、ここも合わせること。
+ *
+ * requestedAt は、出店者が画面からキャンセルを申し出た時刻（第2条・第7条第1項）。
+ */
+export function cancellationFeePercent(params: {
+  requestedAt: Date;
+  startAt: Date;
+  confirmedAt: Date | null;
+}): number {
+  const { requestedAt, startAt, confirmedAt } = params;
+  const daysBefore = jstDayNumber(startAt) - jstDayNumber(requestedAt);
+
+  // 開催7日前より後に出店が決まり、そこから24時間以内なら無料
+  if (
+    confirmedAt &&
+    jstDayNumber(startAt) - jstDayNumber(confirmedAt) < 7 &&
+    requestedAt.getTime() - confirmedAt.getTime() <= DAY_MS
+  ) {
+    return 0;
+  }
+  if (daysBefore >= 15) return 0;
+  if (daysBefore >= 8) return 30;
+  if (daysBefore >= 2) return 50;
+  return 100;
+}
+
+// 主催者の受け付け・出店者の承認を待つ日数（第7条第2項〜第4項）。過ぎたら自動で確定する
+export const CANCELLATION_RESPONSE_DAYS = 3;
+
 export const CANCELLATION_POLICY: PolicyArticle[] = [
   {
     title: "第1条（適用範囲）",
@@ -44,7 +85,10 @@ export const CANCELLATION_POLICY: PolicyArticle[] = [
   },
   {
     title: "第2条（出店者都合のキャンセル）",
-    body: ["出店者の都合により出店を取りやめる場合、開催日を基準に次のキャンセル料が発生します。"],
+    body: [
+      "出店者の都合により出店を取りやめる場合、開催日を基準に次のキャンセル料が発生します。",
+      "キャンセル料の時期は、第7条第1項の申し出の操作が行われた時刻で判定します。",
+    ],
     table: CANCELLATION_FEE_TABLE,
   },
   {
@@ -53,6 +97,7 @@ export const CANCELLATION_POLICY: PolicyArticle[] = [
       "主催者の都合により、決定済みの出店を取り消す場合、または募集そのものを中止する場合は、出店料の全額を出店者へ返金します。出店者に費用負担は発生しません。",
       "開催7日前以降に主催者都合の取り消しが行われた場合、主催者はプラットフォーム利用料相当額を負担するものとします。",
       "主催者都合の取り消しが繰り返された場合、募集の掲載を停止することがあります。",
+      "主催者都合の取り消しは、主催者がてんむすび上で行います。出店料は全額が出店者に返金されます。",
     ],
   },
   {
@@ -81,8 +126,12 @@ export const CANCELLATION_POLICY: PolicyArticle[] = [
   {
     title: "第7条（キャンセルの手続き）",
     body: [
-      "キャンセルは、てんむすびのお問い合わせ窓口への連絡により受け付けます。主催者と出店者の間の口頭・個別の連絡のみでは成立しません。",
-      "てんむすびが連絡を受け付けた時刻をもって、第2条の時期を判定します。",
+      "出店者都合のキャンセルは、出店者が、てんむすびのやり取りの画面から「キャンセルを申し出る」操作を行うことにより申し出るものとします。電話・SNS・メッセージ本文など、この操作以外の連絡のみでは申し出として扱いません。",
+      `主催者は、前項の申し出から${CANCELLATION_RESPONSE_DAYS}日以内に、てんむすび上でキャンセルを受け付けるものとします。受け付けの際、第2条に沿ったキャンセル料と返金額が表示されます。主催者は、返金額を増やす方向に限り、これを変更できます。`,
+      "主催者が前項の期限までに受け付けを行わない場合、第2条に沿った金額でキャンセルが確定します。",
+      `主催者が受け付けた内容は、出店者が承認した時点、または受け付けから${CANCELLATION_RESPONSE_DAYS}日が経過した時点で確定します。`,
+      "キャンセルが確定すると、返金が行われます。手続き中の出店料については、確定するまで主催者への入金を行いません。",
+      "主催者と出店者が内容に合意できない場合、いずれもてんむすびのお問い合わせ窓口に申し出ることができます。てんむすびは、やり取りの記録をもとに返金額を判断し、主催者・出店者はこれに従うものとします。",
     ],
   },
   {
@@ -95,5 +144,4 @@ export const CANCELLATION_POLICY: PolicyArticle[] = [
 ];
 
 // 草案のうち、まだ決まっていない・準備中のもの。ページの冒頭に出す。
-// キャンセルの操作画面ができたら、第7条を「てんむすび上の操作」に戻して VERSION を上げる。
 export const CANCELLATION_POLICY_OPEN_ITEMS: string[] = [];
