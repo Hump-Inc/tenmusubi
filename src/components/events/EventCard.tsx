@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { CalendarDays, MapPin, Coins, Users, Clock } from "lucide-react";
@@ -67,6 +70,8 @@ export function EventCard({ event }: { event: EventCardData }) {
   // 一律の金額を大きく出すと誤解を招く（2026-08-27 MTG）。金額は下段に幅で出す。
   const period = formatApplicationPeriod(event.applicationOpenAt, event.applicationCloseAt);
   const periodLine = formatPeriodLine(event.applicationOpenAt, event.applicationCloseAt);
+  const imageUrl = event.images[0]?.url;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
   return (
     <Link
@@ -74,13 +79,15 @@ export function EventCard({ event }: { event: EventCardData }) {
       className="group flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="relative aspect-[16/9] bg-muted">
-        {event.images[0]?.url ? (
+        {imageUrl && failedSrc !== imageUrl ? (
           <Image
-            src={event.images[0].url}
+            src={imageUrl}
             alt=""
             fill
             className="object-cover transition-transform group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            // 読み込めない画像は、画像の無い募集と同じ表示にする
+            onError={() => setFailedSrc(imageUrl)}
           />
         ) : (
           <div className="flex h-full items-center justify-center">

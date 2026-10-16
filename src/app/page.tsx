@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { ProfileCard } from "@/components/common/ProfileCard";
+import { ProfileCard, DEFAULT_CARD_IMAGE } from "@/components/common/ProfileCard";
 import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { CardIcon } from "@/components/common/CardIcon";
 import { HOME_CARD_IMAGES, HOME_ROLE_PHOTOS, HOME_TRUST_PHOTOS } from "@/lib/homeImages";
@@ -151,7 +151,7 @@ export default function HomePage() {
   const toCard = (v: VendorResult) => ({
     id: v.storeId || v.id,
     name: v.displayName,
-    image: v.images?.[0]?.url || v.user?.image || "/placeholder.jpg",
+    image: v.images?.[0]?.url || v.user?.image || DEFAULT_CARD_IMAGE,
     location: v.area || "未設定",
     rating: v.averageRating || 0,
     reviewCount: v.reviewCount || 0,

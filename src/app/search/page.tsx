@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Filter, SlidersHorizontal, Grid, List, X, Loader2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { SearchBox } from "@/components/common/SearchBox";
-import { ProfileCard } from "@/components/common/ProfileCard";
+import { ProfileCard, DEFAULT_CARD_IMAGE } from "@/components/common/ProfileCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,6 +40,8 @@ interface SearchResult {
 }
 
 const categories = SEARCH_CATEGORIES;
+// 「もっと見る」1回で足す件数（API の既定と同じ）
+const PAGE_SIZE = 20;
 const areas = AREAS;
 
 type SearchType = "vendor" | "space" | "event";
@@ -91,15 +93,19 @@ function SearchContent() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [events, setEvents] = useState<EventCardData[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("すべて");
   const [selectedFee, setSelectedFee] = useState("すべて");
   const months = monthOptions();
 
-  const fetchResults = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  // 条件を変えたあとに前の条件の「もっと見る」が返ってきても混ぜないための番号
+  const requestSeq = useRef(0);
+
+  // offset 件目から PAGE_SIZE 件を取る。出店者・スペースは results、イベントは events に入る
+  const fetchPage = useCallback(
+    async (offset: number) => {
       const params = new URLSearchParams();
       if (selectedArea === "その他") {
         // 「その他」= リスト内の主要エリア以外
@@ -109,6 +115,8 @@ function SearchContent() {
         params.set("area", selectedArea);
       }
       if (selectedCategory !== "すべて") params.set("category", selectedCategory);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
 
       if (searchType === "event") {
         // イベントはカードの中身が出店者・スペースと大きく違うので、別の一覧として扱う
@@ -123,10 +131,7 @@ function SearchContent() {
         if (selectedFee !== "すべて") params.set("maxFee", selectedFee);
         const res = await fetch(`/api/events?${params.toString()}`);
         const data = await res.json();
-        setEvents(data.events || []);
-        setResults([]);
-        setTotal(data.total || 0);
-        return;
+        return { events: (data.events || []) as EventCardData[], results: [], total: data.total || 0 };
       }
 
       const endpoint = searchType === "vendor" ? "/api/vendors" : "/api/spaces";
@@ -135,38 +140,73 @@ function SearchContent() {
 
       if (searchType === "vendor") {
         const vendors = data.vendors || [];
-        setResults(vendors.map((v: { id: string; storeId?: string; userId: string; displayName: string; images: { url: string }[]; user: { image: string }; area: string; averageRating: number; reviewCount: number; tags: string; description: string }) => ({
+        const results: SearchResult[] = vendors.map((v: { id: string; storeId?: string; userId: string; displayName: string; images: { url: string }[]; user: { image: string }; area: string; averageRating: number; reviewCount: number; tags: string; description: string }) => ({
           id: v.storeId || v.id, // Use store ID for linking to /store/[id]
           name: v.displayName,
-          image: v.images?.[0]?.url || v.user?.image || "/placeholder.jpg",
+          image: v.images?.[0]?.url || v.user?.image || DEFAULT_CARD_IMAGE,
           location: v.area || "未設定",
           rating: v.averageRating || 0,
           reviewCount: v.reviewCount || 0,
           tags: v.tags ? JSON.parse(v.tags) : [],
           description: v.description || "",
-        })));
-        setTotal(data.total || 0);
-      } else {
-        const spaces = data.spaces || [];
-        setResults(spaces.map((s: { id: string; name: string; images: { url: string }[]; location: string; _count: { reviews: number }; tags: string; description: string }) => ({
-          id: s.id,
-          name: s.name,
-          image: s.images?.[0]?.url || "/placeholder.jpg",
-          location: s.location,
-          rating: 0,
-          reviewCount: s._count?.reviews || 0,
-          tags: s.tags ? JSON.parse(s.tags) : [],
-          description: s.description || "",
-        })));
-        setTotal(data.total || 0);
+        }));
+        return { events: [], results, total: data.total || 0 };
       }
+      const spaces = data.spaces || [];
+      const results: SearchResult[] = spaces.map((s: { id: string; name: string; images: { url: string }[]; location: string; _count: { reviews: number }; tags: string; description: string }) => ({
+        id: s.id,
+        name: s.name,
+        image: s.images?.[0]?.url || DEFAULT_CARD_IMAGE,
+        location: s.location,
+        rating: 0,
+        reviewCount: s._count?.reviews || 0,
+        tags: s.tags ? JSON.parse(s.tags) : [],
+        description: s.description || "",
+      }));
+      return { events: [], results, total: data.total || 0 };
+    },
+    [searchType, selectedArea, selectedCategory, selectedMonth, selectedFee]
+  );
+
+  // 条件が変わったら1ページ目から取り直す
+  const fetchResults = useCallback(async () => {
+    const seq = ++requestSeq.current;
+    setIsLoading(true);
+    try {
+      const page = await fetchPage(0);
+      if (seq !== requestSeq.current) return;
+      setEvents(page.events);
+      setResults(page.results);
+      setTotal(page.total);
     } catch (error) {
       console.error("Search error:", error);
+      if (seq !== requestSeq.current) return;
       setResults([]);
+      setEvents([]);
     } finally {
-      setIsLoading(false);
+      if (seq === requestSeq.current) setIsLoading(false);
     }
-  }, [searchType, selectedArea, selectedCategory, selectedMonth, selectedFee]);
+  }, [fetchPage]);
+
+  // 「もっと見る」: 今出ている件数の続きから取り、後ろに足す
+  const loadMore = async () => {
+    const seq = requestSeq.current;
+    setIsLoadingMore(true);
+    try {
+      const page = await fetchPage(searchType === "event" ? events.length : results.length);
+      if (seq !== requestSeq.current) return;
+      if (searchType === "event") {
+        setEvents((prev) => [...prev, ...page.events.filter((e) => !prev.some((p) => p.id === e.id))]);
+      } else {
+        setResults((prev) => [...prev, ...page.results.filter((r) => !prev.some((p) => p.id === r.id))]);
+      }
+      setTotal(page.total);
+    } catch (error) {
+      console.error("Load more error:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     const type = searchParams.get("type");
@@ -484,11 +524,16 @@ function SearchContent() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {events.map((e) => (
-                    <EventCard key={e.id} event={e} />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {events.map((e) => (
+                      <EventCard key={e.id} event={e} />
+                    ))}
+                  </div>
+                  {events.length < total && (
+                    <LoadMoreButton loading={isLoadingMore} onClick={loadMore} />
+                  )}
+                </>
               )
             ) : results.length === 0 ? (
               <div className="text-center py-20">
@@ -527,11 +572,7 @@ function SearchContent() {
 
                 {/* Load More */}
                 {results.length < total && (
-                  <div className="mt-12 text-center">
-                    <Button variant="outline" className="rounded-full">
-                      もっと見る
-                    </Button>
-                  </div>
+                  <LoadMoreButton loading={isLoadingMore} onClick={loadMore} />
                 )}
               </>
             )}
@@ -549,5 +590,16 @@ export default function SearchPage() {
     <Suspense fallback={<div className="min-h-screen bg-background" />}>
       <SearchContent />
     </Suspense>
+  );
+}
+
+function LoadMoreButton({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  return (
+    <div className="mt-12 text-center">
+      <Button variant="outline" className="rounded-full" onClick={onClick} disabled={loading}>
+        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        もっと見る
+      </Button>
+    </div>
   );
 }

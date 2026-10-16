@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// 画像が未登録、または読み込めない（URL切れ・削除済み・外部サービスの不調）ときに出す画像
+export const DEFAULT_CARD_IMAGE = "/images/card-placeholder.svg";
+
 export interface ProfileCardProps {
   id: string;
   type: "vendor" | "space";
@@ -41,6 +44,9 @@ export function ProfileCard({
   const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(isFavoriteProp ?? false);
   const [isLoading, setIsLoading] = useState(false);
+  // 読み込みに失敗した画像の URL。src が変わったら（一覧の差し替えなど）もう一度試す
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const src = !image || failedSrc === image ? DEFAULT_CARD_IMAGE : image;
 
   // 外部からのprop変更に追従
   useEffect(() => {
@@ -114,9 +120,12 @@ export function ProfileCard({
       <div className="relative aspect-[4/3] overflow-hidden">
         <Link href={href}>
           <Image
-            src={image}
+            src={src}
             alt={name}
             fill
+            // 既定の画像は SVG なので最適化を通さない
+            unoptimized={src === DEFAULT_CARD_IMAGE}
+            onError={() => setFailedSrc(image)}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
