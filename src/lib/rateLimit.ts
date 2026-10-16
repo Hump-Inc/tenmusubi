@@ -42,4 +42,8 @@ export const RATE_LIMITS = {
   publicPage: { limit: 60, windowSeconds: 60 },
   /** スペース登録フォーム: 1IPあたり 5req/時 */
   spaceLead: { limit: 5, windowSeconds: 60 * 60 },
+  /** メール＋パスワードのログイン: 1アカウントあたり 10回/15分 */
+  loginPerEmail: { limit: 10, windowSeconds: 15 * 60 },
+  /** メール＋パスワードのログイン: 1IPあたり 30回/15分 */
+  loginPerIp: { limit: 30, windowSeconds: 15 * 60 },
 } as const;

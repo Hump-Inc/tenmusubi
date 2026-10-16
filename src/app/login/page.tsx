@@ -40,6 +40,10 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      if (result?.code === "rate_limited") {
+        setError("ログインの試行回数が多すぎます。15分ほど待ってからお試しください");
+        return;
+      }
       if (result?.error) {
         setError("メールアドレスまたはパスワードが正しくありません");
         return;
