@@ -11,7 +11,7 @@ import { formatDateShort } from "@/lib/eventFormat";
 
 export interface CancellationSummary {
   id: string;
-  kind: "vendor" | "organizer";
+  kind: "vendor" | "organizer" | "event";
   status: "requested" | "accepted" | "disputed" | "confirmed";
   requestedAt: string;
   paidAmount: number;
@@ -195,7 +195,12 @@ export function CancellationPanel({
       {cancellation && (
         <div className="space-y-1 text-sm text-gray-700">
           <p>
-            {cancellation.kind === "organizer" ? "主催者都合の取り消し" : "出店者からのキャンセルの申し出"}（
+            {cancellation.kind === "organizer"
+              ? "主催者都合の取り消し"
+              : cancellation.kind === "event"
+                ? "募集の中止による返金"
+                : "出店者からのキャンセルの申し出"}
+            （
             {formatDateShort(cancellation.requestedAt)}）
           </p>
           {cancellation.kind === "vendor" && (
@@ -208,7 +213,7 @@ export function CancellationPanel({
       )}
 
       {/* 主催者の受け付け待ち */}
-      {cancellation?.status === "requested" && role === "organizer" && (
+      {cancellation?.status === "requested" && cancellation.kind === "vendor" && role === "organizer" && (
         <div className="rounded-xl border border-gray-100 p-4 space-y-3">
           <p className="text-sm text-gray-900">
             内容を確認して受け付けてください。
@@ -237,7 +242,7 @@ export function CancellationPanel({
           </div>
         </div>
       )}
-      {cancellation?.status === "requested" && role === "vendor" && (
+      {cancellation?.status === "requested" && cancellation.kind === "vendor" && role === "vendor" && (
         <div className="space-y-2">
           <p className="text-sm text-gray-900">
             主催者の受け付けを待っています。
@@ -245,6 +250,11 @@ export function CancellationPanel({
           </p>
           {disputeButton}
         </div>
+      )}
+
+      {/* 募集の中止の返金が通らなかった。運営が確定する */}
+      {cancellation?.status === "requested" && cancellation.kind === "event" && role !== "admin" && (
+        <p className="text-sm text-gray-900">返金の処理を運営が確認しています。それまで主催者への入金は行いません。</p>
       )}
 
       {/* 出店者の承認待ち */}
