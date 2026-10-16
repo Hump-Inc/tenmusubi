@@ -8,7 +8,7 @@ import { prisma } from "./prisma";
 import { cookies } from "next/headers";
 import type { Adapter, AdapterUser } from "next-auth/adapters";
 import { checkRateLimit, RATE_LIMITS } from "./rateLimit";
-import { getClientIp } from "./shareToken";
+import { getClientIp } from "./clientIp";
 
 // ログイン画面は result.code で見分けて、回数制限の案内を出す
 class LoginRateLimited extends CredentialsSignin {
