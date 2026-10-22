@@ -457,6 +457,8 @@ async function main() {
       "weatherRemindedAt" DATETIME,
       "status" TEXT NOT NULL DEFAULT 'draft',
       "publishedAt" DATETIME,
+      "cancelledAt" DATETIME,
+      "cancelCause" TEXT,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "Event_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "OrganizerProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -657,6 +659,8 @@ async function main() {
     if (!colNames.has("weatherDecisionHour")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionHour" INTEGER');
     if (!colNames.has("weatherRefundPercent")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRefundPercent" INTEGER');
     if (!colNames.has("weatherRemindedAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRemindedAt" DATETIME');
+    if (!colNames.has("cancelledAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "cancelledAt" DATETIME');
+    if (!colNames.has("cancelCause")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "cancelCause" TEXT');
     if (!colNames.has("followersNotifiedAt")) {
       alterStatements.push('ALTER TABLE "Event" ADD COLUMN "followersNotifiedAt" DATETIME');
       // 列を足した時点で公開済みの募集は「新着」ではない。印を付けて、既存の募集を

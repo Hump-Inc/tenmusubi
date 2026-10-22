@@ -21,6 +21,12 @@ export async function onEventCancelled(
   // 返金の割合を決める中止の理由。画面で選ばせない経路（編集・削除）は主催者都合＝全額
   cause: "weather" | "organizer" = "organizer"
 ) {
+  // 主催者都合の取り消しの回数に数えるため、中止の理由を残す（src/lib/organizerRecord.ts）
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { cancelledAt: new Date(), cancelCause: cause },
+  });
+
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: {

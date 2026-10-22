@@ -743,6 +743,10 @@ model Event {
 
   status      String    @default("draft") // "draft" | "published" | "closed" | "cancelled"
   publishedAt DateTime?
+  // 中止した時刻と理由。主催者都合の取り消しの回数を募集ページに出すために残す
+  // （src/lib/organizerRecord.ts）。この列より前に中止した募集は null。
+  cancelledAt DateTime?
+  cancelCause String? // "weather"（天候・災害など） | "organizer"（主催者の都合）
   // フォロワーへ新着を知らせた時刻。下書きに戻して再公開しても二重に送らないための印。
   followersNotifiedAt DateTime?
 
