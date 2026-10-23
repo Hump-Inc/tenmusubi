@@ -457,6 +457,8 @@ async function main() {
       "weatherRemindedAt" DATETIME,
       "status" TEXT NOT NULL DEFAULT 'draft',
       "publishedAt" DATETIME,
+      "cancelledAt" DATETIME,
+      "cancelCause" TEXT,
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "Event_organizerId_fkey" FOREIGN KEY ("organizerId") REFERENCES "OrganizerProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -567,6 +569,27 @@ async function main() {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "EventPayment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    // ---- 出店料を払ったあとのキャンセル ----
+    `CREATE TABLE IF NOT EXISTS "EventCancellation" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "applicationId" TEXT NOT NULL,
+      "kind" TEXT NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'requested',
+      "requestedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "requestedById" TEXT NOT NULL,
+      "paidAmount" INTEGER NOT NULL,
+      "policyFee" INTEGER NOT NULL,
+      "refundAmount" INTEGER,
+      "refundedTotal" INTEGER NOT NULL DEFAULT 0,
+      "acceptedAt" DATETIME,
+      "disputedAt" DATETIME,
+      "disputedById" TEXT,
+      "confirmedAt" DATETIME,
+      "confirmedBy" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "EventCancellation_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
   ];
 
   // Execute creates
@@ -636,6 +659,8 @@ async function main() {
     if (!colNames.has("weatherDecisionHour")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherDecisionHour" INTEGER');
     if (!colNames.has("weatherRefundPercent")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRefundPercent" INTEGER');
     if (!colNames.has("weatherRemindedAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "weatherRemindedAt" DATETIME');
+    if (!colNames.has("cancelledAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "cancelledAt" DATETIME');
+    if (!colNames.has("cancelCause")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "cancelCause" TEXT');
     if (!colNames.has("followersNotifiedAt")) {
       alterStatements.push('ALTER TABLE "Event" ADD COLUMN "followersNotifiedAt" DATETIME');
       // 列を足した時点で公開済みの募集は「新着」ではない。印を付けて、既存の募集を
@@ -806,6 +831,8 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "EventPayment_applicationId_idx" ON "EventPayment"("applicationId")',
     'CREATE INDEX IF NOT EXISTS "EventPayment_status_idx" ON "EventPayment"("status")',
     'CREATE INDEX IF NOT EXISTS "EventPayment_stripePayoutId_idx" ON "EventPayment"("stripePayoutId")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "EventCancellation_applicationId_key" ON "EventCancellation"("applicationId")',
+    'CREATE INDEX IF NOT EXISTS "EventCancellation_status_idx" ON "EventCancellation"("status")',
   ];
 
   for (const sql of indexes) {

@@ -6,6 +6,7 @@ import { CANCEL_REASON_MAX, onEventCancelled } from "@/lib/eventCancel";
 /**
  * POST: 主催者が募集を中止する。書いた理由は、やり取り中・出店決定済みの
  * 出店者全員へそのまま届く（雨天中止などを一人ずつ連絡しなくて済むように）。
+ * 払い済みの出店料は、cause（"weather" | "organizer"）に応じた割合でその場で返金する。
  */
 export async function POST(
   request: Request,
@@ -38,6 +39,14 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const reason =
       typeof body.reason === "string" ? body.reason.trim().slice(0, CANCEL_REASON_MAX) : "";
+    // 返金の割合が変わるので必ず選んでもらう（キャンセル規定 第3条・第4条）
+    const cause = body.cause === "weather" || body.cause === "organizer" ? body.cause : null;
+    if (!cause) {
+      return NextResponse.json(
+        { error: "中止の理由（天候などか、主催者の都合か）を選んでください" },
+        { status: 400 }
+      );
+    }
 
     // 二重に押されても知らせは1回だけにする
     const updated = await prisma.event.updateMany({
@@ -48,7 +57,7 @@ export async function POST(
       return NextResponse.json({ error: "この募集はすでに中止になっています" }, { status: 409 });
     }
 
-    await onEventCancelled(id, { reason, senderId: session.user.id }).catch((e) =>
+    await onEventCancelled(id, { reason, senderId: session.user.id }, cause).catch((e) =>
       console.error("Event cancel notify error:", e)
     );
 

@@ -250,6 +250,9 @@ export async function runEventPayouts(now = new Date()) {
       paidOutAt: null,
       application: {
         event: { endAt: { lte: new Date(now.getTime() - PAYOUT_GRACE_DAYS * DAY_MS) } },
+        // キャンセルの手続き中は入金しない（キャンセル規定 第7条第5項）。返金のお金を
+        // 主催者の口座へ出してしまうと、残高から戻せなくなる
+        OR: [{ cancellation: { is: null } }, { cancellation: { is: { status: "confirmed" } } }],
       },
     },
     include: {
@@ -378,6 +381,7 @@ export async function organizerBankAccount(stripeAccountId: string): Promise<Org
 export type EventPayoutStatus =
   | "scheduled" // 開催後に入金する（入金予定日まで待つ）
   | "waiting" // 入金予定日を過ぎたが、残高の確定待ちなどで翌日以降に回っている
+  | "held" // キャンセルの手続き中で入金を止めている（runEventPayouts と同じ判定）
   | "in_transit" // 入金の手続き済み、銀行へ送金中
   | "paid" // 着金済み
   | "nothing"; // 全額返金などで入金する額が無い
@@ -413,6 +417,7 @@ export async function organizerPayoutSummary(
       stripePayoutId: true,
       application: {
         select: {
+          cancellation: { select: { status: true } },
           event: { select: { id: true, title: true, startAt: true, endAt: true } },
         },
       },
@@ -431,18 +436,22 @@ export async function organizerPayoutSummary(
     }
   }
 
-  const byEvent = new Map<string, EventPayoutSummary & { pendingDue: boolean; payoutIds: Set<string> }>();
+  const byEvent = new Map<string, EventPayoutSummary & { held: boolean; pendingDue: boolean; payoutIds: Set<string> }>();
   for (const p of payments) {
     const e = p.application.event;
     const row =
       byEvent.get(e.id) ??
-      { eventId: e.id, title: e.title, startAt: e.startAt, gross: 0, fee: 0, payout: 0, status: "nothing" as EventPayoutStatus, date: null, pendingDue: false, payoutIds: new Set<string>() };
+      { eventId: e.id, title: e.title, startAt: e.startAt, gross: 0, fee: 0, payout: 0, status: "nothing" as EventPayoutStatus, date: null, held: false, pendingDue: false, payoutIds: new Set<string>() };
     const gross = p.amount - p.refundedAmount;
     const payout = payoutAmountFor(p);
     row.gross += gross;
     row.payout += payout;
     row.fee += gross - payout;
-    if (payout > 0 && !p.paidOutAt) row.pendingDue = true;
+    if (payout > 0 && !p.paidOutAt) {
+      const c = p.application.cancellation;
+      if (c && c.status !== "confirmed") row.held = true;
+      else row.pendingDue = true;
+    }
     if (p.stripePayoutId) row.payoutIds.add(p.stripePayoutId);
     byEvent.set(e.id, row);
     // 入金予定日は開催の終わりから決まる
@@ -456,6 +465,8 @@ export async function organizerPayoutSummary(
     if (row.payout === 0) {
       status = "nothing";
       date = null;
+    } else if (row.held) {
+      status = "held";
     } else if (row.pendingDue) {
       status = due.getTime() > now.getTime() ? "scheduled" : "waiting";
     } else {
