@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, CalendarDays, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, AlertTriangle, ExternalLink, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -40,6 +41,9 @@ interface AdminEvent {
   confirmedCount: number;
   openCount: number;
   unreadByOrganizer: number;
+  deletionRequestedAt: string | null;
+  deletionRequestReason: string | null;
+  paymentCount: number;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -68,6 +72,7 @@ export default function AdminEventsPage() {
   const [filter, setFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -87,6 +92,53 @@ export default function AdminEventsPage() {
       setIsLoading(false);
     }
   }, [filter]);
+
+  // 募集を消せるのは運営だけ。応募・やり取りも一緒に消えるので、件数を見せて確かめる。
+  const handleDelete = async (e: AdminEvent) => {
+    const detail =
+      e.applicationCount > 0
+        ? `\n応募${e.applicationCount}件と、そのやり取りも一緒に消え、元に戻せません。`
+        : "\n元に戻せません。";
+    if (!window.confirm(`「${e.title}」を削除しますか？${detail}`)) return;
+    setBusyId(e.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/events/${e.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "削除に失敗しました");
+        return;
+      }
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDismiss = async (e: AdminEvent) => {
+    const note = window.prompt(
+      `「${e.title}」の削除の申請を見送ります。主催者に伝えることがあれば入力してください（空欄可）`,
+      ""
+    );
+    if (note === null) return;
+    setBusyId(e.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/events/${e.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dismissDeletionRequest", note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "更新に失敗しました");
+        return;
+      }
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -123,6 +175,7 @@ export default function AdminEventsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">すべて</SelectItem>
+              <SelectItem value="deletion_requested">削除申請あり</SelectItem>
               <SelectItem value="published">公開中</SelectItem>
               <SelectItem value="draft">下書き</SelectItem>
               <SelectItem value="closed">募集終了</SelectItem>
@@ -135,7 +188,7 @@ export default function AdminEventsPage() {
           <div className="mb-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
           {(
             [
               { label: "掲載数", value: stats.total },
@@ -144,6 +197,7 @@ export default function AdminEventsPage() {
               { label: "応募", value: stats.applications },
               { label: "出店決定", value: stats.confirmed },
               { label: "未返信あり", value: stats.stalled, warn: true },
+              { label: "削除申請", value: stats.deletionRequested, warn: true },
             ] as { label: string; value: number | undefined; warn?: boolean }[]
           ).map(({ label, value, warn }) => (
             <Card key={label} className="rounded-2xl border-0 shadow-sm">
@@ -184,6 +238,7 @@ export default function AdminEventsPage() {
                     <TableHead className="text-right">出店料</TableHead>
                     <TableHead className="text-right">応募</TableHead>
                     <TableHead>状態</TableHead>
+                    <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,6 +292,50 @@ export default function AdminEventsPage() {
                         <Badge className={STATUS_STYLE[e.status] ?? ""}>
                           {STATUS_LABEL[e.status] ?? e.status}
                         </Badge>
+                        {e.deletionRequestedAt && (
+                          <div className="mt-2 max-w-[220px]">
+                            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">
+                              削除申請 {formatDate(e.deletionRequestedAt)}
+                            </Badge>
+                            {e.deletionRequestReason && (
+                              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-gray-600">
+                                {e.deletionRequestReason}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-col items-start gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700"
+                            disabled={busyId === e.id || e.paymentCount > 0}
+                            title={
+                              e.paymentCount > 0
+                                ? "支払いの記録があるため削除できません。中止で対応してください"
+                                : undefined
+                            }
+                            onClick={() => handleDelete(e)}
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            削除
+                          </Button>
+                          {e.deletionRequestedAt && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busyId === e.id}
+                              onClick={() => handleDismiss(e)}
+                            >
+                              申請を見送る
+                            </Button>
+                          )}
+                          {e.paymentCount > 0 && (
+                            <p className="text-xs text-gray-500">支払いあり・削除不可</p>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

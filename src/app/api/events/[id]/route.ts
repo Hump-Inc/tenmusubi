@@ -34,6 +34,9 @@ function toJsonArray(value: unknown): string | null {
   return items.length > 0 ? JSON.stringify(items) : null;
 }
 
+// やり取り中・出店決定の応募。見送り・取り下げ済みは数えない
+const ACTIVE_APPLICATION_STATUSES = ["open", "confirmed"];
+
 async function loadOwnEvent(eventId: string, userId: string) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -80,8 +83,13 @@ export async function GET(
       }
     }
 
+    // 編集画面で「下書き保存」を出すかどうかに使う（やり取り中・出店決定の応募があれば戻せない）
+    const activeApplicationCount = await prisma.eventApplication.count({
+      where: { eventId: id, status: { in: ACTIVE_APPLICATION_STATUSES } },
+    });
+
     // 応募画面で、キャンセル規定への同意を求めるかどうかに使う
-    return NextResponse.json({ event, paymentsEnabled: EVENT_PAYMENTS_ENABLED });
+    return NextResponse.json({ event, activeApplicationCount, paymentsEnabled: EVENT_PAYMENTS_ENABLED });
   } catch (error) {
     console.error("Event GET error:", error);
     return NextResponse.json({ error: "取得に失敗しました" }, { status: 500 });
@@ -177,6 +185,27 @@ export async function PUT(
       ? body.status
       : result.event.status;
 
+    // 応募がある募集を下書きに戻すと、出店者に知らせないまま募集が見えなくなり、
+    // 支払い済みでも返金が始まらない。取りやめるなら「募集の中止」を使ってもらう。
+    if (
+      nextStatus === "draft" &&
+      result.event.status !== "draft" &&
+      result.event.organizer.userId === session.user.id
+    ) {
+      const active = await prisma.eventApplication.count({
+        where: { eventId: id, status: { in: ACTIVE_APPLICATION_STATUSES } },
+      });
+      if (active > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "応募がある募集は下書きに戻せません。取りやめる場合は、募集ページの「募集の中止」から行ってください",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // 承認前の主催者は公開できない
     if (nextStatus === "published" && result.event.organizer.status !== "approved") {
       return NextResponse.json(
@@ -255,36 +284,5 @@ export async function PUT(
   }
 }
 
-// DELETE: 応募が付いている募集は消さない。中止扱いにして履歴を残す。
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const result = await loadOwnEvent(id, session.user.id);
-    if ("error" in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    }
-
-    const applications = await prisma.eventApplication.count({ where: { eventId: id } });
-    if (applications > 0) {
-      await prisma.event.update({ where: { id }, data: { status: "cancelled" } });
-      if (result.event.status !== "cancelled") {
-        await onEventCancelled(id).catch((e) => console.error("Event cancel notify error:", e));
-      }
-      return NextResponse.json({ message: "募集を中止しました", cancelled: true });
-    }
-
-    await prisma.event.delete({ where: { id } });
-    return NextResponse.json({ message: "募集を削除しました" });
-  } catch (error) {
-    console.error("Event DELETE error:", error);
-    return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
-  }
-}
+// 募集の削除は運営だけが行う（/api/admin/events/[id]）。主催者は
+// /api/events/[id]/deletion-request から理由を添えて申請する。

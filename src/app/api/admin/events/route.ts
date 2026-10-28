@@ -20,12 +20,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
+    // "deletion_requested" は状態ではなく、削除の申請が出ている募集の絞り込み
+    const where =
+      status === "deletion_requested"
+        ? { deletionRequestedAt: { not: null } }
+        : status
+          ? { status }
+          : {};
     const events = await prisma.event.findMany({
-      where: status ? { status } : {},
+      where,
       include: {
         organizer: { select: { id: true, orgName: true, status: true } },
         applications: {
-          select: { status: true, lastMessageAt: true, organizerLastReadAt: true },
+          select: {
+            status: true,
+            lastMessageAt: true,
+            organizerLastReadAt: true,
+            _count: { select: { payments: true } },
+          },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -45,6 +57,10 @@ export async function GET(request: Request) {
         status: e.status,
         createdAt: e.createdAt,
         organizer: e.organizer,
+        deletionRequestedAt: e.deletionRequestedAt,
+        deletionRequestReason: e.deletionRequestReason,
+        // 支払いの記録がある募集は削除できない（src/lib/eventDeletion.ts）
+        paymentCount: applications.reduce((sum, a) => sum + a._count.payments, 0),
         applicationCount: applications.length,
         confirmedCount: applications.filter((a) => a.status === "confirmed").length,
         openCount: applications.filter((a) => a.status === "open").length,
@@ -65,6 +81,7 @@ export async function GET(request: Request) {
       applications: rows.reduce((sum, r) => sum + r.applicationCount, 0),
       confirmed: rows.reduce((sum, r) => sum + r.confirmedCount, 0),
       stalled: rows.filter((r) => r.unreadByOrganizer > 0).length,
+      deletionRequested: rows.filter((r) => r.deletionRequestedAt).length,
     };
 
     return NextResponse.json({ events: rows, stats });

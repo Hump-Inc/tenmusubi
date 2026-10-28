@@ -130,3 +130,37 @@ export async function sendOrganizerApplicationAdminEmail(params: {
     `,
   });
 }
+
+/**
+ * 主催者から募集の削除の申請があったことを運営に知らせる。
+ * 募集を消せるのは運営だけなので、管理画面を見に行かなくても気づけるようにする。
+ */
+export async function sendEventDeletionRequestAdminEmail(params: {
+  eventId: string;
+  title: string;
+  orgName: string;
+  reason: string;
+  applicationCount: number;
+}) {
+  const adminEmails = getAdminEmails();
+  if (adminEmails.length === 0 || !process.env.RESEND_API_KEY) return;
+
+  await resend.emails.send({
+    from: FROM,
+    to: adminEmails,
+    subject: `【てんむすび】募集の削除申請がありました（${params.title}）`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">募集の削除申請</h2>
+        <p>${escapeHtml(params.orgName)} から、募集「${escapeHtml(params.title)}」の削除の申請がありました。</p>
+        <p>応募: ${params.applicationCount}件</p>
+        <p style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb;">${escapeHtml(params.reason).replace(/\n/g, "<br />")}</p>
+        <p>
+          <a href="${BASE_URL}/admin/events" style="color: #3b82f6;">
+            管理画面で確認する →
+          </a>
+        </p>
+      </div>
+    `,
+  });
+}

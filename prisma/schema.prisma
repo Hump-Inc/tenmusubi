@@ -752,6 +752,10 @@ model Event {
   cancelCause String? // "weather"（天候・災害など） | "organizer"（主催者の都合）
   // フォロワーへ新着を知らせた時刻。下書きに戻して再公開しても二重に送らないための印。
   followersNotifiedAt DateTime?
+  // 主催者からの削除の申請。募集を消せるのは運営だけなので、主催者は理由を添えて申請する。
+  // 運営が削除すれば行ごと消え、申請を戻せば両方 null に戻す。
+  deletionRequestedAt   DateTime?
+  deletionRequestReason String?
 
   images       EventImage[]
   feeTiers     EventFeeTier[]

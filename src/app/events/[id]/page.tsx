@@ -42,6 +42,7 @@ import {
 import { SHOW_ORGANIZER_PAST_EVENTS, EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
 import { getOrganizerRecord } from "@/lib/organizerRecord";
 import { CancelEventButton } from "@/components/events/CancelEventButton";
+import { EventDeletionRequest } from "@/components/events/EventDeletionRequest";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
 
@@ -563,6 +564,23 @@ export default async function EventDetailPage({
                 recipientCount={cancelRecipients}
                 paidCount={cancelPaid}
                 weatherRefundPercent={event.weatherRefundPercent}
+              />
+            </section>
+          )}
+
+          {/* 募集を消せるのは運営だけ。主催者は理由を添えて申請する */}
+          {isOwner && (
+            <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-6">
+              <h2 className="mb-2 font-bold text-gray-900">募集の削除</h2>
+              {!event.deletionRequestedAt && (
+                <p className="mb-4 text-sm text-gray-600">
+                  間違えて作った募集などを消したいときは、運営に削除を申請してください。
+                </p>
+              )}
+              <EventDeletionRequest
+                eventId={event.id}
+                requestedAt={event.deletionRequestedAt?.toISOString() ?? null}
+                reason={event.deletionRequestReason}
               />
             </section>
           )}
