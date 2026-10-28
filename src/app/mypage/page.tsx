@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
+import { PREMIUM_PLAN_ENABLED } from "@/lib/constants";
 import {
   User,
   Heart,
@@ -118,7 +119,7 @@ const menuItems = [
   { icon: Link2, label: "アカウント連携", href: "/settings/account" },
   { icon: Bell, label: "通知設定", href: "/settings/notifications" },
   { icon: Shield, label: "本人確認", href: "/settings/verification", badge: "未確認" },
-  { icon: CreditCard, label: "お支払い・プラン", href: "/settings/payment", ownerOnly: true },
+  { icon: CreditCard, label: "お支払い・プラン", href: "/settings/payment", ownerOnly: true, premiumPlan: true },
   { icon: HelpCircle, label: "ヘルプ・FAQ", href: "/faq" },
 ];
 
@@ -585,7 +586,16 @@ export default function MyPage() {
               <Card className="border-0 shadow-sm rounded-2xl bg-white">
                 <CardContent className="p-4">
                   <nav className="space-y-1">
-                    {menuItems.filter((item) => !item.ownerOnly || isOwner).map((item) => (
+                    {menuItems
+                      .filter((item) => !item.ownerOnly || isOwner)
+                      // プレミアムプランを閉じている間は、加入している人にだけ出す（解約のため）
+                      .filter(
+                        (item) =>
+                          !item.premiumPlan ||
+                          PREMIUM_PLAN_ENABLED ||
+                          session?.user?.subscriptionPlan === "premium"
+                      )
+                      .map((item) => (
                       <Link
                         key={item.label}
                         href={item.href}

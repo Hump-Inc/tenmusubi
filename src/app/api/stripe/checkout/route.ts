@@ -3,9 +3,13 @@ import { auth } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/siteUrl";
+import { PREMIUM_PLAN_ENABLED } from "@/lib/constants";
 
 export async function POST() {
   try {
+    if (!PREMIUM_PLAN_ENABLED) {
+      return NextResponse.json({ error: "現在お申し込みいただけません" }, { status: 404 });
+    }
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
