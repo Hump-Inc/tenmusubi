@@ -92,7 +92,12 @@ npm run migrate:prod
   - この cron は本番で `CRON_SECRET` が無いと動かない（お金を動かすため、他の cron と違い素通しにしない）
   - 残高（available）が足りなければ翌日に回す。`payout.failed` が来たら印を外して翌日やり直す
   - Stripe は残高を原則90日以内に入金する必要があるため、入金予定が85日より先の募集には請求できない
-- 返金は当面 Stripe ダッシュボードから運営が行う（destination charge なので「送金の取り消し」も選ぶ）。結果は `charge.refunded` で反映される
+- 出店者都合・主催者都合のキャンセルの返金は、画面の手続きから自動で行う（`src/lib/eventCancellation.ts`、`EventCancellation`）
+  - 出店者が申し出る → 主催者が受け付ける（返金額は規定どおり以上）→ 出店者が承認で返金。どちらも3日動かなければ、入金の cron が自動で確定する
+  - 合意できなければ「合意できない」→ 運営が応募のやり取り画面から額を決めて確定する
+  - 手続き中（requested / accepted / disputed）は `runEventPayouts` が入金しない
+  - 返金は `reverse_transfer` と `refund_application_fee` を付けて按分する。`refundedAmount` は `charge.refunded` の Webhook で写す
+- それ以外（募集の中止など）の返金は、当面 Stripe ダッシュボードから運営が行う（「送金の取り消し」と「手数料の返金」も選ぶ）。結果は `charge.refunded` で反映される
 - 手数料率: `EVENT_PAYMENT_FEE_PERCENT`（未設定なら 10%・税込。2026-09-22 決定）。請求時点の額を `EventPayment.platformFee` に確定させる
 
 ### キャンセル規定

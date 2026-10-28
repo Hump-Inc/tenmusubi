@@ -23,14 +23,19 @@ export function CancelEventButton({
   eventId,
   recipientCount,
   paidCount,
+  weatherRefundPercent,
 }: {
   eventId: string;
   recipientCount: number;
   paidCount: number;
+  // 天候などで中止したときに返す割合（募集ページに記載したもの）。未設定の募集は全額
+  weatherRefundPercent: number | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [cause, setCause] = useState<"weather" | "organizer" | null>(null);
+  const weatherPercent = weatherRefundPercent ?? 100;
   const [isWorking, setIsWorking] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,7 +46,7 @@ export function CancelEventButton({
       const res = await fetch(`/api/events/${eventId}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, cause }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -87,13 +92,44 @@ export function CancelEventButton({
             rows={4}
             placeholder="例: 台風の接近により、安全を考えて中止とします。ご準備いただいていた皆さま、申し訳ありません。"
           />
+        </div>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-gray-900">中止の理由</legend>
+          {[
+            {
+              value: "weather" as const,
+              label: "天候・災害など（主催者・出店者の責めによらない）",
+              refund: `出店料の${weatherPercent}%を返金`,
+            },
+            { value: "organizer" as const, label: "主催者の都合", refund: "出店料を全額返金" },
+          ].map((o) => (
+            <label
+              key={o.value}
+              className={`flex items-start gap-2 rounded-xl border p-3 text-sm cursor-pointer ${
+                cause === o.value ? "border-red-300 bg-red-50" : "border-gray-200"
+              }`}
+            >
+              <input
+                type="radio"
+                name="cancel-cause"
+                className="mt-0.5"
+                checked={cause === o.value}
+                onChange={() => setCause(o.value)}
+              />
+              <span>
+                <span className="text-gray-900">{o.label}</span>
+                {paidCount > 0 && <span className="block text-xs text-gray-500">{o.refund}</span>}
+              </span>
+            </label>
+          ))}
           {paidCount > 0 && (
             <p className="text-xs text-gray-500">
-              出店料を支払い済みの出店者が {paidCount} 店います。返金は運営から各出店者へご連絡します。
+              出店料を支払い済みの出店者が {paidCount} 店います。中止すると、選んだ理由に沿って返金します。全額の返金はその場で、一部の返金は出店者の承認を待って（3日で自動で）返金します。
               未払いの請求は自動で取り消されます。
             </p>
           )}
-        </div>
+        </fieldset>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -101,7 +137,7 @@ export function CancelEventButton({
           <Button variant="outline" className="rounded-full" onClick={() => setOpen(false)} disabled={isWorking}>
             やめる
           </Button>
-          <Button className="rounded-full bg-red-600 hover:bg-red-700" onClick={submit} disabled={isWorking}>
+          <Button className="rounded-full bg-red-600 hover:bg-red-700" onClick={submit} disabled={isWorking || !cause}>
             {isWorking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             中止して知らせる
           </Button>

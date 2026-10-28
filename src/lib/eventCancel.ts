@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { createNotification } from "./notifications";
 import { stripe } from "./stripe";
+import { refundForEventCancellation } from "./eventCancellation";
 
 export const CANCEL_REASON_MAX = 1000;
 
@@ -11,13 +12,21 @@ export const CANCEL_REASON_MAX = 1000;
  * 雨天中止のように直前に決まることが多く、知らせが届かないと出店者は仕入れを
  * 済ませたまま会場へ向かうことになる。主催者が一人ずつ連絡しなくて済むよう、
  * 主催者の書いた理由（「雨のため」「延期日は〜」など）をそのまま全員に届ける。
- * 出店料を払い済みの出店者には、返金は運営から連絡すると添える（返金は当面、
- * 運営が Stripe で行うため）。
+ * 払い済みの出店料は、中止の理由（天候 / 主催者都合）に応じた割合で返金する
+ * （refundForEventCancellation。全額はその場で、一部は出店者の承認を経て）。
  */
 export async function onEventCancelled(
   eventId: string,
-  message?: { reason: string; senderId: string }
+  message?: { reason: string; senderId: string },
+  // 返金の割合を決める中止の理由。画面で選ばせない経路（編集・削除）は主催者都合＝全額
+  cause: "weather" | "organizer" = "organizer"
 ) {
+  // 主催者都合の取り消しの回数に数えるため、中止の理由を残す（src/lib/organizerRecord.ts）
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { cancelledAt: new Date(), cancelCause: cause },
+  });
+
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: {
@@ -47,7 +56,11 @@ export async function onEventCancelled(
     const paid = app.payments.some((p) => p.status === "paid");
     const body =
       "主催者がこの募集を中止しました。" +
-      (paid ? "お支払いいただいた出店料の返金については、運営からご連絡します。" : "");
+      (paid
+        ? cause === "weather"
+          ? "天候などによる中止のため、お支払いいただいた出店料は募集ページに記載の割合で返金します。"
+          : "お支払いいただいた出店料は全額返金します。"
+        : "");
 
     await prisma.eventApplicationMessage.create({
       data: { applicationId: app.id, kind: "system", body },
@@ -72,6 +85,9 @@ export async function onEventCancelled(
       link: `/events/applications/${app.id}`,
     }).catch((e) => console.error("Event cancel notification error:", e));
   }
+
+  // 知らせを出してから返金する。返金の結果（額）は応募ごとにやり取りへ載る
+  await refundForEventCancellation(eventId, cause, message?.senderId ?? null);
 }
 
 /**
@@ -79,7 +95,7 @@ export async function onEventCancelled(
  * 閉じる前に払われてしまった分は Webhook で paid になり、管理画面の
  * 「中止した募集の支払い」に出るので、そこで運営が返金する。
  */
-async function cancelOpenRequests(
+export async function cancelOpenRequests(
   payments: { id: string; stripeCheckoutSessionId: string | null }[],
   now: Date
 ) {

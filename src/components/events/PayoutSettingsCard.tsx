@@ -21,13 +21,14 @@ interface EventPayout {
   gross: number;
   fee: number;
   payout: number;
-  status: "scheduled" | "waiting" | "in_transit" | "paid" | "nothing";
+  status: "scheduled" | "waiting" | "held" | "in_transit" | "paid" | "nothing";
   date: string | null;
 }
 
 const PAYOUT_STATUS: Record<EventPayout["status"], { label: string; style: string }> = {
   scheduled: { label: "入金予定", style: "bg-gray-100 text-gray-700 hover:bg-gray-100" },
   waiting: { label: "入金待ち", style: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
+  held: { label: "保留中", style: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
   in_transit: { label: "送金中", style: "bg-blue-100 text-blue-800 hover:bg-blue-100" },
   paid: { label: "着金済み", style: "bg-green-100 text-green-700 hover:bg-green-100" },
   nothing: { label: "入金なし", style: "bg-gray-100 text-gray-500 hover:bg-gray-100" },
@@ -44,6 +45,8 @@ function payoutDateLine(p: EventPayout) {
       return d ? `${d}ごろ入金` : "開催後に入金";
     case "waiting":
       return "売上の確定を待って、翌日以降に入金します";
+    case "held":
+      return "キャンセルの手続き中のため、確定するまで入金を止めています";
     case "in_transit":
       return d ? `${d}ごろ着金` : "銀行へ送金中";
     case "paid":

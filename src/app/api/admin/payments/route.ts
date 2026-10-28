@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { auth, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function needsReview(p: {
+  status: string;
+  application: { event: { status: string }; cancellation: { status: string } | null };
+}) {
+  return (
+    p.status === "paid" &&
+    p.application.event.status === "cancelled" &&
+    p.application.cancellation?.status !== "confirmed"
+  );
+}
+
 // GET: 出店料の請求・支払いの一覧。返金は Stripe ダッシュボードで行うので、そこへの経路も返す。
 export async function GET() {
   try {
@@ -22,6 +33,7 @@ export async function GET() {
           select: {
             id: true,
             store: { select: { name: true } },
+            cancellation: { select: { status: true } },
             event: {
               select: { id: true, title: true, status: true, organizer: { select: { orgName: true } } },
             },
@@ -36,10 +48,9 @@ export async function GET() {
       paidCount: paid.length,
       paidTotal: paid.reduce((sum, p) => sum + p.amount - p.refundedAmount, 0),
       feeTotal: payments.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.platformFee, 0),
-      // 中止になった募集で支払い済みのまま残っているもの。返金の判断が要る。
-      needsReview: payments.filter(
-        (p) => p.status === "paid" && p.application.event.status === "cancelled"
-      ).length,
+      // 中止になった募集で、返金が済んでいないもの（自動の返金に失敗した・中止のあとに
+      // 払われた・入金後だった）。返金の判断が要る。
+      needsReview: payments.filter((p) => needsReview(p)).length,
     };
 
     const testMode = process.env.STRIPE_SECRET_KEY?.startsWith("sk_test") ?? false;
@@ -59,6 +70,7 @@ export async function GET() {
         storeName: p.application.store.name,
         eventTitle: p.application.event.title,
         eventCancelled: p.application.event.status === "cancelled",
+        needsReview: needsReview(p),
         orgName: p.application.event.organizer.orgName,
         stripeUrl: p.stripePaymentIntentId
           ? `https://dashboard.stripe.com/${testMode ? "test/" : ""}payments/${p.stripePaymentIntentId}`
