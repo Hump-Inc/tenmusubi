@@ -168,6 +168,17 @@ export const SHOW_ORGANIZER_PAST_EVENTS =
 export const EVENT_PAYMENTS_ENABLED = process.env.ENABLE_EVENT_PAYMENTS === "true";
 
 /**
+ * スペースオーナー向けのプレミアムプラン（月額サブスク）の入口を出すか。
+ *
+ * 付くのはプレミアムバッジだけで、価格や中身の方針が決まっていない。本番には
+ * STRIPE_PREMIUM_PRICE_ID も無く、申し込もうとするとエラーになる。方針が決まるまで
+ * 料金ページ・お支払い設定・マイページの入口と申し込みの API を閉じる（2026-10-28）。
+ * すでに加入している人は、解約できるようお支払い設定とマイページの入口を残す。
+ * 画面（クライアント）でも読むため NEXT_PUBLIC_ にしている。
+ */
+export const PREMIUM_PLAN_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PREMIUM_PLAN === "true";
+
+/**
  * 出店募集の機能をテスト運用中として見せるか。
  *
  * 募集は本番で公開されているが、主催者・出店者を交えた通しの確認がまだ
