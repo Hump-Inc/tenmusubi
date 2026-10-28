@@ -5,6 +5,7 @@ import { loadApplicationForViewer, readFieldFor } from "@/lib/eventApplicationAc
 import { parseSnapshot, checkFit } from "@/lib/eventApplicationSnapshot";
 import { paymentView, platformFeePercent, payoutDueAt } from "@/lib/eventPayments";
 import { EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { cancellationPreview, cancellationView } from "@/lib/eventCancellation";
 
 // GET: 応募1件とやり取りの内容
 export async function GET(
@@ -59,6 +60,17 @@ export async function GET(
       where: { applicationId: id },
       orderBy: { createdAt: "asc" },
     });
+
+    // 出店料を払ったあとのキャンセル。手続きがあればその内容、無ければ「今申し出たら
+    // いくらか」（申し出られない応募では null）
+    const cancellationRow = !EVENT_PAYMENTS_ENABLED
+      ? null
+      : await prisma.eventCancellation.findUnique({ where: { applicationId: id } });
+    const cancellation = cancellationRow ? cancellationView(cancellationRow) : null;
+    const cancelPreview =
+      EVENT_PAYMENTS_ENABLED && !cancellationRow && role !== "admin"
+        ? await cancellationPreview(id)
+        : null;
 
     // 主催者には、請求できる状態か（受け取り口座の設定が済んでいるか）を返す
     const payouts =
@@ -120,6 +132,8 @@ export async function GET(
       myDocuments,
       payments: payments.map((p) => paymentView(p, role)),
       payouts,
+      cancellation,
+      cancelPreview,
       paymentsEnabled: EVENT_PAYMENTS_ENABLED,
     });
   } catch (error) {

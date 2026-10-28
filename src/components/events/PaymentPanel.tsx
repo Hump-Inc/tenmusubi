@@ -52,6 +52,7 @@ export function PaymentPanel({
   defaultAmount,
   defaultDescription,
   returnedFromCheckout,
+  cancellationStatus,
   onChanged,
 }: {
   applicationId: string;
@@ -61,6 +62,8 @@ export function PaymentPanel({
   defaultAmount: number | null;
   defaultDescription: string;
   returnedFromCheckout: boolean;
+  // キャンセルの手続きがあれば、その状態。手続き中・確定後は追加で請求させない
+  cancellationStatus: string | null;
   onChanged: () => void;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -70,6 +73,8 @@ export function PaymentPanel({
   const [error, setError] = useState("");
 
   const isOrganizer = role === "organizer";
+  const cancelling = cancellationStatus !== null && cancellationStatus !== "confirmed";
+  const canRequest = cancellationStatus === null;
   const amountNum = Number(amount);
   const feePreview =
     payouts && Number.isInteger(amountNum) && amountNum > 0
@@ -184,7 +189,7 @@ export function PaymentPanel({
                   {p.status === "paid" && p.paidAt
                     ? `${formatDateShort(p.paidAt)} 支払い`
                     : `${formatDateShort(p.createdAt)} 請求`}
-                  {isOrganizer && p.payout !== undefined && p.status !== "canceled" && (
+                  {isOrganizer && p.payout !== undefined && p.status !== "canceled" && canRequest && (
                     <> ・ 手数料 {yen(p.platformFee ?? 0)} を差し引いた {yen(p.payout)} が入金されます</>
                   )}
                   {p.refundedAmount > 0 && p.status !== "refunded" && (
@@ -193,7 +198,9 @@ export function PaymentPanel({
                 </p>
                 {isOrganizer && p.status === "paid" && (
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {p.paidOutAt
+                    {cancelling && !p.paidOutAt
+                      ? "キャンセルの手続き中のため、入金を止めています"
+                      : p.paidOutAt
                       ? `${formatDateShort(p.paidOutAt)} 口座へ入金手続き済み`
                       : payouts?.payoutDueAt
                         ? `開催後、${formatDateShort(payouts.payoutDueAt)}ごろ口座へ入金します`
@@ -250,7 +257,7 @@ export function PaymentPanel({
         </div>
       )}
 
-      {isOrganizer && payouts?.ready && !showForm && (
+      {isOrganizer && payouts?.ready && canRequest && !showForm && (
         <Button
           variant="outline"
           size="sm"
@@ -262,7 +269,7 @@ export function PaymentPanel({
         </Button>
       )}
 
-      {isOrganizer && payouts?.ready && showForm && (
+      {isOrganizer && payouts?.ready && canRequest && showForm && (
         <div className="rounded-xl border border-gray-100 p-4 space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="pay-desc" className="text-xs">品目</Label>

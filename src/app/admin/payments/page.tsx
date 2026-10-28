@@ -48,6 +48,7 @@ interface PaymentItem {
   storeName: string;
   eventTitle: string;
   eventCancelled: boolean;
+  needsReview: boolean;
   orgName: string;
   stripeUrl: string | null;
 }
@@ -111,7 +112,7 @@ export default function AdminPaymentsPage() {
     statusFilter === "all"
       ? payments
       : statusFilter === "review"
-        ? payments.filter((p) => p.status === "paid" && p.eventCancelled)
+        ? payments.filter((p) => p.needsReview)
         : payments.filter((p) => p.status === statusFilter);
 
   if (status === "loading" || isLoading) {

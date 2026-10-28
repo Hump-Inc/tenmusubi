@@ -40,6 +40,7 @@ import {
   weatherRefundLabel,
 } from "@/lib/eventWeather";
 import { SHOW_ORGANIZER_PAST_EVENTS, EVENT_PAYMENTS_ENABLED } from "@/lib/constants";
+import { getOrganizerRecord } from "@/lib/organizerRecord";
 import { CancelEventButton } from "@/components/events/CancelEventButton";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
@@ -138,7 +139,7 @@ export default async function EventDetailPage({
 
   // 主催者の情報は募集ページの中で完結させる（単独の主催者ページは作らない、2026-08-27 決定）。
   const now = new Date();
-  const [followerCount, myFollow, otherOpenEvents, pastEvents] = await Promise.all([
+  const [followerCount, myFollow, otherOpenEvents, pastEvents, organizerRecord] = await Promise.all([
     prisma.organizerFollow.count({ where: { organizerId: event.organizer.id } }),
     viewerId
       ? prisma.organizerFollow.findUnique({
@@ -175,10 +176,11 @@ export default async function EventDetailPage({
             title: true,
             startAt: true,
             area: true,
-            _count: { select: { applications: true } },
+            _count: { select: { applications: { where: { status: "confirmed" } } } },
           },
         })
       : [],
+    getOrganizerRecord(event.organizer.id, now),
   ]);
 
   // 中止したときに知らせが届く出店者の数。確認ダイアログで主催者に見せる。
@@ -486,6 +488,11 @@ export default async function EventDetailPage({
                 isSelf={isOwner}
               />
             </div>
+            {/* 開催の回数と並べて出す。取り消しの回数だけが目に入ると印象が強すぎるため */}
+            <p className="mt-1 text-xs text-gray-500">
+              開催 {organizerRecord.held}回 ・ 主催者都合の取り消し（過去1年）{" "}
+              {organizerRecord.organizerCancels}回
+            </p>
             {event.organizer.intro && (
               <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
                 {event.organizer.intro}
@@ -535,7 +542,8 @@ export default async function EventDetailPage({
                     >
                       <span className="min-w-0 flex-1 truncate">{e.title}</span>
                       <span className="text-xs text-gray-500">
-                        {e.area} ・ {formatDateShort(e.startAt)} ・ 出店{e._count.applications}件
+                        {e.area} ・ {formatDateShort(e.startAt)}
+                        {e._count.applications > 0 && ` ・ 出店${e._count.applications}件`}
                       </span>
                     </li>
                   ))}
@@ -554,6 +562,7 @@ export default async function EventDetailPage({
                 eventId={event.id}
                 recipientCount={cancelRecipients}
                 paidCount={cancelPaid}
+                weatherRefundPercent={event.weatherRefundPercent}
               />
             </section>
           )}
