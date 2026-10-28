@@ -68,7 +68,7 @@ async function main() {
     });
     const store = await prisma.store.create({ data: { name: `デモ店（${s.key}）`, ownerId: ven.id } });
     const app = await prisma.eventApplication.create({
-      data: { eventId: ev.id, storeId: store.id, status: s.key.startsWith("5") ? "withdrawn" : "confirmed", confirmedAt: new Date(now - 20 * DAY), policyVersion: "2026-10-16.2", vendorPolicyAgreedAt: new Date(now - 21 * DAY), organizerPolicyAgreedAt: new Date(now - 20 * DAY) },
+      data: { eventId: ev.id, storeId: store.id, status: s.key.startsWith("5") ? "withdrawn" : "confirmed", confirmedAt: new Date(now - 20 * DAY), policyVersion: "2026-10-28", vendorPolicyAgreedAt: new Date(now - 21 * DAY), organizerPolicyAgreedAt: new Date(now - 20 * DAY) },
     });
     await prisma.eventPayment.create({
       data: { applicationId: app.id, description: "出店料", amount: s.fee, platformFee: s.fee / 10, status: "paid", paidAt: new Date(now - 19 * DAY), requestedById: org.id, stripePaymentIntentId: `pi_demo_${app.id}`, refundedAmount: s.key.startsWith("5") ? s.fee * 0.7 : 0 },
