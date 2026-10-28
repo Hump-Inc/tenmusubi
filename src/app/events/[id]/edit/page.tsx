@@ -32,6 +32,7 @@ export default function EditEventPage({ params }: { params: Promise<{ id: string
   const { data: session, status } = useSession();
   const router = useRouter();
   const [initial, setInitial] = useState<EventFormValues | null>(null);
+  const [draftLocked, setDraftLocked] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function EditEventPage({ params }: { params: Promise<{ id: string
         return;
       }
       const e = data.event;
+      setDraftLocked(e.status !== "draft" && (data.activeApplicationCount ?? 0) > 0);
       setInitial({
         ...EMPTY_EVENT,
         title: str(e.title),
@@ -136,7 +138,7 @@ export default function EditEventPage({ params }: { params: Promise<{ id: string
           {error ? (
             <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
           ) : (
-            initial && <EventForm initial={initial} eventId={id} />
+            initial && <EventForm initial={initial} eventId={id} draftLocked={draftLocked} />
           )}
         </div>
       </main>

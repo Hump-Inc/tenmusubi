@@ -179,9 +179,12 @@ function Chips({
 export function EventForm({
   initial,
   eventId,
+  draftLocked = false,
 }: {
   initial: EventFormValues;
   eventId?: string;
+  // 応募がある公開済みの募集は下書きに戻せない（サーバー側でも断る）
+  draftLocked?: boolean;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<EventFormValues>(initial);
@@ -959,27 +962,34 @@ export function EventForm({
             </>
           )}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="flex-1 rounded-full"
-          disabled={isSaving}
-          onClick={() => save("draft")}
-        >
-          {isSaving && savingMode === "draft" ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              保存中...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              下書き保存
-            </>
-          )}
-        </Button>
+        {!draftLocked && (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="flex-1 rounded-full"
+            disabled={isSaving}
+            onClick={() => save("draft")}
+          >
+            {isSaving && savingMode === "draft" ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                保存中...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                下書き保存
+              </>
+            )}
+          </Button>
+        )}
       </div>
+      {draftLocked && (
+        <p className="text-center text-xs text-gray-500">
+          応募がある募集は下書きに戻せません。取りやめる場合は、募集ページの「募集の中止」から行ってください。
+        </p>
+      )}
     </form>
   );
 }
