@@ -255,36 +255,5 @@ export async function PUT(
   }
 }
 
-// DELETE: 応募が付いている募集は消さない。中止扱いにして履歴を残す。
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const result = await loadOwnEvent(id, session.user.id);
-    if ("error" in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    }
-
-    const applications = await prisma.eventApplication.count({ where: { eventId: id } });
-    if (applications > 0) {
-      await prisma.event.update({ where: { id }, data: { status: "cancelled" } });
-      if (result.event.status !== "cancelled") {
-        await onEventCancelled(id).catch((e) => console.error("Event cancel notify error:", e));
-      }
-      return NextResponse.json({ message: "募集を中止しました", cancelled: true });
-    }
-
-    await prisma.event.delete({ where: { id } });
-    return NextResponse.json({ message: "募集を削除しました" });
-  } catch (error) {
-    console.error("Event DELETE error:", error);
-    return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
-  }
-}
+// 募集の削除は運営だけが行う（/api/admin/events/[id]）。主催者は
+// /api/events/[id]/deletion-request から理由を添えて申請する。

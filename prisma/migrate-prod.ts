@@ -669,6 +669,8 @@ async function main() {
         `UPDATE "Event" SET "followersNotifiedAt" = COALESCE("publishedAt", CURRENT_TIMESTAMP) WHERE "status" = 'published'`
       );
     }
+    if (!colNames.has("deletionRequestedAt")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "deletionRequestedAt" DATETIME');
+    if (!colNames.has("deletionRequestReason")) alterStatements.push('ALTER TABLE "Event" ADD COLUMN "deletionRequestReason" TEXT');
   }
 
   // Check VerificationRequest table for missing columns
