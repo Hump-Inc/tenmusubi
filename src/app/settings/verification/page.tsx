@@ -25,7 +25,7 @@ interface VerificationData {
   request: {
     id: string;
     documentType: string;
-    documentUrl: string | null;
+    hasDocument: boolean;
     status: string;
     note: string | null;
     submittedAt: string;
@@ -85,37 +85,22 @@ export default function VerificationSettingsPage() {
       setMessage({ type: "error", text: "書類の種類を選択してください" });
       return;
     }
+    if (!selectedFile) {
+      setMessage({ type: "error", text: "書類のファイルを選択してください" });
+      return;
+    }
 
     setIsSubmitting(true);
     setMessage(null);
 
     try {
-      let documentUrl: string | undefined;
-
-      // ファイルがある場合はアップロード
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("type", "verification");
-
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          documentUrl = uploadData.url;
-        }
-      }
-
+      // 書類は非公開の保存先に置かれ、運営だけが確認する
+      const formData = new FormData();
+      formData.append("documentType", selectedType);
+      formData.append("file", selectedFile);
       const res = await fetch("/api/verification", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentType: selectedType,
-          documentUrl,
-        }),
+        body: formData,
       });
 
       if (res.ok) {
@@ -349,11 +334,11 @@ export default function VerificationSettingsPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">書類の画像（任意）</Label>
+                    <Label className="text-sm font-medium">書類の画像・PDF</Label>
                     <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
                         onChange={handleFileChange}
                         className="hidden"
                         id="document-file"
@@ -371,7 +356,7 @@ export default function VerificationSettingsPage() {
                               クリックしてファイルを選択
                             </p>
                             <p className="text-xs text-gray-400">
-                              JPG, PNG, WebP（10MB以下）
+                              JPG, PNG, WebP, PDF（10MB以下）。運営だけが確認し、公開されません
                             </p>
                           </>
                         )}

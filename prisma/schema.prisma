@@ -330,7 +330,10 @@ model VerificationRequest {
   userId      String   @unique
 
   documentType String  // "business_license", "id_card", etc.
+  // 旧: 公開バケットに置いていた書類のURL。新しい申請では使わない（scripts/migrate-verification-docs.ts で移す）
   documentUrl  String?
+  // 非公開バケットのキー。公開URLは持たず /api/admin/verification/[id]/file からだけ配信する
+  documentKey  String?
   status       String  @default("pending") // pending, approved, rejected
   note         String? // Admin notes or rejection reason
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publicRequest } from "@/lib/verification";
 
 // GET: 認証申請一覧を取得（管理者用）
 export async function GET(request: Request) {
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
           where: { userId: req.userId },
           select: { displayName: true, category: true },
         });
-        return { ...req, user, profile };
+        return { ...publicRequest(req), user, profile };
       })
     );
 
@@ -119,7 +120,7 @@ export async function PUT(request: Request) {
       });
     }
 
-    return NextResponse.json(updatedRequest);
+    return NextResponse.json(publicRequest(updatedRequest));
   } catch (error) {
     console.error("Admin verification action error:", error);
     return NextResponse.json(

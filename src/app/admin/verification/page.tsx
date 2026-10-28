@@ -57,7 +57,7 @@ interface VerificationRequest {
   id: string;
   userId: string;
   documentType: string;
-  documentUrl?: string;
+  hasDocument: boolean;
   status: string;
   note?: string;
   submittedAt: string;
@@ -464,11 +464,11 @@ export default function AdminVerificationPage() {
                 )}
               </div>
 
-              {selectedRequest.documentUrl && (
+              {selectedRequest.hasDocument && (
                 <div>
                   <Label className="text-sm text-gray-600">提出書類</Label>
                   <a
-                    href={selectedRequest.documentUrl}
+                    href={`/api/admin/verification/${selectedRequest.id}/file`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-1 flex items-center gap-2 text-sm text-blue-600 hover:underline"
