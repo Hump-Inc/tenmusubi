@@ -6,7 +6,7 @@ import { CANCEL_REASON_MAX, onEventCancelled } from "@/lib/eventCancel";
 /**
  * POST: 主催者が募集を中止する。書いた理由は、やり取り中・出店決定済みの
  * 出店者全員へそのまま届く（雨天中止などを一人ずつ連絡しなくて済むように）。
- * 払い済みの出店料は、cause（"weather" | "organizer"）に応じた割合でその場で返金する。
+ * 払い済みの出店料は、cause（"weather" | "organizer"）に応じた割合で返金する（全額はその場で、一部は出店者の承認を経て）。
  */
 export async function POST(
   request: Request,

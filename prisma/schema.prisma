@@ -957,8 +957,7 @@ model EventCancellation {
   application   EventApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   kind   String // "vendor"（出店者都合） | "organizer"（主催者都合） | "event"（募集の中止）
-  // objectable: 天候による中止で一部を返金済み。出店者が申し立てられる3日間
-  status String @default("requested") // "requested" | "accepted" | "disputed" | "objectable" | "confirmed"
+  status String @default("requested") // "requested" | "accepted" | "disputed" | "confirmed"
 
   // キャンセル料の時期はこの時刻で決める（第2条）
   requestedAt   DateTime @default(now())
@@ -968,10 +967,8 @@ model EventCancellation {
   paidAmount Int
   policyFee  Int
 
-  // 返金額（合計）。出店者都合では主催者が受け付けた額（規定どおり以上）
+  // 主催者が受け付けた返金額。規定どおりの返金額以上に限る
   refundAmount Int?
-  // そのうち実際に返した額。一部を先に返す（天候による中止）・あとから足す（運営）ため
-  refundedTotal Int @default(0)
   acceptedAt   DateTime?
 
   disputedAt   DateTime?

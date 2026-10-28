@@ -12,8 +12,8 @@ export const CANCEL_REASON_MAX = 1000;
  * 雨天中止のように直前に決まることが多く、知らせが届かないと出店者は仕入れを
  * 済ませたまま会場へ向かうことになる。主催者が一人ずつ連絡しなくて済むよう、
  * 主催者の書いた理由（「雨のため」「延期日は〜」など）をそのまま全員に届ける。
- * 払い済みの出店料は、中止の理由（天候 / 主催者都合）に応じた割合でその場で返金する
- * （refundForEventCancellation）。
+ * 払い済みの出店料は、中止の理由（天候 / 主催者都合）に応じた割合で返金する
+ * （refundForEventCancellation。全額はその場で、一部は出店者の承認を経て）。
  */
 export async function onEventCancelled(
   eventId: string,

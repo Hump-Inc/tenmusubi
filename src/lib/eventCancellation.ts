@@ -13,13 +13,15 @@ import { CANCELLATION_RESPONSE_DAYS, cancellationFeePercent } from "./cancellati
  *   CANCELLATION_RESPONSE_DAYS 日たったら、その時点の額で自動で確定する（cron）。
  *   合意できなければ「合意できない」を押してもらい、運営が額を決めて確定する。
  * 主催者都合: 主催者の操作でその場で全額返金して確定する。
+ * 天候などによる中止で一部だけ返金する募集: 主催者がその額で受け付けた状態から始め、
+ *   出店者の承認（または期限切れ）で返金する。天候かどうかは主催者の申告なので、
+ *   ほかの一部返金と同じく双方の合意を経る。
  *
  * 運営が追いかけなくても回るようにするのが目的。運営が出るのは合意できないときだけ。
  * 手続き中は runEventPayouts が入金を止めるので、返金のお金が先に出ていくことはない。
  */
 
-// objectable: 天候による中止で一部を返金済み。出店者が申し立てられる期間（残りは入金しない）
-export const ACTIVE_CANCELLATION_STATUSES = ["requested", "accepted", "disputed", "objectable"] as const;
+export const ACTIVE_CANCELLATION_STATUSES = ["requested", "accepted", "disputed"] as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RESPONSE_MS = CANCELLATION_RESPONSE_DAYS * DAY_MS;
@@ -131,7 +133,7 @@ export function cancellationView(c: EventCancellation) {
   const autoConfirmAt =
     c.status === "requested"
       ? new Date(c.requestedAt.getTime() + RESPONSE_MS)
-      : (c.status === "accepted" || c.status === "objectable") && c.acceptedAt
+      : c.status === "accepted" && c.acceptedAt
         ? new Date(c.acceptedAt.getTime() + RESPONSE_MS)
         : null;
   return {
@@ -143,7 +145,6 @@ export function cancellationView(c: EventCancellation) {
     policyFee: c.policyFee,
     policyRefund,
     refundAmount: c.refundAmount,
-    refundedTotal: c.refundedTotal,
     acceptedAt: c.acceptedAt,
     disputedAt: c.disputedAt,
     confirmedAt: c.confirmedAt,
@@ -289,16 +290,16 @@ export async function disputeCancellation(
   const ctx = await loadContext(applicationId);
   const c = ctx.cancellation;
   // 出店者は受け付け前後のどちらでも、主催者は受け付ける前だけ（受け付けたあとに覆さない）。
-  // 天候による中止の一部返金（objectable）には、出店者だけが申し立てられる
+  // 募集の中止（天候などで一部返金）は、出店者が承認の前に申し立てられる
   const allowed =
     c?.kind === "event"
       ? role === "vendor"
-        ? ["objectable"]
+        ? ["accepted"]
         : []
       : role === "vendor"
         ? ["requested", "accepted"]
         : ["requested"];
-  if (!c || !allowed.includes(c.status)) {
+  if (!c || c.kind === "organizer" || !allowed.includes(c.status)) {
     throw new CancellationError("この手続きには申し立てできません");
   }
 
@@ -333,26 +334,15 @@ export async function disputeCancellation(
   }
 }
 
-/**
- * 運営: 返金額（合計）を決めて確定する（第7条第6項）。確定済みの手続きにも、あとから
- * 追加で返金できる（天候と偽った中止が分かったときなど）。すでに返した額は下回れない。
- */
+/** 運営: 返金額を決めて確定する（第7条第6項） */
 export async function resolveCancellation(applicationId: string, refundAmount: number) {
   const ctx = await loadContext(applicationId);
   const c = ctx.cancellation;
-  if (!c) throw new CancellationError("確定できる手続きがありません");
-  if (!Number.isInteger(refundAmount) || refundAmount < c.refundedTotal || refundAmount > c.paidAmount) {
-    throw new CancellationError(
-      `返金額（合計）は${yen(c.refundedTotal)}以上${yen(c.paidAmount)}以下で指定してください`
-    );
+  if (!c || c.status === "confirmed") throw new CancellationError("確定できる手続きがありません");
+  if (!Number.isInteger(refundAmount) || refundAmount < 0 || refundAmount > c.paidAmount) {
+    throw new CancellationError(`返金額は0円以上${yen(c.paidAmount)}以下で指定してください`);
   }
-  if (c.status === "confirmed") {
-    if (refundAmount === c.refundedTotal) throw new CancellationError("追加で返金する額がありません");
-    if (ctx.payments.some((p) => p.status === "paid" && p.paidOutAt)) {
-      throw new CancellationError("主催者への入金が済んでいるため、ここからは返金できません");
-    }
-  }
-  await confirmCancellation(ctx, c, refundAmount, "admin", [...ACTIVE_CANCELLATION_STATUSES, "confirmed"]);
+  await confirmCancellation(ctx, c, refundAmount, "admin", [...ACTIVE_CANCELLATION_STATUSES]);
 }
 
 /** 主催者: 主催者都合で取り消す。全額返金してその場で確定する（第3条） */
@@ -401,24 +391,17 @@ async function confirmCancellation(
 ) {
   const now = new Date();
   const claimed = await prisma.eventCancellation.updateMany({
-    where: { id: c.id, status: { in: from }, refundedTotal: c.refundedTotal },
-    data: { status: "confirmed", refundAmount, refundedTotal: refundAmount, confirmedAt: now, confirmedBy: by },
+    where: { id: c.id, status: { in: from } },
+    data: { status: "confirmed", refundAmount, confirmedAt: now, confirmedBy: by },
   });
   if (claimed.count === 0) throw new CancellationError("申し出の状態が変わりました。画面を再読み込みしてください");
 
-  // 一部をすでに返している（天候による中止・あとからの追加返金）なら、差額だけ返す
   try {
-    await refundPayments(c.id, ctx.payments, refundAmount - c.refundedTotal, c.refundedTotal);
+    await refundPayments(c.id, ctx.payments, refundAmount);
   } catch (e) {
     await prisma.eventCancellation.update({
       where: { id: c.id },
-      data: {
-        status: c.status,
-        refundAmount: c.refundAmount,
-        refundedTotal: c.refundedTotal,
-        confirmedAt: c.confirmedAt,
-        confirmedBy: c.confirmedBy,
-      },
+      data: { status: c.status, refundAmount: c.refundAmount, confirmedAt: null, confirmedBy: null },
     });
     console.error(`Cancellation ${c.id}: refund failed`, e);
     throw new CancellationError("返金の処理に失敗しました。時間をおいてやり直すか、運営にお問い合わせください", 502);
@@ -430,7 +413,7 @@ async function confirmCancellation(
     now
   );
   // 募集の中止では応募の状態は動かさない（中止は募集の側に残る）
-  if (by !== "event" && c.kind !== "event") {
+  if (c.kind !== "event") {
     await prisma.eventApplication.update({
       where: { id: ctx.id },
       data: { status: c.kind === "organizer" ? "rejected" : "withdrawn", closedAt: now },
@@ -442,10 +425,13 @@ async function confirmCancellation(
   });
 
   const fee = c.paidAmount - refundAmount;
-  const extra = c.refundedTotal > 0 ? refundAmount - c.refundedTotal : 0;
   const head =
-    c.status === "confirmed"
-      ? `運営の判断により、${yen(extra)}を追加で返金します（返金の合計${yen(refundAmount)}）。`
+    c.kind === "event" && by !== "event"
+      ? by === "auto"
+        ? `期限（${CANCELLATION_RESPONSE_DAYS}日）を過ぎたため、募集の中止による返金が確定しました。`
+        : by === "admin"
+          ? "運営の判断により、募集の中止による返金が確定しました。"
+          : "出店者が承認し、募集の中止による返金が確定しました。"
       : by === "event"
       ? "募集の中止により、出店料を返金します。"
       : c.kind === "organizer"
@@ -456,17 +442,10 @@ async function confirmCancellation(
           ? "運営の判断により、キャンセルが確定しました。"
           : "出店者が承認し、キャンセルが確定しました。";
   const money =
-    c.status === "confirmed"
-      ? ""
-      : extra > 0
-        ? `すでに返金した${yen(c.refundedTotal)}に加えて${yen(extra)}を返金します（返金の合計${yen(refundAmount)}・キャンセル料${yen(fee)}）。`
-        : refundAmount > 0
+    refundAmount > 0
       ? `${yen(refundAmount)}を返金します（キャンセル料${yen(fee)}）。カードへの反映には数日〜数週間かかることがあります。`
       : `キャンセル料は${yen(fee)}で、返金はありません。`;
-  const tail =
-    by === "event" || c.kind === "event" || c.status === "confirmed"
-      ? ""
-      : "開示されていた書類は表示されなくなりました。";
+  const tail = c.kind === "event" ? "" : "開示されていた書類は表示されなくなりました。";
   await post(ctx, `${head}${money}${tail}`, [
     { userId: ctx.store.ownerId, title: `キャンセルが確定しました: ${ctx.event.title}` },
     { userId: ctx.event.organizer.userId, title: `キャンセルが確定しました: ${ctx.store.name}` },
@@ -478,13 +457,7 @@ async function confirmCancellation(
  * （reverse_transfer / refund_application_fee）。これで主催者と運営の取り分が
  * 同じ割合で残り、第6条どおりになる（payoutAmountFor もこの按分を前提にしている）。
  */
-async function refundPayments(
-  cancellationId: string,
-  payments: PaymentRow[],
-  amount: number,
-  // それまでに返した額。返金の回ごとに冪等キーを分ける（同じ回のやり直しは同じキー）
-  round = 0
-) {
+async function refundPayments(cancellationId: string, payments: PaymentRow[], amount: number) {
   let left = amount;
   for (const p of payments.filter((x) => x.status === "paid")) {
     if (left <= 0) break;
@@ -504,7 +477,7 @@ async function refundPayments(
       // 途中で失敗してやり直したときに、同じ額の同じ返金として扱われるようにする。
       // そのため返金額（refundedAmount）はここでは書き換えず、charge.refunded の
       // Webhook で写す（書き換えると、やり直しで割り振りが変わりキーと額が食い違う）
-      { idempotencyKey: `event-cancellation-${cancellationId}-${p.id}${round ? `-after-${round}` : ""}` }
+      { idempotencyKey: `event-cancellation-${cancellationId}-${p.id}` }
     );
     left -= part;
   }
@@ -516,31 +489,15 @@ export async function runCancellationAutoConfirm(now = new Date()) {
   const limit = new Date(now.getTime() - RESPONSE_MS);
   const due = await prisma.eventCancellation.findMany({
     where: {
-      kind: "vendor",
       OR: [
-        { status: "requested", requestedAt: { lte: limit } },
-        { status: "accepted", acceptedAt: { lte: limit } },
+        { kind: "vendor", status: "requested", requestedAt: { lte: limit } },
+        // 募集の中止（天候などで一部返金）も、出店者の承認待ちは同じ期限で確定する
+        { kind: { in: ["vendor", "event"] }, status: "accepted", acceptedAt: { lte: limit } },
       ],
     },
   });
 
   const results: { applicationId: string; status: string }[] = [];
-
-  // 天候による中止の一部返金: 申し立てが無ければ、そのまま確定する（返金は済んでいる）
-  const objectable = await prisma.eventCancellation.findMany({
-    where: { status: "objectable", acceptedAt: { lte: limit } },
-  });
-  for (const c of objectable) {
-    const updated = await prisma.eventCancellation.updateMany({
-      where: { id: c.id, status: "objectable" },
-      data: { status: "confirmed", confirmedAt: now, confirmedBy: "auto" },
-    });
-    if (updated.count === 0) continue;
-    const ctx = await loadContext(c.applicationId);
-    await post(ctx, "申し立てがなかったため、募集の中止による返金の内容で確定しました。", []);
-    results.push({ applicationId: c.applicationId, status: "confirmed" });
-  }
-
   for (const c of due) {
     try {
       const ctx = await loadContext(c.applicationId);
@@ -561,6 +518,8 @@ export async function runCancellationAutoConfirm(now = new Date()) {
  * cause が "weather"（天候・災害など当事者の責めによらない中止）なら募集ページに書いた
  * 割合（weatherRefundPercent。未設定の募集は全額）、"organizer"（主催者都合）なら全額。
  * 割合は主催者の申告による。返金額の端数は出店者に有利な方へ寄せる。
+ * 全額返金はその場で確定する。一部だけ返金する場合は、主催者がその額で受け付けた
+ * 状態にし、出店者の承認（期限切れ・運営の判断を含む）を待って返金する（第4条）。
  *
  * 出店者のキャンセルが手続き中なら、その額と中止の返金額の多い方で確定する。
  * すでに確定したキャンセルはそのまま（出店者が先に取りやめた結果を動かさない）。
@@ -614,9 +573,7 @@ export async function refundForEventCancellation(
           },
         });
         if (refund < paidAmount) {
-          // 天候による中止で一部だけ返す。天候かどうかは主催者の申告なので、出店者に
-          // 申し立ての機会を残し、その間は残りを主催者へ入金しない
-          await refundWithObjection(ctx, c, refund);
+          await proposeWeatherRefund(ctx, c, refund, percent);
         } else {
           await confirmCancellation(ctx, c, refund, "event", ["requested"]);
         }
@@ -643,31 +600,22 @@ export async function refundForEventCancellation(
   return { refunded, failed };
 }
 
-/** 天候による中止の一部返金。返金してから申し立てを受け付ける状態（objectable）にする */
-async function refundWithObjection(ctx: Context, c: EventCancellation, refund: number) {
+/** 天候などによる中止で一部だけ返金する。その額で受け付けた状態にして、出店者の承認を待つ */
+async function proposeWeatherRefund(ctx: Context, c: EventCancellation, refund: number, percent: number) {
   const now = new Date();
-  const claimed = await prisma.eventCancellation.updateMany({
-    where: { id: c.id, status: "requested", refundedTotal: 0 },
-    data: { status: "objectable", refundAmount: refund, refundedTotal: refund, acceptedAt: now },
+  const updated = await prisma.eventCancellation.updateMany({
+    where: { id: c.id, status: "requested" },
+    data: { status: "accepted", refundAmount: refund, acceptedAt: now },
   });
-  if (claimed.count === 0) throw new CancellationError("申し出の状態が変わりました");
-  try {
-    await refundPayments(c.id, ctx.payments, refund);
-  } catch (e) {
-    await prisma.eventCancellation.update({
-      where: { id: c.id },
-      data: { status: "requested", refundAmount: null, refundedTotal: 0, acceptedAt: null },
-    });
-    throw e;
-  }
+  if (updated.count === 0) throw new CancellationError("申し出の状態が変わりました");
+  // 出店は無くなったので、未払いの請求は閉じる
   await cancelOpenRequests(ctx.payments.filter((p) => p.status === "requested"), now);
 
-  const percent = Math.round((refund / c.paidAmount) * 100);
   await post(
     ctx,
-    `天候などによる中止のため、出店料の${percent}%（${yen(refund)}）を返金します。` +
-      `中止の理由に納得できない場合は、${CANCELLATION_RESPONSE_DAYS}日以内に「合意できない」から申し立ててください。` +
-      "それまで残りの出店料は主催者へ入金しません。",
-    [{ userId: ctx.store.ownerId, title: `出店料の一部が返金されます: ${ctx.event.title}` }]
+    `天候などによる中止のため、出店料の${percent}%（${yen(refund)}）を返金する内容です。` +
+      `出店者が承認すると返金します。${CANCELLATION_RESPONSE_DAYS}日以内に承認がない場合も、この金額で確定します。` +
+      "中止の理由に納得できない場合は「合意できない」から運営に判断を求めてください。それまで主催者への入金は行いません。",
+    [{ userId: ctx.store.ownerId, title: `募集の中止による返金の確認をお願いします: ${ctx.event.title}` }]
   );
 }

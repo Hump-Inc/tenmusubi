@@ -39,6 +39,7 @@ export function PolicyAgreement({
           天候などで中止になった場合、この募集では出店料を
           {weather ?? "（募集ページに記載の割合で）"}
           {weather ? "します" : "返金します"}
+          {weatherRefundPercent != null && weatherRefundPercent < 100 && "（出店者の承認を経て返金）"}
         </li>
         <li>連絡のない不出店は100%。あわせて一定期間、応募を停止します</li>
         <li>
