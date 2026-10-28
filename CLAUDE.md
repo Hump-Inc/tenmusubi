@@ -61,6 +61,9 @@ npm run migrate:prod
   - 本人・管理者: `/api/stores/[id]/application/documents/[docId]/file`
   - 主催者（共有トークン）: `/s/[token]/doc/[docId]` — `visibility=public` の書類だけ
 - `fileKey` は API レスポンスに出さない（`src/lib/applicationView.ts` が唯一の公開判断場所）
+- 本人確認の書類（`VerificationRequest.documentKey`）も同じ非公開バケットの `verification/` 配下に置き、
+  `/api/admin/verification/[id]/file`（管理者のみ）からだけ配信する。旧形式の `documentUrl`（公開バケット）は
+  `prisma/migrate-verification-docs.ts --apply` で移す
 
 ### 任意の環境変数
 

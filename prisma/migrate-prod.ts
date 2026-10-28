@@ -192,6 +192,7 @@ async function main() {
       "userId" TEXT NOT NULL,
       "documentType" TEXT NOT NULL,
       "documentUrl" TEXT,
+      "documentKey" TEXT,
       "status" TEXT NOT NULL DEFAULT 'pending',
       "note" TEXT,
       "submittedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -644,6 +645,13 @@ async function main() {
         `UPDATE "Event" SET "followersNotifiedAt" = COALESCE("publishedAt", CURRENT_TIMESTAMP) WHERE "status" = 'published'`
       );
     }
+  }
+
+  // Check VerificationRequest table for missing columns
+  if (existingTables.has("VerificationRequest")) {
+    const verificationCols = await client.execute("PRAGMA table_info('VerificationRequest')");
+    const colNames = new Set(verificationCols.rows.map(r => r.name as string));
+    if (!colNames.has("documentKey")) alterStatements.push('ALTER TABLE "VerificationRequest" ADD COLUMN "documentKey" TEXT');
   }
 
   // Check OrganizerProfile table for missing columns
