@@ -26,7 +26,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventCard, type EventCardData } from "@/components/events/EventCard";
 import { EventsTestingNotice } from "@/components/events/EventsTestingNotice";
-import { SEARCH_CATEGORIES, AREAS } from "@/lib/constants";
+import { SEARCH_CATEGORIES, AREAS, EVENTS_IN_TESTING } from "@/lib/constants";
 
 interface SearchResult {
   id: string;
@@ -504,7 +504,7 @@ function SearchContent() {
               </div>
             </div>
 
-            {searchType === "event" && (
+            {searchType === "event" && EVENTS_IN_TESTING && (
               <div className="mb-6">
                 <EventsTestingNotice />
               </div>

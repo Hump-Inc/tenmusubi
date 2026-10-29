@@ -183,6 +183,7 @@ export const PREMIUM_PLAN_ENABLED = process.env.NEXT_PUBLIC_ENABLE_PREMIUM_PLAN 
  *
  * 募集は本番で公開されているが、主催者・出店者を交えた通しの確認がまだ
  * （2026-10-01 MTG「テスト中であることを示すアラート」）。立てている間は、
- * 募集まわりの画面にテスト運用中の案内を出す。正式に始めるときに false にする。
+ * 募集まわりの画面にテスト運用中の案内を出す。
+ * 2026-10-29 に案内を外した（先方指示）。
  */
-export const EVENTS_IN_TESTING = true;
+export const EVENTS_IN_TESTING = false;

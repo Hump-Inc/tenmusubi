@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { EventsTestingNotice } from "@/components/events/EventsTestingNotice";
+import { EVENTS_IN_TESTING } from "@/lib/constants";
 import {
   ArrowRight,
   Truck,
@@ -346,9 +347,11 @@ export default function HomePage() {
                 </Button>
               </div>
 
-              <div className="-mt-4 mb-8">
-                <EventsTestingNotice />
-              </div>
+              {EVENTS_IN_TESTING && (
+                <div className="-mt-4 mb-8">
+                  <EventsTestingNotice />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {openEvents.map((event) => (
