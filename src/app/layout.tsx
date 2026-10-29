@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Zen_Maru_Gothic } from "next/font/google";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { VercelAnalytics } from "@/components/providers/VercelAnalytics";
 import "./globals.css";
 
 const zenMaruGothic = Zen_Maru_Gothic({
@@ -33,6 +34,7 @@ export default function RootLayout({
         className={`${zenMaruGothic.className} antialiased`}
       >
         <SessionProvider>{children}</SessionProvider>
+        <VercelAnalytics />
       </body>
     </html>
   );
