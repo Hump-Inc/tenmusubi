@@ -36,6 +36,7 @@
     "@tiptap/react": "^3.25.0",
     "@tiptap/starter-kit": "^3.25.0",
     "@types/qrcode": "^1.5.6",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
