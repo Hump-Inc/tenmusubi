@@ -11,11 +11,12 @@ const footerLinks = {
   ],
   events: [
     { name: "出店募集を探す", href: "/search?type=event" },
-    { name: "イベントを主催する", href: "/organizer" },
+    { name: "出店者の方へ", href: "/for/vendors" },
+    { name: "イベントを主催する", href: "/for/organizers" },
   ],
   owner: [
     { name: "出店場所を探す", href: "/search?type=space" },
-    { name: "スペースを提供する", href: "/register?type=owner" },
+    { name: "スペースを提供する", href: "/for/spaces" },
   ],
   support: [
     { name: "ブログ", href: "/blog" },
