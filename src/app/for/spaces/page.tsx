@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { HOME_ROLE_PHOTOS } from "@/lib/homeImages";
 import {
   LpShell,
   LpHero,
@@ -30,9 +31,6 @@ export const metadata: Metadata = {
   description:
     "駐車場・店先・商業施設の空き区画など、出店場所を提供したい方向け。スペースを掲載して、キッチンカーやハンドメイドの出店者から出店の相談を受けられます。掲載は無料です。",
 };
-
-// ヒーロー写真はトップと同じもの（マルシェの賑わい）。スペース用の素材ができたら差し替える
-const HERO_IMAGE = "https://images.unsplash.com/photo-1567129937968-cdad8f07e2f8?w=1920&q=80";
 
 export default async function SpaceLandingPage() {
   const session = await auth();
@@ -84,7 +82,7 @@ export default async function SpaceLandingPage() {
           </>
         }
         lead="使っていない駐車場や店先、施設の空き区画。キッチンカーやハンドメイドのお店が来れば、利用料が入り、人が集まるきっかけにもなります。てんむすびなら、出店者との出会いから相談までをまとめて行えます。"
-        image={HERO_IMAGE}
+        image={HOME_ROLE_PHOTOS.space}
         imageAlt="キッチンカーが並ぶマルシェの賑わい"
         primary={primary}
         secondary={{ href: "/search?type=vendor", label: "登録している出店者を見る" }}

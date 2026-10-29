@@ -17,9 +17,7 @@ import {
   TrendingUp,
   CalendarDays,
   Send,
-  Search,
-  Users,
-  FileCheck2,
+  MapPin,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -54,45 +52,39 @@ const steps = [
 ];
 
 /**
- * てんむすびでできること。出店者と主催者の両方の入口をここで見せる。
+ * てんむすびの3つの使い方。立場ごとの LP（/for/...）への入口をここに並べる。
  * キッチンカーのオーナー自身がイベントを開けることが伝わっていなかったため
- * （2026-08-28 先方要望）。
+ * 出店・主催の2枚で見せていた（2026-08-28 先方要望）。場所を貸す側を加えて3枚にした。
  */
-const vendorFeatures = [
+const roles = [
   {
-    icon: Search,
-    title: "出店募集を探して応募する",
-    desc: "エリア・開催月・業種で募集を絞り込み。区画ごとの出店料まで見てから応募できます。",
+    key: "vendor",
+    icon: Truck,
+    photo: HOME_ROLE_PHOTOS.vendor,
+    title: "出店する",
+    who: "キッチンカー・ハンドメイド・物販",
+    points: ["出店募集を探して応募", "主催者からスカウトが届く", "申込情報は一度の登録で使い回す"],
+    href: "/for/vendors",
   },
   {
-    icon: Send,
-    title: "主催者からスカウトが届く",
-    desc: "登録しておくと、出店者を探している主催者から直接お誘いが届きます。",
+    key: "space",
+    icon: MapPin,
+    photo: HOME_ROLE_PHOTOS.space,
+    title: "場所を貸す",
+    who: "駐車場・店先・商業施設の空き区画",
+    points: ["スペースを無料で掲載", "出店者から相談が届く", "来てほしいお店に声をかける"],
+    href: "/for/spaces",
   },
   {
-    icon: FileCheck2,
-    title: "申込情報は一度の登録で使い回す",
-    desc: "車両・設備・メニューを登録しておけば、応募のたびに書き直す必要はありません。イベントごとに変わる火気の台数などは、その場で直せます。",
-  },
-];
-
-const organizerFeatures = [
-  {
+    key: "organizer",
     icon: CalendarDays,
-    title: "出店募集をつくる",
-    desc: "開催日・会場・区画ごとの出店料・必要な設備を登録して公開。募集ページがそのまま告知になります。",
+    photo: HOME_ROLE_PHOTOS.organizer,
+    title: "イベントを開く",
+    who: "マルシェ・お祭り・地域イベント",
+    points: ["出店募集をつくって公開", "応募を並べて比べる・スカウトする", "出店料をオンラインで集金"],
+    href: "/for/organizers",
   },
-  {
-    icon: Users,
-    title: "応募をまとめて比べる",
-    desc: "電源・火気・必要スペースが会場の条件と噛み合うかを自動で照合。並べて比較できます。",
-  },
-  {
-    icon: Send,
-    title: "こちらからスカウトする",
-    desc: "応募を待つだけでなく、出店してほしいお店へ直接お誘いを送れます。",
-  },
-];
+] as const;
 
 const benefits = [
   {
@@ -245,6 +237,91 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* 3つの使い方。立場ごとの LP への入口 */}
+        <section className="py-16 md:py-24 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12 md:mb-14">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
+                てんむすびの3つの使い方
+              </h2>
+              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
+                出店する、場所を貸す、イベントを開く。ひとつのアカウントで、どれからでもはじめられます。
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {roles.map((r) => {
+                const Icon = r.icon;
+                return (
+                  <Link
+                    key={r.key}
+                    href={r.href}
+                    className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <div className="relative aspect-[16/9] bg-gray-100">
+                      <Image
+                        src={r.photo}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col p-6">
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900">{r.title}</h3>
+                          <p className="text-sm text-gray-500">{r.who}</p>
+                        </div>
+                      </div>
+                      <ul className="space-y-2.5 flex-1">
+                        {r.points.map((pt) => (
+                          <li key={pt} className="flex gap-2 text-sm text-gray-700">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+                            {pt}
+                          </li>
+                        ))}
+                      </ul>
+                      <span className="mt-6 inline-flex items-center text-sm font-bold text-primary">
+                        くわしく見る
+                        <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* 出店者自身が主催に回れることを、独立して伝える */}
+            <div className="mt-8 max-w-6xl mx-auto rounded-2xl bg-cream p-6 sm:p-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
+                  <TrendingUp className="h-7 w-7" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    キッチンカーのオーナーが、主催者になれます
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                    出店を待つだけでなく、自分でイベントを立てて出店者を集められます。
+                    仲間のキッチンカーに声をかけてマルシェを開けば、出店の売上とは別に出店料という収入源が生まれます。
+                    出店する側の勝手が分かっているからこそ、集まりやすい募集がつくれます。
+                  </p>
+                </div>
+                <Button className="shrink-0 rounded-full px-6" asChild>
+                  <Link href="/for/organizers">
+                    はじめる
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* 募集中のイベント。売り文句より先に、いま出ている募集そのものを見せる。
             1件も無いときは枠ごと出さない（空の棚を見せないため）。 */}
         {openEvents.length > 0 && (
@@ -313,131 +390,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* できること。出店する側と、イベントを開く側の両方を並べて見せる。 */}
-        <section className="py-16 md:py-24 bg-white border-t border-gray-100">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-14">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                てんむすびでできること
-              </h2>
-              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
-                出店する側にも、イベントを開く側にもなれます。ひとつのアカウントで両方使えます。
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {/* 出店したい人 */}
-              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                <div className="relative aspect-[16/7] bg-gray-100">
-                  <Image
-                    src={HOME_ROLE_PHOTOS.vendor}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                  />
-                </div>
-                <div className="p-6 sm:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Truck className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">出店したい方</h3>
-                    <p className="text-sm text-gray-500">キッチンカー・ハンドメイド・物販</p>
-                  </div>
-                </div>
-                <ul className="space-y-5">
-                  {vendorFeatures.map((f) => {
-                    const Icon = f.icon;
-                    return (
-                      <li key={f.title} className="flex gap-3">
-                        <Icon className="h-5 w-5 shrink-0 text-primary mt-0.5" />
-                        <div>
-                          <p className="font-bold text-gray-900">{f.title}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-gray-600">{f.desc}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <Button variant="outline" className="mt-7 w-full rounded-full" asChild>
-                  <Link href="/search?type=event">出店募集を探す</Link>
-                </Button>
-                </div>
-              </div>
-
-              {/* イベントを開きたい人 */}
-              <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-                <div className="relative aspect-[16/7] bg-gray-100">
-                  <Image
-                    src={HOME_ROLE_PHOTOS.organizer}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                  />
-                </div>
-                <div className="p-6 sm:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <CalendarDays className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">イベントを開きたい方</h3>
-                    <p className="text-sm text-gray-500">主催者・商業施設・自治体</p>
-                  </div>
-                </div>
-                <ul className="space-y-5">
-                  {organizerFeatures.map((f) => {
-                    const Icon = f.icon;
-                    return (
-                      <li key={f.title} className="flex gap-3">
-                        <Icon className="h-5 w-5 shrink-0 text-primary mt-0.5" />
-                        <div>
-                          <p className="font-bold text-gray-900">{f.title}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-gray-600">{f.desc}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <Button variant="outline" className="mt-7 w-full rounded-full" asChild>
-                  <Link href="/organizer">イベントを主催する</Link>
-                </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* 出店者自身が主催に回れることを、独立して伝える */}
-            <div className="mt-8 max-w-5xl mx-auto rounded-2xl bg-cream p-6 sm:p-8">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
-                  <TrendingUp className="h-7 w-7" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    キッチンカーのオーナーが、主催者になれます
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                    出店を待つだけでなく、自分でイベントを立てて出店者を集められます。
-                    仲間のキッチンカーに声をかけてマルシェを開けば、出店の売上とは別に出店料という収入源が生まれます。
-                    出店する側の勝手が分かっているからこそ、集まりやすい募集がつくれます。
-                  </p>
-                </div>
-                <Button className="shrink-0 rounded-full px-6" asChild>
-                  <Link href="/organizer">
-                    はじめる
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* How It Works */}
-        <section className="py-16 md:py-24 bg-gray-50">
+        <section className="py-16 md:py-24 bg-white border-t border-gray-100">
           <div className="container mx-auto px-4">
             <div className="text-center mb-14">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
@@ -482,7 +436,7 @@ export default function HomePage() {
 
         {/* Featured Vendors */}
         {featuredVendors.length > 0 && (
-          <section className="py-16 md:py-24 bg-white">
+          <section className="py-16 md:py-24 bg-gray-50">
             <div className="container mx-auto px-4">
               <div className="text-center mb-12">
                 <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
@@ -634,7 +588,7 @@ export default function HomePage() {
                 className="rounded-full px-10 h-14 text-base"
                 asChild
               >
-                <Link href="/organizer">イベントを主催する</Link>
+                <Link href="/for/organizers">イベントを主催する</Link>
               </Button>
             </div>
           </div>

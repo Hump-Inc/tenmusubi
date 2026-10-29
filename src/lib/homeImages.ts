@@ -26,6 +26,9 @@ export const HOME_CARD_IMAGES = {
 export const HOME_ROLE_PHOTOS = {
   vendor: "/images/role-vendor.jpg", // 出店したい方
   organizer: "/images/role-organizer.jpg", // イベントを開きたい方
+  // 場所を貸したい方。専用の素材がまだ無いので、トップの見出しと同じ写真を仮に使う。
+  // /images/role-space.jpg を置いたら、ここを差し替える（/for/spaces の見出しにも使っている）
+  space: "https://images.unsplash.com/photo-1567129937968-cdad8f07e2f8?w=1920&q=80",
 } as const;
 
 /**
