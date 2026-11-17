@@ -102,7 +102,7 @@ export default async function VendorLandingPage() {
         image={HOME_ROLE_PHOTOS.vendor}
         imageAlt="キッチンカーで料理を手渡す出店者"
         primary={primary}
-        secondary={{ href: "/search?type=event", label: "出店募集を見る" }}
+        secondary={{ href: "/boshu", label: "出店募集を見る" }}
         checks={["登録・応募は無料", "最短1分で登録", "スマホで完結"]}
       />
 
@@ -188,7 +188,7 @@ export default async function VendorLandingPage() {
         title="まずは、お店を登録するところから"
         lead="登録は無料、1分ほどで終わります。お店の情報は、あとから少しずつ足せます。"
         primary={primary}
-        secondary={{ href: "/search?type=event", label: "出店募集を見る" }}
+        secondary={{ href: "/boshu", label: "出店募集を見る" }}
       />
 
       <LpOtherRoles current="vendors" />

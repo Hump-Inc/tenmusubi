@@ -214,7 +214,7 @@ export default function HomePage() {
                   className="rounded-full px-8 h-14 text-base"
                   asChild
                 >
-                  <Link href="/search?type=event">
+                  <Link href="/boshu">
                     出店募集を見る
                   </Link>
                 </Button>
@@ -340,7 +340,7 @@ export default function HomePage() {
                   </p>
                 </div>
                 <Button variant="outline" className="rounded-full" asChild>
-                  <Link href="/search?type=event">
+                  <Link href="/boshu">
                     すべての募集を見る
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>

@@ -10,7 +10,7 @@ const footerLinks = {
     { name: "すべての出店者", href: "/search?type=vendor" },
   ],
   events: [
-    { name: "出店募集を探す", href: "/search?type=event" },
+    { name: "出店募集を探す", href: "/boshu" },
     { name: "千葉のイベントカレンダー", href: "/calendar" },
     { name: "出店者の方へ", href: "/for/vendors" },
     { name: "イベントを主催する", href: "/for/organizers" },

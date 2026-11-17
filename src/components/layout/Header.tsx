@@ -24,7 +24,7 @@ import { EventsTestingNotice } from "@/components/events/EventsTestingNotice";
 const navigation = [
   { name: "出店者を探す", href: "/search?type=vendor" },
   { name: "出店場所を探す", href: "/search?type=space" },
-  { name: "出店募集を探す", href: "/search?type=event" },
+  { name: "出店募集を探す", href: "/boshu" },
   { name: "ランキング", href: "/ranking" },
 ];
 
@@ -33,7 +33,8 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   // 出店募集まわり（募集・応募・主催者登録）のページでは、テスト運用中の案内を出す
-  const isEventsArea = pathname.startsWith("/events") || pathname.startsWith("/organizer");
+  const isEventsArea =
+    pathname.startsWith("/events") || pathname.startsWith("/organizer") || pathname.startsWith("/boshu");
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
 

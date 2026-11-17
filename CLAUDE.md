@@ -131,6 +131,15 @@ npm run migrate:prod
 - サムネイルは `/listings/[id]/thumbnail` が名前・開催日・市町村から作る（`next/og`、字体は Zen Maru Gothic を必要な字だけ取り寄せ）。
   情報元の写真は使わない。主催者から写真をもらったときの差し替え（アップロード）はまだ無い
 
+## 出店募集の一覧ページ（SEO）
+
+「キッチンカー 出店募集」「千葉 マルシェ 出店者募集」の検索から出店者を呼ぶための固定ページ（2026-11-18）。
+
+- `/boshu`（全国）と `/boshu/[pref]`（都道府県。URL は英字、`src/lib/boshu.ts` の `PREFECTURE_SLUGS`）
+- 並べるのは公開中で受け付け中・募集開始前の募集だけ。締切の判定は `isAcceptingApplications` に合わせる
+- 募集が0件の県のページは noindex・sitemap から外す（中身の無いページを検索に出さない）
+- ヘッダー・フッターの「出店募集を探す」はここへ。絞り込みは従来どおり `/search?type=event`
+
 ## 業種カテゴリ
 
 - 業種カテゴリは `src/lib/constants.ts` の `VENDOR_CATEGORIES` / `VENDOR_CATEGORY_LABELS` に一元化。新規登録・編集・検索・トップは全てこの定数を参照する（ハードコードしない）。

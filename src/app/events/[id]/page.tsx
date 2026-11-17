@@ -75,7 +75,7 @@ export async function generateMetadata({
   const event = await getEvent(id);
   if (!event) return { title: "募集が見つかりません" };
 
-  const title = `${event.title}｜出店者募集`;
+  const title = `${event.title}｜${event.area}のキッチンカー・出店者募集`;
   const description = `${event.area}・${event.venueName}／${formatEventDate(event.startAt, event.endAt)}／出店料 ${formatFee(event.exhibitFee, null, event.exhibitFeeMax)}。キッチンカー・出店者を募集しています。`;
 
   return {
