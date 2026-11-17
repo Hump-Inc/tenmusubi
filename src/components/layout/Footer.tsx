@@ -14,6 +14,7 @@ const footerLinks = {
     { name: "千葉のイベントカレンダー", href: "/calendar" },
     { name: "出店者の方へ", href: "/for/vendors" },
     { name: "イベントを主催する", href: "/for/organizers" },
+    { name: "出店募集の作り方", href: "/guide/organizers" },
   ],
   owner: [
     { name: "出店場所を探す", href: "/search?type=space" },

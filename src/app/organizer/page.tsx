@@ -170,6 +170,11 @@ export default function OrganizerPage() {
               イベントやマルシェで出店者を募集するには、主催者の登録が必要です。
               出店者に安心して応募してもらうため、運営が内容を確認してから公開できるようにしています。
             </p>
+            <p className="text-sm mt-2">
+              <Link href="/guide/organizers" className="text-orange-700 underline">
+                出店募集の作り方（画面つきの手順）
+              </Link>
+            </p>
           </div>
 
           {view && StatusIcon && (

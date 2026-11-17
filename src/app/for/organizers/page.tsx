@@ -190,7 +190,7 @@ export default async function OrganizerLandingPage() {
         title="次のイベントの出店者、ここで集めませんか"
         lead="登録と募集の掲載は無料です。まずは主催者の申請からはじめましょう。"
         primary={primary}
-        secondary={{ href: "/search?type=event", label: "公開中の募集を見る" }}
+        secondary={{ href: "/guide/organizers", label: "出店募集の作り方を見る" }}
       />
 
       <LpOtherRoles current="organizers" />
