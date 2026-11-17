@@ -14,6 +14,7 @@ import {
   formatMonthDay,
   formatTimeRange,
   jstDateKey,
+  listingThumbnailPath,
   parseCalendarPeriod,
 } from "@/lib/eventListing";
 import { CityFilter } from "./CityFilter";
@@ -50,6 +51,7 @@ interface CalendarItem {
   endAt: Date;
   city: string | null;
   venueName: string;
+  image: string;
   kind: "recruiting" | "recruitClosed" | "listing";
 }
 
@@ -81,6 +83,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         venueName: true,
         address: true,
         status: true,
+        images: { orderBy: { order: "asc" }, take: 1, select: { url: true } },
         applicationOpenAt: true,
         applicationCloseAt: true,
       },
@@ -96,6 +99,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
       endAt: l.endAt,
       city: l.city,
       venueName: l.venueName,
+      image: listingThumbnailPath(l),
       kind: "listing" as const,
     })),
     ...events
@@ -107,6 +111,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         endAt: e.endAt,
         city: cityFromAddress(e.address) ?? cityFromAddress(e.venueName),
         venueName: e.venueName,
+        image: e.images[0]?.url ?? "/images/card-placeholder.svg",
         kind: isAcceptingApplications(e).accepting ? ("recruiting" as const) : ("recruitClosed" as const),
       }))
       .filter((e) => !city || e.city === city),
@@ -175,9 +180,18 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                       <li key={item.key}>
                         <Link
                           href={item.href}
-                          className="flex items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm transition hover:shadow-md"
+                          className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm transition hover:shadow-md"
                         >
-                          <div className="min-w-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={item.image}
+                            alt=""
+                            width={120}
+                            height={63}
+                            loading="lazy"
+                            className="h-[50px] w-[96px] shrink-0 rounded-lg bg-orange-50 object-cover sm:h-[63px] sm:w-[120px]"
+                          />
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium text-gray-900 truncate">{item.title}</p>
                             <p className="mt-0.5 text-xs text-gray-600">
                               {formatTimeRange(item.startAt, item.endAt)}
