@@ -257,3 +257,11 @@ export function parseListingInput(
     },
   };
 }
+
+/**
+ * 掲載のサムネイルの URL。掲載を直したら画像も変わるよう、更新時刻を付けてキャッシュを分ける。
+ * 画像は src/app/listings/[id]/thumbnail/route.tsx が作る。
+ */
+export function listingThumbnailPath(listing: { id: string; updatedAt: Date }): string {
+  return `/listings/${listing.id}/thumbnail?v=${listing.updatedAt.getTime()}`;
+}

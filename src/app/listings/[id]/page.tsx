@@ -9,7 +9,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatEventDate, formatDateShort } from "@/lib/eventFormat";
-import { eventJsonLd, formatMonthDay, jsonLdString } from "@/lib/eventListing";
+import { eventJsonLd, formatMonthDay, jsonLdString, listingThumbnailPath } from "@/lib/eventListing";
 import { siteUrl } from "@/lib/siteUrl";
 
 export const dynamic = "force-dynamic";
@@ -31,13 +31,21 @@ export async function generateMetadata({
   const title = `${listing.title} ${formatMonthDay(listing.startAt)}｜${listing.city}のイベント`;
   const description = `${formatEventDate(listing.startAt, listing.endAt)}、${listing.city}・${listing.venueName}で開催。${listing.description ?? ""}`.trim();
   const ended = listing.endAt < new Date();
+  const image = `${siteUrl("https://tenmusubi.net")}${listingThumbnailPath(listing)}`;
 
   return {
     title,
     description,
     // 終わったイベントは検索結果に出さない
     robots: ended ? { index: false, follow: true } : undefined,
-    openGraph: { title, description, type: "article", locale: "ja_JP" },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      locale: "ja_JP",
+      images: [{ url: image, width: 1200, height: 630 }],
+    },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
 
@@ -79,6 +87,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
     city: listing.city,
     url: `${siteUrl("https://tenmusubi.net")}/listings/${listing.id}`,
     organizerName: listing.organizerName,
+    image: `${siteUrl("https://tenmusubi.net")}${listingThumbnailPath(listing)}`,
   });
 
   return (
@@ -110,6 +119,18 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
               <p className="mt-3 text-sm text-gray-600">主催 {listing.organizerName}</p>
             )}
           </header>
+
+          {listing.status === "published" && (
+            // 運営が作った画像（情報元の写真は使わない）
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={listingThumbnailPath(listing)}
+              alt=""
+              width={1200}
+              height={630}
+              className="mb-6 w-full rounded-xl bg-orange-50 aspect-[40/21] object-cover"
+            />
+          )}
 
           <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-4">
             <div className="divide-y divide-gray-100">

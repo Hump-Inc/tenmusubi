@@ -125,6 +125,8 @@ npm run migrate:prod
   - 主催者が引き取ったら `claimedEventId` を入れる → `/listings/[id]` は `/events/[id]` へ恒久転送
 - 主催者にはこちらから連絡する（掲載を伝え、引き取りと出店募集を案内する）。連絡した日を管理画面で記録する
 - 構造化データ（schema.org/Event）は `/listings/[id]` と公開中の `/events/[id]` に出す
+- サムネイルは `/listings/[id]/thumbnail` が名前・開催日・市町村から作る（`next/og`、字体は Zen Maru Gothic を必要な字だけ取り寄せ）。
+  情報元の写真は使わない。主催者から写真をもらったときの差し替え（アップロード）はまだ無い
 
 ## 業種カテゴリ
 
