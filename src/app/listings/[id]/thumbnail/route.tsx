@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/prisma";
 import { jst } from "@/lib/eventFormat";
+import { nextListingDate } from "@/lib/eventListing";
 
 /**
  * 運営が載せたイベントのサムネイル（1200×630）。
@@ -35,18 +36,34 @@ async function loadFont(text: string): Promise<ArrayBuffer | null> {
   }
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const listing = await prisma.eventListing.findUnique({
     where: { id },
-    select: { title: true, startAt: true, endAt: true, city: true, venueName: true, status: true },
+    select: {
+      title: true,
+      startAt: true,
+      endAt: true,
+      city: true,
+      venueName: true,
+      status: true,
+      dates: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
+    },
   });
   if (!listing || listing.status !== "published") {
     return new Response("Not found", { status: 404 });
   }
 
-  const sameDay = md(listing.startAt) === md(listing.endAt);
-  const date = sameDay ? md(listing.startAt) : `${md(listing.startAt)}〜${md(listing.endAt)}`;
+  // 出す回: ?at=（その回の開始）があればその回、無ければ次回。
+  // 開催日の行が無い古い掲載は、掲載の開始・終了を1回分として扱う。
+  const dates = listing.dates.length > 0 ? listing.dates : [{ startAt: listing.startAt, endAt: listing.endAt }];
+  const at = Number(new URL(request.url).searchParams.get("at"));
+  const chosen =
+    (at && dates.find((d) => d.startAt.getTime() === at)) || nextListingDate(dates) || dates[0];
+  const sameDay = md(chosen.startAt) === md(chosen.endAt);
+  const span = sameDay ? md(chosen.startAt) : `${md(chosen.startAt)}〜${md(chosen.endAt)}`;
+  // 何回も開かれるイベントは、その回の日付に「ほか◯回」を添える
+  const date = dates.length > 1 ? `${span}　ほか${dates.length - 1}回` : span;
   const place = `${listing.city}・${listing.venueName}`;
   const brand = "てんむすび 千葉のイベントカレンダー";
   const titleSize = listing.title.length > 22 ? 60 : 72;

@@ -66,10 +66,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   // 開催中のものも出すため「終了が from 以降・開始が to より前」で取る
   const range = { endAt: { gte: from }, startAt: { lt: to } };
   const [listings, events] = await Promise.all([
-    prisma.eventListing.findMany({
-      where: { ...range, status: "published", area: CALENDAR_AREA, ...(city ? { city } : {}) },
+    // 運営が載せたイベントは開催日の回ごとに並べる（毎月の朝市なら、その月の回が出る）
+    prisma.eventListingDate.findMany({
+      where: {
+        ...range,
+        listing: { status: "published", area: CALENDAR_AREA, ...(city ? { city } : {}) },
+      },
       orderBy: { startAt: "asc" },
       take: 300,
+      include: {
+        listing: { select: { id: true, title: true, city: true, venueName: true, updatedAt: true } },
+      },
     }),
     prisma.event.findMany({
       where: { ...range, status: { in: ["published", "closed"] }, area: CALENDAR_AREA },
@@ -91,15 +98,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   ]);
 
   const items: CalendarItem[] = [
-    ...listings.map((l) => ({
-      key: `l-${l.id}`,
-      href: `/listings/${l.id}`,
-      title: l.title,
-      startAt: l.startAt,
-      endAt: l.endAt,
-      city: l.city,
-      venueName: l.venueName,
-      image: listingThumbnailPath(l),
+    ...listings.map((d) => ({
+      key: `l-${d.id}`,
+      href: `/listings/${d.listing.id}`,
+      title: d.listing.title,
+      startAt: d.startAt,
+      endAt: d.endAt,
+      city: d.listing.city,
+      venueName: d.listing.venueName,
+      image: listingThumbnailPath(d.listing, d.startAt),
       kind: "listing" as const,
     })),
     ...events

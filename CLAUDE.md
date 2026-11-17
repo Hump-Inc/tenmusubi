@@ -120,6 +120,9 @@ npm run migrate:prod
 - データは `EventListing`。主催者の募集（`Event`）とは別に持つ。`Event` は応募・決済・入金・主催者の実績に
   つながっているため、主催者のいない行を混ぜない。共通処理は `src/lib/eventListing.ts`
 - 入力: `/admin/listings`（運営のみ）。載せるのは事実（名前・日時・場所）だけで、紹介文や写真は転載しない。情報元URLは必須
+- 開催日は `EventListingDate` に1回ずつ持つ。毎月の朝市なども**1イベント1ページ**にまとめ、日付ごとに別の掲載にしない
+  （名前が同じで日付だけ違うページが並ぶと重複に見え、終わるたびに価値が消えるため。SEO の方針、2026-11-17）。
+  `EventListing.startAt/endAt` は最初の開始・最後の終了の写し。カレンダーは回ごとに並べ、構造化データも回ごとに出す
 - 公開: `/calendar`（期間と市町村で絞り込み。`Event` の公開中の募集も混ぜて出す）、`/listings/[id]`
   - 終わったイベントは noindex・sitemap から外す。取り下げ（`status=hidden`）は運営以外 404
   - 主催者が引き取ったら `claimedEventId` を入れる → `/listings/[id]` は `/events/[id]` へ恒久転送

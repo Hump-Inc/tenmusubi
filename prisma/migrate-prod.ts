@@ -611,6 +611,13 @@ async function main() {
       "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS "EventListingDate" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "listingId" TEXT NOT NULL,
+      "startAt" DATETIME NOT NULL,
+      "endAt" DATETIME NOT NULL,
+      CONSTRAINT "EventListingDate_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "EventListing" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`,
   ];
 
   // Execute creates
@@ -865,6 +872,8 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "EventCancellation_status_idx" ON "EventCancellation"("status")',
     'CREATE INDEX IF NOT EXISTS "EventListing_status_startAt_idx" ON "EventListing"("status", "startAt")',
     'CREATE INDEX IF NOT EXISTS "EventListing_area_city_idx" ON "EventListing"("area", "city")',
+    'CREATE INDEX IF NOT EXISTS "EventListingDate_listingId_idx" ON "EventListingDate"("listingId")',
+    'CREATE INDEX IF NOT EXISTS "EventListingDate_startAt_idx" ON "EventListingDate"("startAt")',
   ];
 
   for (const sql of indexes) {
@@ -876,6 +885,21 @@ async function main() {
         console.error("Index error:", msg);
       }
     }
+  }
+
+  // 開催日を EventListingDate に持つようにした（2026-11-17）。それより前に載せた掲載は
+  // 開催日の行が無いので、掲載の開始・終了を1回分として写す。値は列からそのまま写すので、
+  // 日時の保存形式は元の行と同じになる。行がある掲載には何もしない（何度流してもよい）。
+  try {
+    const r = await client.execute(
+      `INSERT INTO "EventListingDate" ("id", "listingId", "startAt", "endAt")
+       SELECT 'eld_' || lower(hex(randomblob(12))), l."id", l."startAt", l."endAt"
+       FROM "EventListing" l
+       WHERE NOT EXISTS (SELECT 1 FROM "EventListingDate" d WHERE d."listingId" = l."id")`
+    );
+    if (r.rowsAffected > 0) console.log(`EventListingDate: ${r.rowsAffected} 件を写しました`);
+  } catch (e: unknown) {
+    console.error("EventListingDate backfill error:", e instanceof Error ? e.message : String(e));
   }
 
   console.log("\nSchema migration completed!");

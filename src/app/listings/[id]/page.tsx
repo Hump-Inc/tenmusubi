@@ -9,14 +9,30 @@ import { Footer } from "@/components/layout/Footer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatEventDate, formatDateShort } from "@/lib/eventFormat";
-import { eventJsonLd, formatMonthDay, jsonLdString, listingThumbnailPath } from "@/lib/eventListing";
+import {
+  eventJsonLd,
+  formatMonthDay,
+  jsonLdString,
+  listingThumbnailPath,
+  nextListingDate,
+} from "@/lib/eventListing";
 import { siteUrl } from "@/lib/siteUrl";
 
 export const dynamic = "force-dynamic";
 
 async function getListing(id: string) {
-  return prisma.eventListing.findUnique({ where: { id } });
+  const listing = await prisma.eventListing.findUnique({
+    where: { id },
+    include: { dates: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } } },
+  });
+  if (!listing) return null;
+  // 開催日の行が無い古い掲載は、掲載の開始・終了を1回分として扱う
+  const dates = listing.dates.length > 0 ? listing.dates : [{ startAt: listing.startAt, endAt: listing.endAt }];
+  return { ...listing, dates, next: nextListingDate(dates)! };
 }
+
+/** 構造化データに入れる回の上限（これから開かれる回だけ） */
+const JSON_LD_MAX_DATES = 12;
 
 export async function generateMetadata({
   params,
@@ -27,11 +43,14 @@ export async function generateMetadata({
   const listing = await getListing(id);
   if (!listing || listing.status !== "published") return { title: "イベントが見つかりません" };
 
-  // 「◯◯マルシェ 11/22(土)｜船橋市のイベント」。イベント名で探す人に、日付と場所がすぐ分かるように
-  const title = `${listing.title} ${formatMonthDay(listing.startAt)}｜${listing.city}のイベント`;
-  const description = `${formatEventDate(listing.startAt, listing.endAt)}、${listing.city}・${listing.venueName}で開催。${listing.description ?? ""}`.trim();
+  // 「◯◯マルシェ 11/22(土)｜船橋市のイベント」。イベント名で探す人に、日付と場所がすぐ分かるように。
+  // 何回も開かれるものは「次回 12/13(日)」とし、同じページのまま次の回へ進む
+  const many = listing.dates.length > 1;
+  const when = `${many ? "次回 " : ""}${formatMonthDay(listing.next.startAt)}`;
+  const title = `${listing.title} ${when}｜${listing.city}のイベント`;
+  const description = `${many ? "次回は" : ""}${formatEventDate(listing.next.startAt, listing.next.endAt)}、${listing.city}・${listing.venueName}で開催${many ? `（全${listing.dates.length}回）` : ""}。${listing.description ?? ""}`.trim();
   const ended = listing.endAt < new Date();
-  const image = `${siteUrl("https://tenmusubi.net")}${listingThumbnailPath(listing)}`;
+  const image = `${siteUrl("https://tenmusubi.net")}${listingThumbnailPath(listing, listing.next.startAt)}`;
 
   return {
     title,
@@ -75,25 +94,32 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
     if (!viewerId || !(await isAdmin(viewerId))) notFound();
   }
 
-  const ended = listing.endAt < new Date();
-  const jsonLd = eventJsonLd({
-    name: listing.title,
-    description: listing.description,
-    startAt: listing.startAt,
-    endAt: listing.endAt,
-    venueName: listing.venueName,
-    address: listing.address,
-    area: listing.area,
-    city: listing.city,
-    url: `${siteUrl("https://tenmusubi.net")}/listings/${listing.id}`,
-    organizerName: listing.organizerName,
-    image: `${siteUrl("https://tenmusubi.net")}${listingThumbnailPath(listing)}`,
-  });
+  const now = new Date();
+  const ended = listing.endAt < now;
+  const upcoming = listing.dates.filter((d) => d.endAt >= now);
+  const past = listing.dates.length - upcoming.length;
+  const base = siteUrl("https://tenmusubi.net");
+  // 1回ごとに Event を出す（Google は1ページに複数のイベントがあれば、それぞれ書くよう求めている）
+  const jsonLd = upcoming.slice(0, JSON_LD_MAX_DATES).map((d) =>
+    eventJsonLd({
+      name: listing.title,
+      description: listing.description,
+      startAt: d.startAt,
+      endAt: d.endAt,
+      venueName: listing.venueName,
+      address: listing.address,
+      area: listing.area,
+      city: listing.city,
+      url: `${base}/listings/${listing.id}`,
+      organizerName: listing.organizerName,
+      image: `${base}${listingThumbnailPath(listing, d.startAt)}`,
+    })
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      {!ended && listing.status === "published" && (
+      {jsonLd.length > 0 && listing.status === "published" && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       )}
 
@@ -124,7 +150,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
             // 運営が作った画像（情報元の写真は使わない）
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={listingThumbnailPath(listing)}
+              src={listingThumbnailPath(listing, listing.next.startAt)}
               alt=""
               width={1200}
               height={630}
@@ -134,8 +160,28 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
 
           <section className="rounded-2xl bg-white p-5 shadow-sm sm:p-6 mb-4">
             <div className="divide-y divide-gray-100">
-              <Row icon={<CalendarDays className="h-5 w-5" />} label="開催日時">
-                {formatEventDate(listing.startAt, listing.endAt)}
+              <Row icon={<CalendarDays className="h-5 w-5" />} label={listing.dates.length > 1 ? "開催日（これからの回）" : "開催日時"}>
+                {listing.dates.length > 1 ? (
+                  <>
+                    {upcoming.length > 0 ? (
+                      <ul className="space-y-1">
+                        {upcoming.map((d, i) => (
+                          <li key={d.startAt.getTime()} className={i === 0 ? "" : "font-normal text-gray-700"}>
+                            {formatEventDate(d.startAt, d.endAt)}
+                            {i === 0 && <span className="ml-2 text-xs text-orange-700">次回</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span>すべての回が終わりました</span>
+                    )}
+                    {past > 0 && (
+                      <span className="mt-1 block text-xs font-normal text-gray-500">終わった回 {past}回</span>
+                    )}
+                  </>
+                ) : (
+                  formatEventDate(listing.next.startAt, listing.next.endAt)
+                )}
               </Row>
               <Row icon={<MapPin className="h-5 w-5" />} label="会場">
                 {listing.venueName}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, CalendarDays, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, CalendarDays, ExternalLink, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +22,8 @@ import {
   formatMonthDay,
   formatTimeRange,
   jstInputValue,
+  MAX_LISTING_DATES,
+  nextListingDate,
 } from "@/lib/eventListing";
 import { formatDateShort } from "@/lib/eventFormat";
 
@@ -40,15 +42,23 @@ interface Listing {
   status: string;
   contactedAt: string | null;
   contactNote: string | null;
+  dates: { startAt: string; endAt: string }[];
 }
+
+// 開催日1回分。毎月の朝市などは行を足して1件にまとめる（日付ごとに別の掲載にしない）
+interface DateRow {
+  date: string;
+  startTime: string;
+  endDate: string; // 空なら開始と同じ日（2日以上続く回だけ入れる）
+  endTime: string;
+}
+
+const EMPTY_DATE: DateRow = { date: "", startTime: "10:00", endDate: "", endTime: "15:00" };
 
 // 1件1〜2分で入れられることを優先し、日付と時刻を分けて入れる
 interface FormState {
   title: string;
-  date: string;
-  startTime: string;
-  endDate: string; // 空なら開始と同じ日
-  endTime: string;
+  dates: DateRow[];
   venueName: string;
   address: string;
   city: string;
@@ -59,10 +69,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   title: "",
-  date: "",
-  startTime: "10:00",
-  endDate: "",
-  endTime: "15:00",
+  dates: [EMPTY_DATE],
   venueName: "",
   address: "",
   city: "",
@@ -71,17 +78,24 @@ const EMPTY: FormState = {
   description: "",
 };
 
-function toForm(l: Listing): FormState {
-  const start = jstInputValue(l.startAt);
-  const end = jstInputValue(l.endAt);
+function toDateRow(d: { startAt: string; endAt: string }): DateRow {
+  const start = jstInputValue(d.startAt);
+  const end = jstInputValue(d.endAt);
   const date = start.slice(0, 10);
   const endDate = end.slice(0, 10);
   return {
-    title: l.title,
     date,
     startTime: start.slice(11, 16),
     endDate: endDate === date ? "" : endDate,
     endTime: end.slice(11, 16),
+  };
+}
+
+function toForm(l: Listing): FormState {
+  const dates = l.dates.length > 0 ? l.dates : [{ startAt: l.startAt, endAt: l.endAt }];
+  return {
+    title: l.title,
+    dates: dates.map(toDateRow),
     venueName: l.venueName,
     address: l.address ?? "",
     city: l.city,
@@ -123,7 +137,18 @@ export default function AdminListingsPage() {
     load();
   }, [load]);
 
-  const set = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const set = (key: Exclude<keyof FormState, "dates">, value: string) =>
+    setForm((f) => ({ ...f, [key]: value }));
+  const setDate = (i: number, key: keyof DateRow, value: string) =>
+    setForm((f) => ({ ...f, dates: f.dates.map((d, j) => (j === i ? { ...d, [key]: value } : d)) }));
+  // 次の回は、直前の回と同じ時刻で足す（毎月の朝市は時刻が同じことが多い）
+  const addDate = () =>
+    setForm((f) => {
+      const last = f.dates[f.dates.length - 1] ?? EMPTY_DATE;
+      return { ...f, dates: [...f.dates, { ...last, date: "", endDate: "" }] };
+    });
+  const removeDate = (i: number) =>
+    setForm((f) => ({ ...f, dates: f.dates.length > 1 ? f.dates.filter((_, j) => j !== i) : f.dates }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,8 +158,12 @@ export default function AdminListingsPage() {
     try {
       const body = {
         title: form.title,
-        startAt: `${form.date}T${form.startTime}`,
-        endAt: `${form.endDate || form.date}T${form.endTime}`,
+        dates: form.dates
+          .filter((d) => d.date)
+          .map((d) => ({
+            startAt: `${d.date}T${d.startTime}`,
+            endAt: `${d.endDate || d.date}T${d.endTime}`,
+          })),
         venueName: form.venueName,
         address: form.address,
         city: form.city,
@@ -154,8 +183,8 @@ export default function AdminListingsPage() {
         return;
       }
       setNotice(editingId ? "更新しました" : `「${form.title}」を載せました`);
-      // 続けて入れやすいよう、市町村と日付は残す
-      setForm(editingId ? EMPTY : { ...EMPTY, city: form.city, date: form.date });
+      // 続けて入れやすいよう、市町村と1回目の日付・時刻は残す
+      setForm(editingId ? EMPTY : { ...EMPTY, city: form.city, dates: [form.dates[0] ?? EMPTY_DATE] });
       setEditingId(null);
       await load();
     } finally {
@@ -240,23 +269,51 @@ export default function AdminListingsPage() {
                 <Label htmlFor="title">イベント名 *</Label>
                 <Input id="title" value={form.title} onChange={(e) => set("title", e.target.value)} required />
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:col-span-2">
-                <div>
-                  <Label htmlFor="date">開催日 *</Label>
-                  <Input id="date" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} required />
+              <div className="sm:col-span-2">
+                <Label>開催日 *</Label>
+                <p className="text-xs text-gray-500">
+                  毎月の朝市など、同じイベントは日付を足して1件にまとめます（日付ごとに別に載せない）。
+                  2日以上続く回は「終了日」も入れます。
+                </p>
+                <div className="mt-2 space-y-2">
+                  {form.dates.map((d, i) => (
+                    <div key={i} className="flex flex-wrap items-end gap-2 rounded-lg bg-gray-50 p-2">
+                      <div>
+                        <span className="block text-xs text-gray-500">開催日</span>
+                        <Input type="date" value={d.date} onChange={(e) => setDate(i, "date", e.target.value)} required />
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-500">開始</span>
+                        <Input type="time" value={d.startTime} onChange={(e) => setDate(i, "startTime", e.target.value)} required />
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-500">終了</span>
+                        <Input type="time" value={d.endTime} onChange={(e) => setDate(i, "endTime", e.target.value)} required />
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-500">終了日（2日以上の回だけ）</span>
+                        <Input type="date" value={d.endDate} onChange={(e) => setDate(i, "endDate", e.target.value)} />
+                      </div>
+                      {form.dates.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="この回を消す"
+                          onClick={() => removeDate(i)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <Label htmlFor="startTime">開始 *</Label>
-                  <Input id="startTime" type="time" value={form.startTime} onChange={(e) => set("startTime", e.target.value)} required />
-                </div>
-                <div>
-                  <Label htmlFor="endTime">終了 *</Label>
-                  <Input id="endTime" type="time" value={form.endTime} onChange={(e) => set("endTime", e.target.value)} required />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="endDate">終了日（2日以上続く場合だけ）</Label>
-                <Input id="endDate" type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} />
+                {form.dates.length < MAX_LISTING_DATES && (
+                  <Button type="button" variant="outline" size="sm" className="mt-2 rounded-full" onClick={addDate}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    開催日を足す
+                  </Button>
+                )}
               </div>
               <div>
                 <Label htmlFor="city">市町村 *</Label>
@@ -360,14 +417,21 @@ export default function AdminListingsPage() {
                 <TableBody>
                   {listings.map((l) => {
                     const busy = busyId === l.id;
-                    const start = new Date(l.startAt);
+                    const dates = (l.dates.length > 0 ? l.dates : [{ startAt: l.startAt, endAt: l.endAt }]).map(
+                      (d) => ({ startAt: new Date(d.startAt), endAt: new Date(d.endAt) })
+                    );
+                    const next = nextListingDate(dates)!;
                     return (
                       <TableRow key={l.id} className={l.status === "hidden" ? "opacity-50" : undefined}>
                         <TableCell className="whitespace-nowrap text-sm">
-                          {formatMonthDay(start)}
+                          {dates.length > 1 && <span className="block text-xs text-gray-500">次回</span>}
+                          {formatMonthDay(next.startAt)}
                           <span className="block text-xs text-gray-500">
-                            {formatTimeRange(start, new Date(l.endAt))}
+                            {formatTimeRange(next.startAt, next.endAt)}
                           </span>
+                          {dates.length > 1 && (
+                            <span className="block text-xs text-orange-700">全{dates.length}回</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm">
                           <Link href={`/listings/${l.id}`} target="_blank" className="font-medium hover:underline">
