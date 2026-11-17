@@ -51,7 +51,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const parsed = parseListingInput(body);
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-    const listing = await prisma.eventListing.update({ where: { id }, data: parsed.value });
+    // 開催日は丸ごと入れ替える（行の数が少ないので、差分を取るより確実）
+    const listing = await prisma.eventListing.update({
+      where: { id },
+      data: {
+        ...parsed.value,
+        dates: { deleteMany: {}, create: parsed.dates },
+      },
+      include: { dates: { orderBy: { startAt: "asc" } } },
+    });
     return NextResponse.json({ listing });
   } catch (error) {
     console.error("Admin listing PATCH error:", error);

@@ -1006,8 +1006,12 @@ model EventListing {
   area      String // 都道府県
   city      String // 市区町村（カレンダーの絞り込みに使う）
 
+  // 開催日は dates に1回ずつ持つ（毎月の朝市なども1ページにまとめる。日付ごとに
+  // 別ページにすると、名前が同じで日付だけ違うページが並び、終わるたびに価値が消えるため）。
+  // この2列はそこから出した最初の開始と最後の終了（一覧の並びと「終わったか」の判定用）。
   startAt DateTime
   endAt   DateTime
+  dates   EventListingDate[]
 
   organizerName String? // 主催者名（文字だけ。アカウントとは結び付けない）
   sourceUrl     String // 情報元。載せるのは事実だけで、詳細はここへ案内する
@@ -1028,4 +1032,16 @@ model EventListing {
 
   @@index([status, startAt])
   @@index([area, city])
+}
+
+// 運営が載せたイベントの開催日（1回ごと）。カレンダーにはこの単位で並べる
+model EventListingDate {
+  id        String       @id @default(cuid())
+  listingId String
+  listing   EventListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startAt   DateTime
+  endAt     DateTime
+
+  @@index([listingId])
+  @@index([startAt])
 }

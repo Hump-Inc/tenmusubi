@@ -30,6 +30,7 @@ export async function GET(request: Request) {
     const listings = await prisma.eventListing.findMany({
       where,
       orderBy: { startAt: scope === "past" ? "desc" : "asc" },
+      include: { dates: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } } },
       take: 500,
     });
     return NextResponse.json({ listings });
@@ -63,7 +64,12 @@ export async function POST(request: Request) {
     }
 
     const listing = await prisma.eventListing.create({
-      data: { ...parsed.value, createdById: admin.userId },
+      data: {
+        ...parsed.value,
+        createdById: admin.userId,
+        dates: { create: parsed.dates },
+      },
+      include: { dates: { orderBy: { startAt: "asc" } } },
     });
     return NextResponse.json({ listing }, { status: 201 });
   } catch (error) {

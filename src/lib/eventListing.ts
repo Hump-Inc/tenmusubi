@@ -191,6 +191,11 @@ export function jsonLdString(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
+export interface ListingDate {
+  startAt: Date;
+  endAt: Date;
+}
+
 export interface ListingInput {
   title: string;
   description: string | null;
@@ -198,12 +203,15 @@ export interface ListingInput {
   address: string | null;
   area: string;
   city: string;
-  startAt: Date;
-  endAt: Date;
+  startAt: Date; // dates の最初の開始
+  endAt: Date; // dates の最後の終了
   organizerName: string | null;
   sourceUrl: string;
   checkedAt: Date;
 }
+
+/** 1つの掲載に持てる開催日の上限（毎週の朝市を1年分＋α） */
+export const MAX_LISTING_DATES = 60;
 
 function text(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
@@ -212,26 +220,48 @@ function text(value: unknown, max: number): string | null {
 }
 
 /**
+ * 開催日の一覧を読む。[{ startAt, endAt }] の形（日本時間の "2026-12-13T10:00"）。
+ * 古い送り方（startAt / endAt を1組だけ）も受ける。開始の順に並べ、同じ開始は1つにする。
+ */
+function parseDates(body: Record<string, unknown>): ListingDate[] | string {
+  const raw = Array.isArray(body.dates)
+    ? body.dates
+    : [{ startAt: body.startAt, endAt: body.endAt }];
+  if (raw.length === 0) return "開催日を1つ以上入れてください";
+  if (raw.length > MAX_LISTING_DATES) return `開催日は${MAX_LISTING_DATES}回までです`;
+
+  const dates: ListingDate[] = [];
+  for (const item of raw) {
+    const row = (item ?? {}) as Record<string, unknown>;
+    const startAt = parseJstInput(row.startAt);
+    const endAt = parseJstInput(row.endAt);
+    if (!startAt || !endAt) return "開催日の開始と終了の日時を入力してください";
+    if (endAt < startAt) return "終了は開始より後にしてください";
+    dates.push({ startAt, endAt });
+  }
+  dates.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+  return dates.filter((d, i) => i === 0 || d.startAt.getTime() !== dates[i - 1].startAt.getTime());
+}
+
+/**
  * 管理画面から送られた掲載内容を確かめる。日時は日本時間として読む。
  * 情報元の URL は必須（載せるのは事実だけで、詳細は情報元へ案内するため）。
  */
 export function parseListingInput(
   body: Record<string, unknown>
-): { ok: true; value: ListingInput } | { ok: false; error: string } {
+): { ok: true; value: ListingInput; dates: ListingDate[] } | { ok: false; error: string } {
   const title = text(body.title, 120);
   const venueName = text(body.venueName, 120);
   const city = text(body.city, 40);
   const sourceUrl = text(body.sourceUrl, 2000);
-  const startAt = parseJstInput(body.startAt);
-  const endAt = parseJstInput(body.endAt);
 
   if (!title) return { ok: false, error: "イベント名を入力してください" };
   if (!venueName) return { ok: false, error: "会場を入力してください" };
   if (!city || !(CHIBA_CITIES as readonly string[]).includes(city)) {
     return { ok: false, error: "市町村を選んでください" };
   }
-  if (!startAt || !endAt) return { ok: false, error: "開始と終了の日時を入力してください" };
-  if (endAt < startAt) return { ok: false, error: "終了は開始より後にしてください" };
+  const dates = parseDates(body);
+  if (typeof dates === "string") return { ok: false, error: dates };
   if (!sourceUrl) return { ok: false, error: "情報元のURLを入力してください" };
   try {
     const u = new URL(sourceUrl);
@@ -242,6 +272,7 @@ export function parseListingInput(
 
   return {
     ok: true,
+    dates,
     value: {
       title,
       description: text(body.description, 400),
@@ -249,8 +280,8 @@ export function parseListingInput(
       address: text(body.address, 200),
       area: CALENDAR_AREA,
       city,
-      startAt,
-      endAt,
+      startAt: dates[0].startAt,
+      endAt: new Date(Math.max(...dates.map((d) => d.endAt.getTime()))),
       organizerName: text(body.organizerName, 120),
       sourceUrl,
       checkedAt: parseJstInput(body.checkedAt) ?? new Date(),
@@ -259,9 +290,25 @@ export function parseListingInput(
 }
 
 /**
- * 掲載のサムネイルの URL。掲載を直したら画像も変わるよう、更新時刻を付けてキャッシュを分ける。
- * 画像は src/app/listings/[id]/thumbnail/route.tsx が作る。
+ * 次の開催日（終わっていない最初の回）。すべて終わっていれば最後の回。
+ * dates は開始の順に並んでいること。
  */
-export function listingThumbnailPath(listing: { id: string; updatedAt: Date }): string {
-  return `/listings/${listing.id}/thumbnail?v=${listing.updatedAt.getTime()}`;
+export function nextListingDate<T extends ListingDate>(dates: T[], now = new Date()): T | null {
+  if (dates.length === 0) return null;
+  return dates.find((d) => d.endAt >= now) ?? dates[dates.length - 1];
+}
+
+/**
+ * 掲載のサムネイルの URL。画像は src/app/listings/[id]/thumbnail/route.tsx が作る。
+ * 画像に出す日付（at = その回の開始）と更新時刻を付けてキャッシュを分ける。
+ * 次回が変わると URL も変わるので、古い「次回」の画像が残らない。
+ */
+export function listingThumbnailPath(
+  listing: { id: string; updatedAt: Date },
+  at?: Date | null
+): string {
+  const v = listing.updatedAt.getTime();
+  return at
+    ? `/listings/${listing.id}/thumbnail?at=${at.getTime()}&v=${v}`
+    : `/listings/${listing.id}/thumbnail?v=${v}`;
 }
