@@ -989,3 +989,43 @@ model EventCancellation {
 
   @@index([status])
 }
+
+// 運営が公開情報をもとに載せるイベント（2026-11-17 決定）。
+// 主催者の募集（Event）とは別に持つ。Event は応募・決済・入金・主催者の実績に
+// つながっているため、主催者のいない「情報だけ」の行を混ぜると、それらすべてに
+// 分岐が要る。主催者が引き取ったら Event を作り、この行は claimedEventId で
+// そちらへ転送する（src/lib/eventListing.ts）。
+model EventListing {
+  id String @id @default(cuid())
+
+  title       String
+  description String? // 運営が自分の言葉で書く一言。情報元の文章は転載しない
+
+  venueName String
+  address   String?
+  area      String // 都道府県
+  city      String // 市区町村（カレンダーの絞り込みに使う）
+
+  startAt DateTime
+  endAt   DateTime
+
+  organizerName String? // 主催者名（文字だけ。アカウントとは結び付けない）
+  sourceUrl     String // 情報元。載せるのは事実だけで、詳細はここへ案内する
+  checkedAt     DateTime // 情報元で最後に確認した日。ページに「最終確認日」として出す
+
+  status String @default("published") // "published" | "hidden"（取り下げ）
+
+  // 主催者への連絡（掲載したことを伝え、引き取りと出店募集を案内する）
+  contactedAt DateTime?
+  contactNote String?
+
+  // 主催者が引き取って出店募集にしたときの移り先
+  claimedEventId String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, startAt])
+  @@index([area, city])
+}

@@ -42,6 +42,7 @@ interface DashboardStats {
   stalledEvents: number;
   paymentsNeedingReview: number;
   unpaidPayments: number;
+  upcomingListings: number;
 }
 
 export default function AdminDashboardPage() {
@@ -63,6 +64,7 @@ export default function AdminDashboardPage() {
     stalledEvents: 0,
     paymentsNeedingReview: 0,
     unpaidPayments: 0,
+    upcomingListings: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -77,7 +79,7 @@ export default function AdminDashboardPage() {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes, eventsRes, paymentsRes] = await Promise.all([
+        const [preRegRes, faqRes, verificationRes, subscriptionsRes, storesRes, usersRes, blogRes, claimReqRes, spaceLeadsRes, metricsRes, organizersRes, eventsRes, paymentsRes, listingsRes] = await Promise.all([
           fetch("/api/admin/pre-registrations").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/faq").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/verification").then((r) => r.ok ? r.json() : null),
@@ -91,6 +93,7 @@ export default function AdminDashboardPage() {
           fetch("/api/admin/organizers?status=pending").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/events").then((r) => r.ok ? r.json() : null),
           fetch("/api/admin/payments").then((r) => r.ok ? r.json() : null),
+          fetch("/api/admin/listings").then((r) => r.ok ? r.json() : null),
         ]);
 
         setStats({
@@ -111,6 +114,7 @@ export default function AdminDashboardPage() {
           stalledEvents: eventsRes?.stats?.stalled ?? 0,
           paymentsNeedingReview: paymentsRes?.stats?.needsReview ?? 0,
           unpaidPayments: paymentsRes?.stats?.requested ?? 0,
+          upcomingListings: Array.isArray(listingsRes?.listings) ? listingsRes.listings.length : 0,
         });
       } catch {
         setError("データの取得に失敗しました");
@@ -228,6 +232,16 @@ export default function AdminDashboardPage() {
       color: "text-cyan-500",
       bgColor: "bg-cyan-50",
       highlight: stats.stalledEvents > 0,
+    },
+    {
+      icon: CalendarDays,
+      label: "イベント掲載",
+      description: "運営が載せる千葉のイベント（開催カレンダー）",
+      href: "/admin/listings",
+      stat: stats.upcomingListings,
+      statLabel: "件（これから開催）",
+      color: "text-orange-500",
+      bgColor: "bg-orange-50",
     },
     {
       icon: CalendarDays,

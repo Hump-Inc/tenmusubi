@@ -113,6 +113,19 @@ npm run migrate:prod
 - **文面を変えたら `CANCELLATION_POLICY_VERSION` を上げ、同意欄の要点（`PolicyAgreement.tsx`）も直す**
 - 文面を草案に戻して確認を取り直す間だけ `CANCELLATION_POLICY_IS_DRAFT` を true にする（ページと同意欄に「草案」と出る）
 
+## イベント掲載と開催カレンダー
+
+運営（Hump）が公開情報をもとに千葉県のイベントを載せ、イベント名の検索から人を呼ぶ（2026-11-17 決定）。
+
+- データは `EventListing`。主催者の募集（`Event`）とは別に持つ。`Event` は応募・決済・入金・主催者の実績に
+  つながっているため、主催者のいない行を混ぜない。共通処理は `src/lib/eventListing.ts`
+- 入力: `/admin/listings`（運営のみ）。載せるのは事実（名前・日時・場所）だけで、紹介文や写真は転載しない。情報元URLは必須
+- 公開: `/calendar`（期間と市町村で絞り込み。`Event` の公開中の募集も混ぜて出す）、`/listings/[id]`
+  - 終わったイベントは noindex・sitemap から外す。取り下げ（`status=hidden`）は運営以外 404
+  - 主催者が引き取ったら `claimedEventId` を入れる → `/listings/[id]` は `/events/[id]` へ恒久転送
+- 主催者にはこちらから連絡する（掲載を伝え、引き取りと出店募集を案内する）。連絡した日を管理画面で記録する
+- 構造化データ（schema.org/Event）は `/listings/[id]` と公開中の `/events/[id]` に出す
+
 ## 業種カテゴリ
 
 - 業種カテゴリは `src/lib/constants.ts` の `VENDOR_CATEGORIES` / `VENDOR_CATEGORY_LABELS` に一元化。新規登録・編集・検索・トップは全てこの定数を参照する（ハードコードしない）。

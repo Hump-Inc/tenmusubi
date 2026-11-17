@@ -45,6 +45,8 @@ import { CancelEventButton } from "@/components/events/CancelEventButton";
 import { EventDeletionRequest } from "@/components/events/EventDeletionRequest";
 import { OrganizerFollowButton } from "@/components/events/OrganizerFollowButton";
 import { EventFavoriteButton } from "@/components/events/EventFavoriteButton";
+import { cityFromAddress, eventJsonLd, jsonLdString } from "@/lib/eventListing";
+import { siteUrl } from "@/lib/siteUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -215,9 +217,31 @@ export default async function EventDetailPage({
   const categories = parseJsonArray(event.categories);
   const requiredDocuments = parseJsonArray(event.requiredDocuments);
 
+  // Google のイベント検索に載せる（検索結果に出す公開中の募集だけ）
+  const jsonLd =
+    event.status === "published"
+      ? eventJsonLd({
+          name: event.title,
+          description: event.description,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          venueName: event.venueName,
+          address: event.address,
+          area: event.area,
+          city: cityFromAddress(event.address),
+          url: `${siteUrl("https://tenmusubi.net")}/events/${event.id}`,
+          organizerName: event.organizer.orgName,
+          organizerUrl: event.organizer.website,
+          image: event.images[0]?.url,
+        })
+      : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
+      {jsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
+      )}
 
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4 max-w-3xl">
