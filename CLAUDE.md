@@ -84,6 +84,7 @@ npm run migrate:prod
 ロジックは `src/lib/eventPayments.ts` に集約。
 
 - **既定では無効**。`ENABLE_EVENT_PAYMENTS=true` で有効になる（`src/lib/constants.ts` の `EVENT_PAYMENTS_ENABLED`）。
+  本番は 2026-10-16 から有効（手数料 10%）。
   無効の間は口座設定・請求・支払いの入口と API を閉じるが、Webhook は止めない
 
 - **支払いの確定は Webhook だけで行う**（`checkout.session.completed`）。支払い画面から戻ったことは根拠にしない
@@ -105,12 +106,12 @@ npm run migrate:prod
 
 ### キャンセル規定
 
-- 本文は `src/lib/cancellationPolicy.ts`、ページは `/cancel-policy`。弁護士の確認前の**草案**なので、
-  決済と同じく `ENABLE_EVENT_PAYMENTS` を立てるまで出さない（404）
+- 本文は `src/lib/cancellationPolicy.ts`、ページは `/cancel-policy`。2026-10-06 にクライアントの了承を得て正式版
+  （`CANCELLATION_POLICY_IS_DRAFT = false`）。決済と一体なので、`ENABLE_EVENT_PAYMENTS` が無い環境では出さない（404）
 - 出店者は応募時、主催者は「出店を決定する」時に同意する。どの版にいつ同意したかを
   `EventApplication.policyVersion` / `vendorPolicyAgreedAt` / `organizerPolicyAgreedAt` に残す
 - **文面を変えたら `CANCELLATION_POLICY_VERSION` を上げ、同意欄の要点（`PolicyAgreement.tsx`）も直す**
-- 確認が済んだら `CANCELLATION_POLICY_IS_DRAFT` を false にする
+- 文面を草案に戻して確認を取り直す間だけ `CANCELLATION_POLICY_IS_DRAFT` を true にする（ページと同意欄に「草案」と出る）
 
 ## 業種カテゴリ
 
