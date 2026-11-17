@@ -590,6 +590,27 @@ async function main() {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT "EventCancellation_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "EventApplication" ("id") ON DELETE CASCADE ON UPDATE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS "EventListing" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "description" TEXT,
+      "venueName" TEXT NOT NULL,
+      "address" TEXT,
+      "area" TEXT NOT NULL,
+      "city" TEXT NOT NULL,
+      "startAt" DATETIME NOT NULL,
+      "endAt" DATETIME NOT NULL,
+      "organizerName" TEXT,
+      "sourceUrl" TEXT NOT NULL,
+      "checkedAt" DATETIME NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'published',
+      "contactedAt" DATETIME,
+      "contactNote" TEXT,
+      "claimedEventId" TEXT,
+      "createdById" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`,
   ];
 
   // Execute creates
@@ -842,6 +863,8 @@ async function main() {
     'CREATE INDEX IF NOT EXISTS "EventPayment_stripePayoutId_idx" ON "EventPayment"("stripePayoutId")',
     'CREATE UNIQUE INDEX IF NOT EXISTS "EventCancellation_applicationId_key" ON "EventCancellation"("applicationId")',
     'CREATE INDEX IF NOT EXISTS "EventCancellation_status_idx" ON "EventCancellation"("status")',
+    'CREATE INDEX IF NOT EXISTS "EventListing_status_startAt_idx" ON "EventListing"("status", "startAt")',
+    'CREATE INDEX IF NOT EXISTS "EventListing_area_city_idx" ON "EventListing"("area", "city")',
   ];
 
   for (const sql of indexes) {
