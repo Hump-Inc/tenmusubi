@@ -10,6 +10,7 @@ const STATIC_PATHS = [
   "/for/vendors",
   "/for/spaces",
   "/for/organizers",
+  "/guide/organizers",
   "/search",
   "/calendar",
   "/ranking",
